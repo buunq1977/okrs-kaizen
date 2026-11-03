@@ -38,3 +38,4 @@ nav button.ghost { background: none; border-color: transparent; color: var(--ink
 .btn:disabled { opacity: .6 }
 .err { color: var(--signal); margin: 0 }
 code { font-size: 12px; background: var(--sheet); padding: 1px 5px; border-radius: 4px }
+.linkbtn { border: 0; background: none; color: var(--navy); font: 500 13px var(--f-body); padding: 4px 0; cursor: pointer; align-self: flex-start; text-decoration: underline }
