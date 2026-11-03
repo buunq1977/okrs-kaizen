@@ -161,13 +161,18 @@ function Main({ session }: { session: Session }) {
 function SetupError({ msg, retry }: { msg: string; retry: () => void }) {
   const missingTable = /schema cache|does not exist|relation|PGRST205|42P01/i.test(msg)
   const missingColumn = /column .*current|PGRST204/i.test(msg)
+  const noGrant = /permission denied for table/i.test(msg)
   return (
     <div className="setup-err">
       <h1>Chưa kết nối được dữ liệu</h1>
       {missingTable ? (
         <p>
           Supabase chưa có bảng của app. Vào Supabase → <b>SQL Editor → New query</b>, dán và chạy lần lượt <code>supabase/migrations/001_init.sql</code> rồi{' '}
-          <code>002_goal_current.sql</code> trong repo, sau đó bấm Thử lại.
+          <code>002_goal_current.sql</code>, <code>003_grants.sql</code> trong repo, sau đó bấm Thử lại.
+        </p>
+      ) : noGrant ? (
+        <p>
+          Bảng đã có nhưng chưa cấp quyền. Chạy <code>supabase/migrations/003_grants.sql</code> trong Supabase SQL Editor rồi bấm Thử lại.
         </p>
       ) : missingColumn ? (
         <p>

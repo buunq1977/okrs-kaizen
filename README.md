@@ -21,6 +21,7 @@ Chạy lần lượt trong **SQL Editor** (mỗi file chạy một lần):
 
 1. `supabase/migrations/001_init.sql`
 2. `supabase/migrations/002_goal_current.sql`
+3. `supabase/migrations/003_grants.sql`
 
 GitHub Secrets cần có: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`.
 
