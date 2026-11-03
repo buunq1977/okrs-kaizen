@@ -2,7 +2,7 @@
 
 Ứng dụng lập và giữ kỷ luật mục tiêu cá nhân cho người làm tự do. Mục tiêu phân tầng 5 năm → năm → tháng → tuần → ngày. Mỗi ngày có một con số cụ thể phải đạt, và app đòi đạt con số đó.
 
-Trạng thái: **bản nháp chờ Luca duyệt**. Mọi ngưỡng ghi `[Assumption]` chỉnh được trong Cài đặt.
+Trạng thái: **v1 đã build đủ 6 bước lộ trình (03/11/2026)**. Mọi ngưỡng ghi `[Assumption]` chỉnh được trong Cài đặt.
 
 ---
 

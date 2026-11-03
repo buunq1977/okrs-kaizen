@@ -1,0 +1,23 @@
+name: Keep Supabase awake
+
+# Supabase gói Free pause project sau 7 ngày không hoạt động.
+# Workflow này gọi vào database mỗi ngày để giữ project chạy. Không đọc được dữ liệu của ai (RLS chặn).
+on:
+  schedule:
+    - cron: '17 1 * * *' # 08:17 giờ Việt Nam
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Supabase REST
+        env:
+          URL: ${{ secrets.VITE_SUPABASE_URL }}
+          KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+        run: |
+          code=$(curl -s -o /dev/null -w '%{http_code}' "$URL/rest/v1/settings?select=user_id&limit=1" -H "apikey: $KEY" -H "Authorization: Bearer $KEY")
+          echo "HTTP $code"
+          test "$code" = "200"

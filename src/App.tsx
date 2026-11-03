@@ -1,23 +1,31 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { supabase, supabaseConfigured } from './lib/supabase'
-import Login from './Login'
+import { Ctx, type AppCtx } from './lib/ctx'
+import { errMsg, getSettings } from './lib/db'
+import { addDays, today } from './lib/dates'
+import type { Settings } from './lib/types'
+import Login, { NewPassword } from './Login'
+import Goals from './screens/Goals'
+import Month from './screens/Month'
+import Week from './screens/Week'
+import Day from './screens/Day'
+import SettingsScreen from './screens/SettingsScreen'
 
 type Screen = 'today' | 'plan' | 'week' | 'month' | 'goals' | 'settings'
-
-const SCREENS: { id: Screen; label: string; note: string }[] = [
-  { id: 'today', label: 'Hôm nay', note: 'Tiêu điểm, 3 việc có con số, check-in cuối ngày.' },
-  { id: 'plan', label: 'Ngày mai', note: 'Kéo việc từ KR tuần, chốt trước giờ khoá.' },
-  { id: 'week', label: 'Tuần', note: 'KR tuần, lịch Sáng/Chiều/Tối, kiểm chứng 3 chiều, Kaizen tuần.' },
-  { id: 'month', label: 'Tháng', note: 'Chọn 1–3 mục tiêu kích hoạt, KR tháng, Quan sát, Kaizen tháng.' },
-  { id: 'goals', label: 'Mục tiêu', note: 'Tầm nhìn 5 năm và tối đa 5 mục tiêu năm.' },
-  { id: 'settings', label: 'Cài đặt', note: 'Giờ chốt, ngưỡng màu, ngày nghỉ, xuất/nhập dữ liệu.' },
+const SCREENS: { id: Screen; label: string }[] = [
+  { id: 'today', label: 'Hôm nay' },
+  { id: 'plan', label: 'Ngày mai' },
+  { id: 'week', label: 'Tuần' },
+  { id: 'month', label: 'Tháng' },
+  { id: 'goals', label: 'Mục tiêu' },
+  { id: 'settings', label: 'Cài đặt' },
 ]
 
 export default function App() {
-  const [screen, setScreen] = useState<Screen>('today')
   const [session, setSession] = useState<Session | null>(null)
   const [ready, setReady] = useState(!supabaseConfigured)
+  const [recovery, setRecovery] = useState(false)
 
   useEffect(() => {
     if (!supabase) return
@@ -25,47 +33,122 @@ export default function App() {
       setSession(data.session)
       setReady(true)
     })
-    const { data } = supabase.auth.onAuthStateChange((_e, s) => setSession(s))
+    const { data } = supabase.auth.onAuthStateChange((event, s) => {
+      setSession(s)
+      if (event === 'PASSWORD_RECOVERY') setRecovery(true)
+    })
     return () => data.subscription.unsubscribe()
   }, [])
 
-  const current = SCREENS.find((s) => s.id === screen)!
-
   return (
     <div className="shell">
-      <header className="top">
-        <div className="brand">
-          OKRs · Kaizen
-          <small>{!supabaseConfigured ? 'Chưa cấu hình Supabase' : session ? session.user.email : 'Chưa đăng nhập'}</small>
-        </div>
-        {session && (
-          <nav aria-label="Màn hình">
-            {SCREENS.map((s) => (
-              <button key={s.id} aria-pressed={s.id === screen} onClick={() => setScreen(s.id)}>
-                {s.label}
-              </button>
-            ))}
-            <button className="ghost" onClick={() => supabase?.auth.signOut()}>Đăng xuất</button>
-          </nav>
-        )}
-      </header>
-      <main>
-        {!supabaseConfigured ? (
+      {!supabaseConfigured ? (
+        <Frame>
           <p className="todo">
             App chưa có địa chỉ Supabase. Thêm secret <code>VITE_SUPABASE_URL</code> và <code>VITE_SUPABASE_ANON_KEY</code> trong GitHub rồi chạy lại workflow deploy.
           </p>
-        ) : !ready ? (
+        </Frame>
+      ) : !ready ? (
+        <Frame>
           <p className="note">Đang mở…</p>
-        ) : !session ? (
+        </Frame>
+      ) : recovery && session ? (
+        <Frame>
+          <NewPassword onDone={() => setRecovery(false)} />
+        </Frame>
+      ) : !session ? (
+        <Frame sub="Chưa đăng nhập">
           <Login />
+        </Frame>
+      ) : (
+        <Main session={session} />
+      )}
+    </div>
+  )
+}
+
+function Frame({ children, sub }: { children: ReactNode; sub?: string }) {
+  return (
+    <>
+      <header className="top">
+        <div className="brand">
+          OKRs · Kaizen<small>{sub}</small>
+        </div>
+      </header>
+      <main>{children}</main>
+    </>
+  )
+}
+
+function Main({ session }: { session: Session }) {
+  const uid = session.user.id
+  const [screen, setScreen] = useState<Screen>('today')
+  const [date, setDate] = useState(today())
+  const [settings, setSettings] = useState<Settings | null>(null)
+  const [msg, setMsg] = useState('')
+
+  const timer = useRef<number | undefined>(undefined)
+  const toast = useCallback((m: string) => {
+    setMsg(m)
+    window.clearTimeout(timer.current)
+    timer.current = window.setTimeout(() => setMsg(''), 5000)
+  }, [])
+
+  useEffect(() => {
+    getSettings(uid)
+      .then(setSettings)
+      .catch((e) => toast(errMsg(e)))
+  }, [uid, toast])
+
+  const go = useCallback((s: string, d?: string) => {
+    setScreen((s === 'day' ? 'today' : s) as Screen)
+    if (d) setDate(d)
+    window.scrollTo(0, 0)
+  }, [])
+
+  const ctx = useMemo<AppCtx | null>(() => (settings ? { uid, settings, setSettings, toast, go } : null), [uid, settings, toast, go])
+
+  function open(s: Screen) {
+    setScreen(s)
+    setDate(s === 'plan' ? addDays(today(), 1) : today())
+  }
+
+  return (
+    <>
+      <header className="top">
+        <div className="brand">
+          OKRs · Kaizen<small>{session.user.email}</small>
+        </div>
+        <nav aria-label="Màn hình">
+          {SCREENS.map((s) => (
+            <button key={s.id} aria-pressed={s.id === screen} onClick={() => open(s.id)}>
+              {s.label}
+            </button>
+          ))}
+          <button className="ghost" onClick={() => supabase?.auth.signOut()}>
+            Đăng xuất
+          </button>
+        </nav>
+      </header>
+      <main>
+        {!ctx ? (
+          <p className="note">Đang tải cài đặt…</p>
         ) : (
-          <>
-            <h1>{current.label}</h1>
-            <p className="note">{current.note}</p>
-            <p className="todo">Màn hình này sẽ được dựng ở các bước tiếp theo của lộ trình (SPEC mục 9).</p>
-          </>
+          <Ctx.Provider value={ctx}>
+            {screen === 'today' && <Day key={'d' + date} date={date} setDate={setDate} mode="today" />}
+            {screen === 'plan' && <Day key={'p' + date} date={date} setDate={setDate} mode="plan" />}
+            {screen === 'week' && <Week date={date} setDate={setDate} />}
+            {screen === 'month' && <Month date={date} setDate={setDate} />}
+            {screen === 'goals' && <Goals />}
+            {screen === 'settings' && <SettingsScreen />}
+          </Ctx.Provider>
         )}
       </main>
-    </div>
+      {msg && (
+        <div className="toast" role="status">
+          {msg}
+        </div>
+      )}
+    </>
   )
 }

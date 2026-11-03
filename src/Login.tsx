@@ -42,6 +42,19 @@ export default function Login() {
         {busy ? 'Đang xử lý…' : mode === 'signin' ? 'Đăng nhập' : 'Tạo tài khoản'}
       </button>
       {error && <p className="err">{error}</p>}
+      {mode === 'signin' && (
+        <button
+          type="button"
+          className="linkbtn"
+          onClick={async () => {
+            if (!supabase || !email.trim()) return setError('Nhập email trước, rồi bấm Quên mật khẩu.')
+            const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo: window.location.origin + import.meta.env.BASE_URL })
+            setError(error ? viError(error.message) : 'Đã gửi email đặt lại mật khẩu. Mở email trên máy này và bấm link.')
+          }}
+        >
+          Quên mật khẩu?
+        </button>
+      )}
       <button
         type="button"
         className="linkbtn"
@@ -63,4 +76,26 @@ function viError(msg: string) {
   if (/password should be at least/i.test(msg)) return 'Mật khẩu quá ngắn.'
   if (/rate limit/i.test(msg)) return 'Thử quá nhiều lần, đợi vài phút rồi thử lại.'
   return msg
+}
+
+export function NewPassword({ onDone }: { onDone: () => void }) {
+  const [pw, setPw] = useState('')
+  const [error, setError] = useState('')
+  async function submit(e: FormEvent) {
+    e.preventDefault()
+    const { error } = (await supabase?.auth.updateUser({ password: pw })) ?? {}
+    if (error) setError(viError(error.message))
+    else onDone()
+  }
+  return (
+    <form className="login" onSubmit={submit}>
+      <h1>Đặt mật khẩu mới</h1>
+      <label htmlFor="newpw">Mật khẩu mới</label>
+      <input id="newpw" type="password" required minLength={8} autoComplete="new-password" value={pw} onChange={(e) => setPw(e.target.value)} />
+      <button className="btn primary" type="submit">
+        Lưu mật khẩu
+      </button>
+      {error && <p className="err">{error}</p>}
+    </form>
+  )
 }
