@@ -60,9 +60,9 @@ Khối **Quan sát** giữ ở tầng tháng/tuần: Công việc/Tài chính ·
 | Phần | Chọn | Ghi chú |
 |---|---|---|
 | Frontend | React + Vite + TypeScript | PWA để cài lên điện thoại |
-| Host | GitHub Pages | Deploy bằng GitHub Actions khi push `main` |
+| Host | GitHub Pages | Deploy bằng GitHub Actions khi push `main`. Repo **public** (Pages miễn phí chỉ cho repo public, quyết định 03/11/2026). Code công khai; dữ liệu được bảo vệ bằng đăng nhập + RLS |
 | Dữ liệu + đăng nhập | Supabase (gói Free) | Postgres + Auth (magic link email). Row Level Security: mỗi user chỉ đọc/ghi dữ liệu của mình |
-| Sao lưu | GitHub Action chạy hằng ngày | Gọi API → lưu JSON vào repo private. Đồng thời giữ Supabase không bị pause |
+| Sao lưu | GitHub Action chạy hằng ngày | Gọi API → lưu JSON vào **repo private riêng** (repo app đã public, không được lưu dữ liệu vào đây). Đồng thời giữ Supabase không bị pause |
 
 ### Ràng buộc gói Free Supabase [Verified 03/11/2026, supabase.com/pricing]
 

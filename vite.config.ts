@@ -1,7 +1,8 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
-// https://vite.dev/config/
+// GitHub Pages phục vụ app tại https://buunq1977.github.io/okrs-kaizen/
 export default defineConfig({
+  base: '/okrs-kaizen/',
   plugins: [react()],
 })
