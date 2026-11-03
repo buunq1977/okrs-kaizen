@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useApp } from '../lib/ctx'
-import { fmtNum, status, STATUS_LABEL, type DayStatus } from '../lib/pace'
-import type { Smart, SmartKey } from '../lib/types'
+import { colorOf, type Color, type Pct } from '../lib/okr'
+import { fmtNum } from '../lib/pace'
+import type { Smart } from '../lib/types'
 
-/** Ô nhập tự lưu khi rời ô (blur). Giữ chữ đang gõ, không bị ghi đè bởi dữ liệu tải lại. */
+/** Ô nhập tự lưu khi rời ô. Không bị ghi đè bởi dữ liệu tải lại khi đang gõ. */
 export function Txt(props: {
   value: string | null | undefined
   onSave: (v: string) => void
@@ -28,7 +29,8 @@ export function Txt(props: {
     placeholder,
     disabled,
     className,
-    'aria-label': label,
+    title: placeholder,
+    'aria-label': label ?? placeholder,
     onFocus: () => {
       focused.current = true
     },
@@ -48,20 +50,13 @@ export const toNum = (s: string): number | null => {
   return Number.isFinite(n) ? n : null
 }
 
-const SMART: [SmartKey, string][] = [
-  ['S', 'Ai cũng hiểu'],
-  ['M', 'Đo lường được'],
-  ['A', 'Khả thi'],
-  ['R', 'Quan trọng nhất'],
-  ['T', 'Thời gian rõ ràng'],
-]
-export function SmartChips({ value, onChange, withO, disabled }: { value: Smart; onChange: (v: Smart) => void; withO?: boolean; disabled?: boolean }) {
-  const keys: [SmartKey, string][] = withO ? [...SMART, ['O', '3 KR đạt thì O đạt?']] : SMART
+/** Hàng ô tick tiêu chí (SMART, KR→O, Kỳ tới). */
+export function Criteria({ keys, value, onChange, disabled }: { keys: [string, string][]; value: Smart; onChange: (v: Smart) => void; disabled?: boolean }) {
   return (
-    <div className="smart" role="group" aria-label="Kiểm tra SMART">
+    <div className="smart" role="group" aria-label="Tiêu chí kiểm tra">
       {keys.map(([k, l]) => (
-        <button key={k} type="button" className="chip" title={l} aria-pressed={!!value[k]} disabled={disabled} onClick={() => onChange({ ...value, [k]: !value[k] })}>
-          {k === 'O' ? l : `${k} · ${l}`}
+        <button key={k} type="button" className="chip" title={l} aria-pressed={!!value?.[k]} disabled={disabled} onClick={() => onChange({ ...value, [k]: !value?.[k] })}>
+          {k.length === 1 ? `${k} · ${l}` : l}
         </button>
       ))}
     </div>
@@ -81,18 +76,64 @@ export function Sec({ title, hint, n, children, className }: { title: ReactNode;
   )
 }
 
-export function Badge({ st }: { st: DayStatus }) {
-  return <span className={'badge ' + st}>{STATUS_LABEL[st]}</span>
+/** Bước trong wizard: khoá khi bước trước chưa đủ nội dung tối thiểu. */
+export function Step(props: { n: string; title: string; hint?: string; open: boolean; done: boolean; lockedMsg?: string; children: ReactNode; right?: ReactNode }) {
+  const { n, title, hint, open, done, lockedMsg, children, right } = props
+  return (
+    <section className={'step ' + (open ? '' : 'locked ') + (done ? 'done' : '')}>
+      <h3>
+        <span className="n">{done ? '✓' : n}</span>
+        <span className="st">{title}</span>
+        {right}
+      </h3>
+      {hint && <p className="hint">{hint}</p>}
+      {open ? <div className="step-b">{children}</div> : <p className="step-lock">{lockedMsg}</p>}
+    </section>
+  )
 }
 
-/** Thanh tiến độ: phần tô = thực tế/mục tiêu; vạch đứng = mức cần đạt đến hôm qua. */
+const COLOR_LABEL: Record<Color, string> = { red: 'Chưa đạt', yellow: 'Gần đạt', green: 'Đạt', none: 'Chưa có số' }
+export function PctPill({ pct, big }: { pct: number | null; big?: boolean }) {
+  const { settings } = useApp()
+  const c = colorOf(pct, settings)
+  return (
+    <span className={'pill ' + c + (big ? ' big' : '')} title={COLOR_LABEL[c]}>
+      {pct === null ? '–' : `${Math.round(pct)}%`}
+    </span>
+  )
+}
+
+/** Dải TIÊU ĐIỂM + HOÀN THÀNH + % (§10). */
+export function FocusBand({ title, pct, label = 'Tiêu điểm' }: { title: string; pct: Pct; label?: string }) {
+  const { settings } = useApp()
+  return (
+    <div className={'band ' + colorOf(pct.main, settings)}>
+      <div className="band-t">
+        <small>{label}</small>
+        <b>{title.trim() || 'Chưa đặt tiêu điểm'}</b>
+      </div>
+      <div className="band-p">
+        <small>Hoàn thành</small>
+        <b>{pct.main === null ? '–' : pct.main + '%'}</b>
+        {settings.show_both_pct && (
+          <span>
+            mục tiêu {pct.target ?? '–'}% · tổng {pct.total ?? '–'}%
+          </span>
+        )}
+      </div>
+    </div>
+  )
+}
+
+/** Thanh tiến độ mục tiêu ưu tiên: phần tô = thực tế/đích; vạch = mức cần đạt đến hết hôm qua. */
 export function PaceBar({ actual, target, frac, unit, label }: { actual: number; target: number; frac: number; unit: string; label?: ReactNode }) {
   const { settings } = useApp()
-  const st = status(actual, target, frac, settings)
-  const pct = target ? Math.max(0, Math.min(100, (actual / target) * 100)) : 0
   const need = target * frac
+  const ratio = need > 0 ? (actual / need) * 100 : null
+  const c = colorOf(ratio, settings)
+  const pct = target ? Math.max(0, Math.min(100, (actual / target) * 100)) : 0
   return (
-    <div className={'pace ' + st}>
+    <div className={'pace ' + c}>
       <div className="pace-h">
         {label && <span className="pace-l">{label}</span>}
         <b>
@@ -103,33 +144,7 @@ export function PaceBar({ actual, target, frac, unit, label }: { actual: number;
         <i style={{ width: pct + '%' }} />
         <em style={{ left: Math.min(100, frac * 100) + '%' }} />
       </div>
-      <small>
-        <Badge st={st} />
-        {st !== 'none' && ` Cần ${fmtNum(Math.round(need * 10) / 10)} ${unit} đến hết hôm qua`}
-      </small>
-    </div>
-  )
-}
-
-export function Ring({ pct }: { pct: number | null }) {
-  const p = pct ?? 0
-  return (
-    <div className="ring" style={{ ['--p' as string]: p }}>
-      <span>{pct === null ? '–' : p + '%'}</span>
-    </div>
-  )
-}
-
-export function Bars({ items }: { items: { label: string; pct: number | null; st: DayStatus }[] }) {
-  return (
-    <div className="bars">
-      {items.map((it, i) => (
-        <div key={i} className={'b ' + it.st} title={STATUS_LABEL[it.st]}>
-          <b>{it.pct === null ? '–' : it.pct + '%'}</b>
-          <i style={{ height: (it.pct ?? 0) * 0.7 + '%' }} />
-          <span>{it.label}</span>
-        </div>
-      ))}
+      <small>{ratio === null ? 'Chưa tới mốc đo' : `Đạt ${Math.round(ratio)}% mức cần có đến hết hôm qua (${fmtNum(Math.round(need * 10) / 10)} ${unit})`}</small>
     </div>
   )
 }

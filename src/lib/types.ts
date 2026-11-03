@@ -1,6 +1,7 @@
-export type SmartKey = 'S' | 'M' | 'A' | 'R' | 'T' | 'O'
-export type Smart = Partial<Record<SmartKey, boolean>>
+/** Ô tick: S M A R T, cộng KRO (tiêu điểm: các KR đạt thì O đạt?) và NEXT (hành động: đưa được vào OKR kỳ tới). */
+export type Smart = Record<string, boolean | undefined>
 
+/* ---------- Tầng trên O năm (§17 D1) ---------- */
 export interface Vision {
   id: string
   title: string
@@ -8,7 +9,6 @@ export interface Vision {
   unit: string
   target_year: number
 }
-
 export type GoalStatus = 'active' | 'paused' | 'dropped' | 'done'
 export interface Goal {
   id: string
@@ -23,7 +23,6 @@ export interface Goal {
   drop_reason: string | null
   created_at: string
 }
-
 export interface Metric {
   id: string
   goal_id: string
@@ -32,86 +31,133 @@ export interface Metric {
   kind: 'leading' | 'lagging'
 }
 
-export type PeriodKind = 'month' | 'week' | 'day'
+/* ---------- OKR + Kaizen ---------- */
+export type PeriodKind = 'day' | 'week' | 'month' | 'year'
 
-export interface VerifyRow {
-  who: string
+export interface Lesson {
+  id: string
   text: string
-  smart: Smart
+  keyword: string
+  signal: string
 }
-
-export interface Observe {
-  work?: string
-  rel?: string
-  body?: string
-  analysis?: string
-  tham?: string
-  si?: string
-  grid?: Record<string, { s?: string; c?: string; t?: string }>
-  verify?: Partial<Record<'top' | 'cross' | 'bottom', VerifyRow[]>>
-  unlocks?: { at: string; reason: string }[]
-}
-
 export interface KaizenData {
-  s?: string
-  c?: string
-  t?: string
+  assessment?: string
+  journal?: { s?: string; c?: string; t?: string }
   causes?: string
-  lessons?: string
+  keywords?: string[]
+  lessons?: Lesson[]
+  satisfied?: boolean
+  consult_who?: string
+}
+export interface Unlock {
+  at: string
+  reason: string
 }
 
 export interface Period {
   id: string
   kind: PeriodKind
   start_date: string
-  focus_title: string | null
-  focus_smart: Smart
-  activated_goal_ids: string[]
-  observe: Observe
-  kaizen: KaizenData
+  status: 'draft' | 'locked'
   locked_at: string | null
-  checked_in_at: string | null
+  lock_reason: string | null
+  unlocks: Unlock[]
+  o_title: string
+  o_smart: Smart
+  o_metric: string
+  linked: boolean
+  link_reason: string
+  goal_id: string | null
+  no_fixed_schedule: boolean
+  kaizen: KaizenData
 }
 
 export interface KR {
   id: string
   period_id: string
-  goal_id: string
-  parent_kr_id: string | null
-  metric_id: string | null
   title: string
-  target: number
-  unit: string
+  metric: string
   smart: Smart
+  linked: boolean
+  link_reason: string
+  weight: number | null
+  pct_override: number | null
+  override_reason: string | null
+  from_action_id: string | null
   sort: number
 }
 
-export interface Task {
+export interface KA {
+  id: string
+  kr_id: string
+  title: string
+  done: boolean
+  weight: number | null
+  from_action_id: string | null
+  sort: number
+}
+
+export interface ScheduleItem {
   id: string
   period_id: string
-  kr_id: string | null
+  date: string
+  time_from: string
+  time_to: string
   title: string
-  target: number
-  unit: string
-  actual: number | null
+  people: string
+  fixed: boolean
+  done: boolean
+  kr_id: string | null
+}
+
+export type ObsCategory = 'work_finance' | 'relationship' | 'body_mind_wisdom'
+export interface Observation {
+  id: string
+  period_id: string
+  category: ObsCategory
+  content: string
+  consequence: string
+  is_selected: boolean
+  tham: string
+  san: string
+  si: string
+  cause_note: string
+  resolve_check: boolean
   sort: number
 }
 
-export interface Action {
+export interface NextAction {
   id: string
   period_id: string
   text: string
   smart: Smart
-  push_to_period_id: string | null
-  done: boolean
+  converted_period_id: string | null
+  converted_kr_id: string | null
+  converted_ka_id: string | null
+  sort: number
 }
 
 export interface Settings {
   user_id: string
+  red_below: number
+  pass_pct: number
+  only_linked_pct: boolean
+  show_both_pct: boolean
+  weights_enabled: boolean
+  link_pct: number
+  day_min_linked_kr: number
+  day_min_kr: number
+  day_max_kr: number
+  max_daily_actions: number
+  day_start: string
+  day_end: string
+  slot_minutes: number
+  auto_lock: boolean
   lock_time: string
-  green_pct: number
-  yellow_pct: number
+  red_lock: boolean
   red_streak: number
   rest_weekdays: number[]
+  remind_time: string
+  year_mode: 'month' | 'quarter'
   timezone: string
 }

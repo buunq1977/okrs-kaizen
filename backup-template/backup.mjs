@@ -5,8 +5,8 @@ const url = process.env.SUPABASE_URL
 const key = process.env.SUPABASE_SERVICE_ROLE_KEY
 if (!url || !key) throw new Error('Thiếu SUPABASE_URL hoặc SUPABASE_SERVICE_ROLE_KEY')
 
-const tables = ['visions', 'goals', 'metrics', 'periods', 'krs', 'tasks', 'actions', 'settings']
-const out = { exported_at: new Date().toISOString(), version: 1 }
+const tables = ['visions', 'goals', 'metrics', 'periods', 'key_results', 'key_actions', 'schedule_items', 'observations', 'next_actions', 'validations', 'settings']
+const out = { exported_at: new Date().toISOString(), version: 2 }
 for (const t of tables) {
   const res = await fetch(`${url}/rest/v1/${t}?select=*`, { headers: { apikey: key, Authorization: `Bearer ${key}` } })
   if (!res.ok) throw new Error(`${t}: HTTP ${res.status} ${await res.text()}`)

@@ -1,299 +1,248 @@
-import { useCallback, useEffect, useState } from 'react'
-import { CarriedBlock, FocusBlock, KaizenBlock } from '../components/Blocks'
-import { Badge, PaceBar, Sec, Txt, toNum } from '../components/ui'
-import { useApp, usePeriod } from '../lib/ctx'
-import { errMsg, getPeriod, insert, krActuals, listGoals, listKrs, listPeriods, listTasks, remove, update } from '../lib/db'
+import { useEffect, useState } from 'react'
+import { Kaizen } from '../components/day/Kaizen'
+import { KrBlocks, Objective } from '../components/day/Okr'
+import { Analyze, Observe, RootCauses } from '../components/day/Observe'
+import { Schedule } from '../components/day/Schedule'
+import { FocusBand, Step } from '../components/ui'
+import { useApp, usePeriod, useRows } from '../lib/ctx'
+import { errMsg, findPeriods, listBy, listIn } from '../lib/db'
 import { addDays, fmtDM, mondayOf, today } from '../lib/dates'
-import { dayPct, dayStatus, expectedFraction, fmtNum, planLocked, redStreakLock } from '../lib/pace'
-import type { Goal, KR, Task } from '../lib/types'
+import { dayLinkCheck, effectiveLock, hasLessons, kaizenStarted, krPercent, lockCheck, redStreak, rollup, type DayRecord } from '../lib/okr'
+import type { KA, KR, NextAction, Observation, Period, ScheduleItem } from '../lib/types'
 import { PeriodNav } from './PeriodNav'
 
-const MAX_LINKED = 3
-
 export default function Day({ date, setDate, mode }: { date: string; setDate: (d: string) => void; mode: 'today' | 'plan' }) {
-  const { uid, settings, toast, go } = useApp()
-  const { p, patch, patchObserve, patchKaizen } = usePeriod('day', date)
-  const [goals, setGoals] = useState<Goal[]>([])
-  const [weekKrs, setWeekKrs] = useState<KR[]>([])
-  const [actuals, setActuals] = useState(new Map<string, number>())
-  const [tasks, setTasks] = useState<Task[]>([])
-  const [red, setRed] = useState<{ locked: boolean; day?: string }>({ locked: false })
+  const { settings: s, toast, go } = useApp()
+  const { p, patch, patchKaizen } = usePeriod('day', date)
+  const pid = p?.id ?? ''
+  const none = <T,>() => Promise.resolve([] as T[])
+  const sched = useRows<ScheduleItem>('schedule_items', pid, () => (pid ? listBy('schedule_items', 'period_id', pid, 'time_from') : none()))
+  const obs = useRows<Observation>('observations', pid, () => (pid ? listBy('observations', 'period_id', pid) : none()))
+  const krs = useRows<KR>('key_results', pid, () => (pid ? listBy('key_results', 'period_id', pid) : none()))
+  const krIds = krs.rows.map((k) => k.id).join(',')
+  const kas = useRows<KA>('key_actions', krIds, () => (krIds ? listIn('key_actions', 'kr_id', krIds.split(',')) : none()))
+  const acts = useRows<NextAction>('next_actions', pid, () => (pid ? listBy('next_actions', 'period_id', pid) : none()))
+
   const [now, setNow] = useState(() => new Date())
-  const [unlocking, setUnlocking] = useState(false)
-  const [reason, setReason] = useState('')
-  const [f, setF] = useState({ kr: '', title: '', target: '', unit: '' })
+  const [weekTitle, setWeekTitle] = useState('')
+  const [streak, setStreak] = useState<{ locked: boolean; day?: string }>({ locked: false })
+  const [todayKaizenDone, setTodayKaizenDone] = useState(true)
+  const [lockReason, setLockReason] = useState('')
+  const [unlockReason, setUnlockReason] = useState('')
+  const [showUnlock, setShowUnlock] = useState(false)
 
   useEffect(() => {
     const t = setInterval(() => setNow(new Date()), 30000)
     return () => clearInterval(t)
   }, [])
 
-  const load = useCallback(async () => {
-    if (!p) return
-    try {
-      const wp = await getPeriod(uid, 'week', mondayOf(date))
-      const [g, wk, ts] = await Promise.all([listGoals(), listKrs([wp.id]), listTasks([p.id])])
-      setGoals(g)
-      setWeekKrs(wk)
-      setTasks(ts)
-      setActuals(await krActuals(wk))
-      // R8: chuỗi ngày đỏ trước hôm nay
-      const t0 = today()
-      if (date >= t0) {
-        const dps = await listPeriods('day', addDays(t0, -45), addDays(t0, -1))
-        const dts = await listTasks(dps.map((d) => d.id))
-        setRed(redStreakLock(t0, dps.map((d) => ({ date: d.start_date, period: d, tasks: dts.filter((x) => x.period_id === d.id) })), settings))
-      } else setRed({ locked: false })
-    } catch (e) {
-      toast(errMsg(e))
-    }
-  }, [p, uid, date, settings, toast])
+  // O tuần (để đánh dấu liên quan), chuỗi ngày đỏ, Kaizen hôm nay (khi lập kế hoạch ngày mai)
   useEffect(() => {
-    load()
-  }, [load])
+    let live = true
+    ;(async () => {
+      try {
+        const w = await findPeriods('week', mondayOf(date), mondayOf(date))
+        if (live) setWeekTitle(w[0]?.o_title ?? '')
+        const t0 = today()
+        if (date < t0) return live && setStreak({ locked: false })
+        const past = await findPeriods('day', addDays(t0, -45), date === t0 ? addDays(t0, -1) : t0)
+        const pk = await listIn<KR>('key_results', 'period_id', past.map((x) => x.id))
+        const pa = await listIn<KA>('key_actions', 'kr_id', pk.map((x) => x.id))
+        const recs: DayRecord[] = past
+          .filter((x) => x.start_date < t0)
+          .map((d) => {
+            const ks = pk.filter((k) => k.period_id === d.id)
+            const r = rollup(ks.map((k) => ({ pct: krPercent(k, pa.filter((a) => a.kr_id === k.id), s.weights_enabled), linked: k.linked, weight: k.weight })), s)
+            return { date: d.start_date, hasO: !!d.o_title.trim(), pct: r.main, lessons: hasLessons(d.kaizen) }
+          })
+        if (!live) return
+        setStreak(redStreak(t0, recs, s))
+        if (date > t0) setTodayKaizenDone(kaizenStarted(past.find((x: Period) => x.start_date === t0)?.kaizen))
+      } catch (e) {
+        toast(errMsg(e))
+      }
+    })()
+    return () => {
+      live = false
+    }
+  }, [date, s, toast])
 
   if (!p) return <p className="note">Đang mở ngày…</p>
 
   const t0 = today()
-  const isPast = date <= t0
-  const lock = planLocked(p, settings.lock_time, now)
+  const lock = effectiveLock(p, s, now)
   const editable = !lock.locked
-  const linked = tasks.filter((t) => t.kr_id)
-  const canAdd = editable && !red.locked
-  const pct = dayPct(tasks)
-  const st = isPast ? dayStatus(p, tasks, settings) : 'none'
-  const krLabel = (id: string | null) => {
-    const k = weekKrs.find((x) => x.id === id)
-    if (!k) return 'Ngoài mục tiêu'
-    const g = goals.find((x) => x.id === k.goal_id)
-    return `${k.title}${g ? ' · ' + g.title : ''}`
-  }
+  const canAdd = editable && !streak.locked
+  const krPcts = krs.rows.map((k) => krPercent(k, kas.rows.filter((a) => a.kr_id === k.id), s.weights_enabled))
+  const pct = rollup(krs.rows.map((k, i) => ({ pct: krPcts[i], linked: k.linked, weight: k.weight })), s)
+  const link = dayLinkCheck(krs.rows, s)
+  const check = lockCheck('day', p, krs.rows.map((k) => ({ ...k, kas: kas.rows.filter((a) => a.kr_id === k.id).length })), s)
 
-  async function saveTask(t: Task, part: Partial<Task>) {
-    try {
-      const u = await update<Task>('tasks', t.id, part)
-      setTasks((xs) => xs.map((x) => (x.id === t.id ? u : x)))
-      if ('actual' in part) setActuals(await krActuals(weekKrs))
-    } catch (e) {
-      toast(errMsg(e))
-    }
-  }
-  async function addTask() {
-    const target = toNum(f.target)
-    if (!f.title.trim() || !target || target <= 0 || !f.unit.trim()) return
-    try {
-      const t = await insert<Task>('tasks', { period_id: p!.id, kr_id: f.kr || null, title: f.title.trim(), target, unit: f.unit.trim(), sort: tasks.length })
-      setTasks((xs) => [...xs, t])
-      setF({ ...f, title: '', target: '' })
-    } catch (e) {
-      toast(errMsg(e))
-    }
-  }
-  async function checkIn() {
-    const missing = linked.filter((t) => t.actual === null)
-    if (missing.length) return toast(`Nhập số thực tế cho: ${missing.map((t) => t.title).join(', ')}`)
-    await patch({ checked_in_at: new Date().toISOString() })
-  }
-  const lockLabel = `${settings.lock_time.slice(0, 5)} ngày ${fmtDM(addDays(date, -1))}`
+  // Mở bước khi bước trước đủ nội dung tối thiểu, hoặc bước đó đã có nội dung
+  const sel = obs.rows.filter((o) => o.is_selected)
+  const done = [
+    p.no_fixed_schedule || sched.rows.some((x) => x.title.trim()),
+    obs.rows.some((o) => o.content.trim()),
+    sel.length > 0,
+    sel.some((o) => o.tham.trim() || o.san.trim() || o.si.trim()),
+    !!p.o_title.trim(),
+    krs.rows.length > 0,
+    kas.rows.length > 0,
+  ]
+  const open = (i: number) => done.slice(0, i).every(Boolean) || done[i] || (i >= 4 && (!!p.o_title.trim() || krs.rows.length > 0))
+  const causes = sel.flatMap((o) => [o.tham, o.san, o.si].map((x) => x.trim()).filter(Boolean))
+  const remind = s.remind_time.slice(0, 5)
+  const nowHM = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
 
   return (
     <>
-      <PeriodNav
-        kind="day"
-        start={date}
-        onShift={(n) => setDate(addDays(date, n))}
-        extra={
-          <span className="period-tag">
-            {mode === 'plan' ? 'Lập kế hoạch' : date === t0 ? 'Hôm nay' : ''} {isPast && <Badge st={st} />}
-          </span>
-        }
-      />
+      <PeriodNav kind="day" start={date} onShift={(n) => setDate(addDays(date, n))} extra={<span className="period-tag">{mode === 'plan' ? 'Lập kế hoạch' : date === t0 ? 'Hôm nay' : ''}</span>} />
 
-      {red.locked && (
-        <div className="redlock">
-          <b>Đã đỏ {settings.red_streak} ngày liền.</b> Không thêm được việc mới cho đến khi viết Bài học cho ngày {fmtDM(red.day!)}.{' '}
-          <button className="btn" onClick={() => go('day', red.day)}>
-            Viết Kaizen ngày {fmtDM(red.day!)}
+      {streak.locked && (
+        <div className="alert red">
+          <b>Đã đỏ {s.red_streak} ngày liền.</b> Không thêm KR/KA mới cho đến khi viết Bài học cho ngày {fmtDM(streak.day!)}.{' '}
+          <button className="btn" onClick={() => go('day', streak.day)}>
+            Viết Kaizen ngày {fmtDM(streak.day!)}
           </button>
         </div>
       )}
+      {date > t0 && !todayKaizenDone && (
+        <div className="alert yellow">
+          Chưa làm Kaizen hôm nay. Thứ tự đúng: Kaizen ngày {fmtDM(t0)} trước, rồi mới lập OKR ngày {fmtDM(date)}.{' '}
+          <button className="btn" onClick={() => go('day', t0)}>
+            Làm Kaizen hôm nay
+          </button>
+        </div>
+      )}
+      {mode === 'today' && date === t0 && nowHM >= remind && !kaizenStarted(p.kaizen) && (
+        <div className="alert blue">
+          Đã {remind}: dành 20–30 phút làm Kaizen hôm nay và lập OKR ngày mai.{' '}
+          <button className="btn" onClick={() => go('plan', addDays(t0, 1))}>
+            Lập OKR ngày mai
+          </button>
+        </div>
+      )}
+      {!link.ok && krs.rows.length > 0 && <div className="alert red">{link.message}</div>}
+      {link.ok && link.message && <div className="alert yellow">{link.message}</div>}
 
-      <div className="lockbar">
-        {editable ? (
-          <>
-            <span>
-              Kế hoạch mở. Tự khoá lúc <b>{lockLabel}</b>.
-            </span>
-            {!isPast && (
-              <button className="btn" onClick={() => patch({ locked_at: new Date().toISOString() })}>
-                Chốt kế hoạch ngay
-              </button>
-            )}
-          </>
-        ) : (
-          <>
-            <span>🔒 Kế hoạch đã chốt. Vẫn nhập được số thực tế.</span>
-            {!unlocking && (
-              <button className="btn ghost" onClick={() => setUnlocking(true)}>
-                Mở khoá để sửa
-              </button>
-            )}
-            {unlocking && (
-              <span className="unlock">
-                <input autoFocus value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Vì sao phải sửa kế hoạch đã chốt?" aria-label="Lý do mở khoá" />
-                <button
-                  className="btn"
-                  disabled={!reason.trim()}
-                  onClick={async () => {
-                    await patchObserve({ unlocks: [...(p.observe.unlocks ?? []), { at: new Date().toISOString(), reason: reason.trim() }] })
-                    setReason('')
-                    setUnlocking(false)
-                    setNow(new Date())
-                  }}
-                >
-                  Mở khoá
-                </button>
-              </span>
-            )}
-          </>
-        )}
-      </div>
+      <FocusBand title={p.o_title} pct={pct} />
 
       <div className="panes">
         <div className="pane">
           <div className="pane-h">OKRs ngày</div>
-          <CarriedBlock p={p} />
-          <FocusBlock p={p} patch={patch} pct={isPast ? pct : null} disabled={!editable}>
-            <div className="tasks">
-              <div className="fld-l">
-                Việc bắt buộc · {linked.length}/{MAX_LINKED} việc gắn mục tiêu
-              </div>
-              {!tasks.length && <p className="empty">Chưa có việc. Mỗi việc phải gắn vào một KR tuần và có con số.</p>}
-              {tasks.map((t) => {
-                const done = t.actual !== null && t.actual >= t.target
-                return (
-                  <div key={t.id} className={'task ' + (t.kr_id ? '' : 'out ') + (done ? 'done' : '')}>
-                    <div className="task-kr">{krLabel(t.kr_id)}</div>
-                    <div className="task-r">
-                      <Txt className="strong" value={t.title} onSave={(v) => v.trim() && saveTask(t, { title: v.trim() })} disabled={!editable} label="Việc" />
-                      <span className="task-n">
-                        <Txt
-                          className="num"
-                          type="number"
-                          value={t.actual === null ? '' : String(t.actual)}
-                          onSave={(v) => saveTask(t, { actual: toNum(v) })}
-                          disabled={!isPast}
-                          placeholder="0"
-                          label="Số thực tế"
-                        />
-                        <span>/</span>
-                        <Txt className="num" type="number" value={String(t.target)} onSave={(v) => (toNum(v) ?? 0) > 0 && saveTask(t, { target: toNum(v)! })} disabled={!editable} label="Con số đặt ra" />
-                        <span className="unit">{t.unit}</span>
-                      </span>
-                      {editable && (
-                        <button
-                          className="x"
-                          aria-label="Xoá việc"
-                          onClick={async () => {
-                            try {
-                              await remove('tasks', t.id)
-                              setTasks((xs) => xs.filter((x) => x.id !== t.id))
-                            } catch (e) {
-                              toast(errMsg(e))
-                            }
-                          }}
-                        >
-                          ×
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                )
-              })}
-              {canAdd && (
-                <div className="addrow task-add">
-                  <select
-                    value={f.kr}
-                    onChange={(e) => setF({ ...f, kr: e.target.value, unit: weekKrs.find((k) => k.id === e.target.value)?.unit ?? f.unit })}
-                    aria-label="Gắn vào KR tuần"
-                  >
-                    <option value="">Ngoài mục tiêu (không tính %)</option>
-                    {weekKrs.map((k) => (
-                      <option key={k.id} value={k.id} disabled={linked.length >= MAX_LINKED}>
-                        {krLabel(k.id)}
-                      </option>
-                    ))}
-                  </select>
-                  <input value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} placeholder="Việc cụ thể" aria-label="Việc mới" />
-                  <input className="num" inputMode="decimal" value={f.target} onChange={(e) => setF({ ...f, target: e.target.value })} placeholder="Số" aria-label="Con số" />
-                  <input className="short" value={f.unit} onChange={(e) => setF({ ...f, unit: e.target.value })} placeholder="Đơn vị" aria-label="Đơn vị" />
-                  <button className="btn" onClick={addTask} disabled={!f.title.trim() || !((toNum(f.target) ?? 0) > 0) || !f.unit.trim()}>
-                    Thêm
+          <div className="lockbar">
+            {editable ? (
+              <span>
+                Kế hoạch đang mở
+                {s.auto_lock && lock.deadline && (
+                  <>
+                    , tự khoá lúc <b>{s.lock_time.slice(0, 5)} ngày {fmtDM(addDays(date, -1))}</b>
+                  </>
+                )}
+                .
+              </span>
+            ) : (
+              <>
+                <span>🔒 Kế hoạch đã chốt. Vẫn tick KA, Check lịch và viết Kaizen được.</span>
+                {!showUnlock ? (
+                  <button className="btn ghost" onClick={() => setShowUnlock(true)}>
+                    Mở khoá để sửa
                   </button>
-                </div>
-              )}
-              {!weekKrs.length && (
-                <p className="flag">
-                  Tuần này chưa có KR.{' '}
-                  <button className="linkbtn" onClick={() => go('week', date)}>
-                    Đặt KR tuần
-                  </button>{' '}
-                  để gắn việc vào mục tiêu.
-                </p>
-              )}
-            </div>
-            {isPast && (
-              <div className="checkin">
-                {p.checked_in_at ? (
-                  <span>
-                    ✓ Đã check-in lúc {new Date(p.checked_in_at).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })} · hoàn thành <b>{pct ?? 0}%</b>
-                  </span>
                 ) : (
-                  <button className="btn primary" onClick={checkIn}>
-                    Check-in cuối ngày
+                  <span className="addrow">
+                    <input autoFocus value={unlockReason} onChange={(e) => setUnlockReason(e.target.value)} placeholder="Vì sao phải sửa kế hoạch đã chốt?" aria-label="Lý do mở khoá" />
+                    <button
+                      className="btn"
+                      disabled={!unlockReason.trim()}
+                      onClick={async () => {
+                        await patch({ unlocks: [...p.unlocks, { at: new Date().toISOString(), reason: unlockReason.trim() }] })
+                        setUnlockReason('')
+                        setShowUnlock(false)
+                        setNow(new Date())
+                      }}
+                    >
+                      Mở khoá
+                    </button>
+                  </span>
+                )}
+              </>
+            )}
+          </div>
+
+          <Step n="1" title="1a. Quan sát · Lịch cố định & cam kết" hint="Làm bước này trước: biết quỹ thời gian mới chọn được việc khả thi (chữ A)." open done={done[0]}>
+            <Schedule date={date} periodId={pid} sched={sched} editable={editable} />
+            <label className="li">
+              <input type="checkbox" checked={p.no_fixed_schedule} disabled={!editable} onChange={() => patch({ no_fixed_schedule: !p.no_fixed_schedule })} />
+              Ngày này không có lịch cố định
+            </label>
+          </Step>
+
+          <Step n="2" title="1b. Quan sát · Vấn đề, nỗi đau, tồn đọng, cơ hội" hint="Mỗi ý trả lời: Nếu không làm thì sao?" open={open(1)} done={done[1]} lockedMsg="Ghi lịch cố định (hoặc tick 'không có lịch cố định') trước.">
+            <Observe periodId={pid} obs={obs} editable={editable} />
+          </Step>
+
+          <Step n="3" title="2. Phân tích" hint="Tô đậm việc đủ điều kiện (nhân duyên) giải quyết ngay trong ngày." open={open(2)} done={done[2]} lockedMsg="Ghi ít nhất 1 quan sát ở bước 2 trước.">
+            <Analyze obs={obs} editable={editable} />
+          </Step>
+
+          <Step n="4" title="3. Nguyên nhân lỗi" hint="Với từng việc đã tô đậm: gốc rễ nằm ở Tham, Sân hay Si?" open={open(3)} done={done[3]} lockedMsg="Tô đậm ít nhất 1 việc ở bước 3 trước.">
+            <RootCauses obs={obs} editable={editable} />
+          </Step>
+
+          <Step n="5" title="Tiêu điểm (O)" hint="1 câu mục tiêu, tick đủ 6 tiêu chí." open={open(4)} done={done[4]} lockedMsg="Tìm nguyên nhân ở bước 4 trước.">
+            <Objective p={p} patch={patch} editable={editable} weekTitle={weekTitle} causes={causes} />
+          </Step>
+
+          <Step n="6–7" title="KR và KA" hint="Để O hoàn thành cần những KR nào? Dưới mỗi KR là các KA có ô tick." open={open(5)} done={done[5] && done[6]} lockedMsg="Viết tiêu điểm O ở bước 5 trước.">
+            <KrBlocks
+              periodId={pid}
+              krs={krs}
+              kas={kas}
+              pcts={krPcts}
+              editable={editable}
+              canAdd={canAdd}
+              addBlockedMsg={streak.locked ? `Đang khoá thêm việc: viết Bài học cho ngày ${fmtDM(streak.day!)} trước.` : ''}
+            />
+          </Step>
+
+          <section className="lockpanel">
+            {check.blockers.length > 0 && (
+              <ul className="blockers">
+                {check.blockers.map((b) => (
+                  <li key={b}>{b}</li>
+                ))}
+              </ul>
+            )}
+            {check.warnings.length > 0 && (
+              <ul className="warnings">
+                {check.warnings.map((b) => (
+                  <li key={b}>{b}</li>
+                ))}
+              </ul>
+            )}
+            {editable && (
+              <div className="lock-a">
+                {check.blockers.length === 0 ? (
+                  <button className="btn primary" onClick={() => patch({ status: 'locked', locked_at: new Date().toISOString(), lock_reason: null })}>
+                    Chốt kế hoạch
                   </button>
+                ) : (
+                  <span className="addrow">
+                    <input value={lockReason} onChange={(e) => setLockReason(e.target.value)} placeholder="Chốt dù chưa đủ tiêu chí? Ghi lý do" aria-label="Lý do chốt khi chưa đủ tiêu chí" />
+                    <button className="btn" disabled={!lockReason.trim()} onClick={() => patch({ status: 'locked', locked_at: new Date().toISOString(), lock_reason: lockReason.trim() })}>
+                      Chốt bỏ qua
+                    </button>
+                  </span>
                 )}
               </div>
             )}
-          </FocusBlock>
-
-          {mode === 'today' && weekKrs.length > 0 && (
-            <Sec title="Tiến độ KR tuần này" hint="Vạch đứng = mức cần đạt đến hết hôm qua">
-              {weekKrs.map((k) => (
-                <PaceBar
-                  key={k.id}
-                  label={krLabel(k.id)}
-                  actual={actuals.get(k.id) ?? 0}
-                  target={k.target}
-                  frac={expectedFraction(mondayOf(date), addDays(mondayOf(date), 6), t0, settings.rest_weekdays)}
-                  unit={k.unit}
-                />
-              ))}
-            </Sec>
-          )}
+            {!editable && p.lock_reason && <p className="note">Đã chốt khi chưa đủ tiêu chí. Lý do: {p.lock_reason}</p>}
+          </section>
         </div>
 
         <div className="pane">
           <div className="pane-h">Kaizen ngày</div>
-          {isPast ? (
-            <KaizenBlock
-              p={p}
-              save={patchKaizen}
-              measure={
-                <div className="measure">
-                  <div className="t">{p.focus_title || 'Chưa đặt tiêu điểm ngày'}</div>
-                  <b className="big">{p.checked_in_at ? `${pct ?? 0}%` : '–'}</b>
-                  {linked.map((t) => (
-                    <div key={t.id} className="mline">
-                      {t.title}: {fmtNum(t.actual ?? 0)}/{fmtNum(t.target)} {t.unit}
-                    </div>
-                  ))}
-                </div>
-              }
-            />
-          ) : (
-            <p className="empty">Kaizen mở khi đến ngày {fmtDM(date)}.</p>
-          )}
+          {date <= t0 ? <Kaizen p={p} save={patchKaizen} pct={pct} acts={acts} /> : <p className="empty">Kaizen ngày {fmtDM(date)} mở vào cuối ngày đó.</p>}
         </div>
       </div>
     </>

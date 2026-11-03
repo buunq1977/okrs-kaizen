@@ -46,8 +46,8 @@ export default function Goals() {
         {visions.length < MAX_VISIONS ? <VisionForm onDone={load} /> : <p className="note">Đã đủ {MAX_VISIONS} tầm nhìn.</p>}
       </Sec>
 
-      <Sec title={`Mục tiêu năm · ${active.length}/${MAX_ACTIVE} đang mở`} hint="Mỗi mục tiêu: điểm xuất phát, đích, đơn vị, hạn chót và ít nhất 1 chỉ số hành động.">
-        {!active.length && <p className="empty">Chưa có mục tiêu năm. Bắt đầu bằng mục tiêu quan trọng nhất của 12 tháng tới.</p>}
+      <Sec title={`Mục tiêu ưu tiên · ${active.length}/${MAX_ACTIVE} đang mở`} hint="Mỗi mục tiêu: điểm xuất phát, đích, đơn vị, hạn chót và ít nhất 1 chỉ số hành động.">
+        {!active.length && <p className="empty">Chưa có mục tiêu ưu tiên. Bắt đầu bằng mục tiêu quan trọng nhất của 12 tháng tới. O năm và O tháng sẽ gắn vào các mục tiêu này.</p>}
         {active.map((g) => (
           <GoalCard key={g.id} g={g} visions={visions} metrics={metrics.filter((m) => m.goal_id === g.id)} onChange={load} canActivate />
         ))}
@@ -184,7 +184,7 @@ function GoalForm({ visions, onDone }: { visions: Vision[]; onDone: () => void }
   if (!open)
     return (
       <button className="add" onClick={() => setOpen(true)}>
-        + Thêm mục tiêu năm
+        + Thêm mục tiêu ưu tiên
       </button>
     )
   return (
@@ -247,7 +247,7 @@ function GoalForm({ visions, onDone }: { visions: Vision[]; onDone: () => void }
 }
 
 function GoalCard({ g, visions, metrics, onChange, canActivate }: { g: Goal; visions: Vision[]; metrics: Metric[]; onChange: () => void; canActivate: boolean }) {
-  const { toast, settings } = useApp()
+  const { toast } = useApp()
   const [dropping, setDropping] = useState(false)
   const [reason, setReason] = useState('')
   const [m, setM] = useState({ name: '', unit: '', kind: 'leading' as 'leading' | 'lagging' })
@@ -259,7 +259,7 @@ function GoalCard({ g, visions, metrics, onChange, canActivate }: { g: Goal; vis
       toast(errMsg(e))
     }
   }
-  const { frac } = goalStatus(g, today(), settings)
+  const { frac } = goalStatus(g, today())
   const vision = visions.find((v) => v.id === g.vision_id)
   const hasLeading = metrics.some((x) => x.kind === 'leading')
 
