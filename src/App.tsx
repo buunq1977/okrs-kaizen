@@ -94,11 +94,14 @@ function Main({ session }: { session: Session }) {
     timer.current = window.setTimeout(() => setMsg(''), 5000)
   }, [])
 
+  const [loadErr, setLoadErr] = useState('')
+  const [attempt, setAttempt] = useState(0)
   useEffect(() => {
+    setLoadErr('')
     getSettings(uid)
       .then(setSettings)
-      .catch((e) => toast(errMsg(e)))
-  }, [uid, toast])
+      .catch((e) => setLoadErr(errMsg(e)))
+  }, [uid, attempt])
 
   const go = useCallback((s: string, d?: string) => {
     setScreen((s === 'day' ? 'today' : s) as Screen)
@@ -131,7 +134,9 @@ function Main({ session }: { session: Session }) {
         </nav>
       </header>
       <main>
-        {!ctx ? (
+        {loadErr ? (
+          <SetupError msg={loadErr} retry={() => setAttempt((n) => n + 1)} />
+        ) : !ctx ? (
           <p className="note">Đang tải cài đặt…</p>
         ) : (
           <Ctx.Provider value={ctx}>
@@ -150,5 +155,31 @@ function Main({ session }: { session: Session }) {
         </div>
       )}
     </>
+  )
+}
+
+function SetupError({ msg, retry }: { msg: string; retry: () => void }) {
+  const missingTable = /schema cache|does not exist|relation|PGRST205|42P01/i.test(msg)
+  const missingColumn = /column .*current|PGRST204/i.test(msg)
+  return (
+    <div className="setup-err">
+      <h1>Chưa kết nối được dữ liệu</h1>
+      {missingTable ? (
+        <p>
+          Supabase chưa có bảng của app. Vào Supabase → <b>SQL Editor → New query</b>, dán và chạy lần lượt <code>supabase/migrations/001_init.sql</code> rồi{' '}
+          <code>002_goal_current.sql</code> trong repo, sau đó bấm Thử lại.
+        </p>
+      ) : missingColumn ? (
+        <p>
+          Thiếu cột mới. Chạy <code>supabase/migrations/002_goal_current.sql</code> trong Supabase SQL Editor rồi bấm Thử lại.
+        </p>
+      ) : (
+        <p>Gửi nguyên văn thông báo bên dưới cho người hỗ trợ.</p>
+      )}
+      <pre>{msg}</pre>
+      <button className="btn primary" onClick={retry}>
+        Thử lại
+      </button>
+    </div>
   )
 }
