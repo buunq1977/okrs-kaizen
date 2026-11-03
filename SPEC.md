@@ -79,8 +79,11 @@ Khối **Quan sát** giữ ở tầng tháng/tuần: Công việc/Tài chính ·
 - `metrics(id, goal_id, name, unit, kind[leading|lagging])`
 - `periods(id, kind[month|week|day], start_date, focus_title, locked_at, checked_in_at, kaizen jsonb, observe jsonb)`
 - `krs(id, period_id, goal_id, parent_kr_id, metric_id, title, target, smart jsonb)`
-- `entries(id, kr_id, date, value, note)` — số thực tế check-in
+- `tasks(id, period_id, kr_id, title, target, unit, actual)` — việc trong ngày, số thực tế nhập khi check-in. Giá trị thực tế của KR = tổng `actual` các việc gắn vào nó
 - `actions(id, period_id, text, smart jsonb, push_to_period_id, done)`
+- `settings(user_id, lock_time, green_pct, yellow_pct, red_streak, rest_weekdays, timezone)`
+
+Schema thật: `supabase/migrations/001_init.sql`. Quy tắc R1 (≤5 mục tiêu mở), R2 (≤3 kích hoạt/tháng), R3 (bắt buộc con số), R5 (≤3 việc gắn mục tiêu/ngày) được chặn ngay ở database, không chỉ ở giao diện.
 
 ## 8. Ngoài phạm vi v1
 

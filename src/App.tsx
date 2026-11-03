@@ -1,5 +1,7 @@
-import { useState } from 'react'
-import { supabaseConfigured } from './lib/supabase'
+import { useEffect, useState } from 'react'
+import type { Session } from '@supabase/supabase-js'
+import { supabase, supabaseConfigured } from './lib/supabase'
+import Login from './Login'
 
 type Screen = 'today' | 'plan' | 'week' | 'month' | 'goals' | 'settings'
 
@@ -14,6 +16,19 @@ const SCREENS: { id: Screen; label: string; note: string }[] = [
 
 export default function App() {
   const [screen, setScreen] = useState<Screen>('today')
+  const [session, setSession] = useState<Session | null>(null)
+  const [ready, setReady] = useState(!supabaseConfigured)
+
+  useEffect(() => {
+    if (!supabase) return
+    supabase.auth.getSession().then(({ data }) => {
+      setSession(data.session)
+      setReady(true)
+    })
+    const { data } = supabase.auth.onAuthStateChange((_e, s) => setSession(s))
+    return () => data.subscription.unsubscribe()
+  }, [])
+
   const current = SCREENS.find((s) => s.id === screen)!
 
   return (
@@ -21,20 +36,35 @@ export default function App() {
       <header className="top">
         <div className="brand">
           OKRs · Kaizen
-          <small>{supabaseConfigured ? 'Đã cấu hình kho dữ liệu' : 'Chưa kết nối Supabase'}</small>
+          <small>{!supabaseConfigured ? 'Chưa cấu hình Supabase' : session ? session.user.email : 'Chưa đăng nhập'}</small>
         </div>
-        <nav aria-label="Màn hình">
-          {SCREENS.map((s) => (
-            <button key={s.id} aria-pressed={s.id === screen} onClick={() => setScreen(s.id)}>
-              {s.label}
-            </button>
-          ))}
-        </nav>
+        {session && (
+          <nav aria-label="Màn hình">
+            {SCREENS.map((s) => (
+              <button key={s.id} aria-pressed={s.id === screen} onClick={() => setScreen(s.id)}>
+                {s.label}
+              </button>
+            ))}
+            <button className="ghost" onClick={() => supabase?.auth.signOut()}>Đăng xuất</button>
+          </nav>
+        )}
       </header>
       <main>
-        <h1>{current.label}</h1>
-        <p className="note">{current.note}</p>
-        <p className="todo">Màn hình này sẽ được dựng ở các bước tiếp theo của lộ trình (SPEC mục 9).</p>
+        {!supabaseConfigured ? (
+          <p className="todo">
+            App chưa có địa chỉ Supabase. Thêm secret <code>VITE_SUPABASE_URL</code> và <code>VITE_SUPABASE_ANON_KEY</code> trong GitHub rồi chạy lại workflow deploy.
+          </p>
+        ) : !ready ? (
+          <p className="note">Đang mở…</p>
+        ) : !session ? (
+          <Login />
+        ) : (
+          <>
+            <h1>{current.label}</h1>
+            <p className="note">{current.note}</p>
+            <p className="todo">Màn hình này sẽ được dựng ở các bước tiếp theo của lộ trình (SPEC mục 9).</p>
+          </>
+        )}
       </main>
     </div>
   )
