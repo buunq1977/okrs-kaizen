@@ -1,4 +1,4 @@
-# SPEC v3 (NHÁP, chờ Luca duyệt): OKR + Kaizen · Tầm nhìn → Năm → Quý → Tháng → Tuần → Ngày
+# SPEC v3 (NHÁP 2, chờ Luca duyệt): OKR + Kaizen · Tầm nhìn → Năm → Quý → Tháng → Tuần → Ngày
 
 > Thay cho `SPEC.md` (v1 + §17) và spec v2 của Luca (`docs/SPEC-v2-luca.md`) sau khi được duyệt.
 > Mọi ngưỡng ở §15 là **cài đặt**, không hard-code. Ngôn ngữ giao diện: tiếng Việt.
@@ -16,7 +16,7 @@
 | C4 | Bỏ cờ "KR liên quan O" trong ngày. KR nằm dưới O thì mặc nhiên phục vụ O. Việc nền để ở lịch cố định. | Bớt thao tác, bớt ô lý do. |
 | C5 | **Tuần có 3 KR + KA riêng** (giống Ngày). O ngày chọn phục vụ 1 KR hoặc 1 KA tuần. Bỏ "KR tuần = các O ngày". | Đi từ trên xuống. |
 | C6 | Tháng/Quý/Năm có **3 O cố định theo 3 mảng**: Công việc/Tài chính · Mối quan hệ · Thân–Tâm–Trí. KR: CV/TC ≥ 3, hai O còn lại 1–2. | Rõ ràng, không quá tải (tối thiểu 5 KR/cấp). |
-| C7 | Tháng/Quý/Năm **giữ quan sát → phân tích → nguyên nhân lõi** (Tham–Sân–Si), bỏ lịch cố định 1a và lưới lịch. Kaizen vẫn là **Kaizen số liệu**. | Theo yêu cầu Luca 04/11/2026. |
+| C7 | Tháng/Quý/Năm **giữ quan sát → phân tích → nguyên nhân lõi** (Tham–Sân–Si), bỏ lưới giờ. Thay bằng khối tuỳ chọn **"Sự kiện & mốc quan trọng"** (danh sách), tự hiện xuống Tuần/Ngày. Kaizen vẫn là **Kaizen số liệu**. | Không quên lịch hẹn/sự kiện lớn mà không phải giữ lưới trống. |
 | C8 | Lịch cố định: tách **Cố định** (không dời, tô vàng) và **Lặp lại** (ngày/thứ/ngày trong tháng). Mỗi ô giờ chứa **nhiều mục**. Mục lặp lại có thể **gắn KR tháng** để tự cộng số. | ★ trước đây mang 2 nghĩa. Đo O Mối quan hệ, O Thân–Tâm–Trí không cần nhập tay. |
 | C9 | Nhật ký Kaizen: dạng dòng **Giờ \| Đã làm gì \| Kết quả**, không chia buổi, tự điền từ lịch. | Xem lại việc đã làm trong ngày. |
 | C10 | Hiện **% O tuần, % 3 O tháng, % O năm** phía trên tiêu điểm Ngày/Tuần. Tuần có chart. | Luôn thấy cấp trên khi lập cấp dưới. |
@@ -25,6 +25,9 @@
 | C13 | **Mang sang tự động:** quan sát/nguyên nhân chưa xử lý, lịch lặp lại, dòng nhật ký. Mục tiêu: lập kế hoạch Ngày ≤ 15 phút. | Rủi ro lớn nhất là bỏ cuộc vì nghi thức quá dài. |
 | C14 | Nút **"Kiểm tra tiêu điểm"**: hỏi 6 tiêu chí kèm giải thích, có kiểm tự động. | Theo yêu cầu Luca. |
 | C15 | Kaizen tháng chỉ sửa kế hoạch tháng. **Kế hoạch năm chỉ sửa ở Quý.** | Xoá mâu thuẫn v2 §8.3 với §11.1. |
+| C17 | **Luật điều chỉnh kế hoạch phân loại** (§11.5): thêm/nâng tự do trong trần KR; hạ ≤ 1 lần/KR/quý, cấm nhóm (a); dừng ≤ 1 lần/quý; sửa ngoài buổi rà chờ 48 giờ; vượt giới hạn phải có mentor duyệt. | Linh hoạt khi có cơ hội thật, chặn hạ mục tiêu vì nản. |
+| C18 | **Kỳ khởi động 11–12/2026** theo cấu trúc Quý, vào chu kỳ năm chuẩn từ 1–5/1/2027. Lập kỳ ngoài cửa sổ rà vẫn được, ghi "lập muộn x ngày". | Không bỏ trống 2 tháng cuối năm. |
+| C19 | **OKR và Kaizen là 2 tab riêng** mỗi cấp, không chia đôi màn hình. Tab Kaizen có phần tóm tắt OKR chỉ đọc ở đầu. Tab mở sẵn: trước giờ nhắc → OKR, sau giờ nhắc → Kaizen; lập kế hoạch kỳ tới → OKR. | Dùng tốt trên điện thoại, vẫn đối chiếu được kế hoạch khi viết Kaizen. |
 | C16 | Lưu trữ: Supabase (đang chạy), không local-first. Giữ 2 cơ chế kỷ luật (tự khoá 22:00, khoá khi đỏ nhiều ngày) làm cài đặt. | Quyết định 03/11/2026. |
 
 ---
@@ -147,13 +150,23 @@ Dạng wizard: bước sau mở khi bước trước có nội dung tối thiể
 
 | Bước | Tên | Nội dung |
 |---|---|---|
-| 1 | **1a. Lịch cố định & cam kết** | Bảng giờ 04:30–22:30, 2 cột (Sáng / Chiều–Tối). Mỗi ô giờ chứa **nhiều mục**: nội dung · loại (Việc / Lời hứa / Lịch hẹn) · với ai · Check. Thuộc tính **Cố định** (tô vàng). Thuộc tính **Lặp lại**: hằng ngày / các thứ trong tuần / ngày X hằng tháng; ngày bắt đầu và kết thúc; sửa 1 lần hay cả chuỗi. Gắn KR tháng (tuỳ chọn). Có thêm danh sách **"Lời hứa chưa có giờ"**. |
+| 1 | **1a. Lịch cố định & cam kết** | Bảng giờ 04:30–22:30, 2 cột (Sáng / Chiều–Tối). Mỗi ô giờ chứa **nhiều mục**: nội dung · loại (Việc / Lời hứa / Lịch hẹn) · với ai · Check. Thuộc tính **Cố định** (tô vàng). Thuộc tính **Lặp lại**: hằng ngày / các thứ trong tuần / ngày X hằng tháng; ngày bắt đầu và kết thúc; sửa 1 lần hay cả chuỗi. Gắn KR tháng (tuỳ chọn). Có thêm danh sách **"Lời hứa chưa có giờ"**. Sự kiện & mốc từ Tháng/Quý/Năm rơi vào ngày này tự hiện (nhãn nguồn). Cách dùng 2 thuộc tính: xem §5.1. |
 | 2 | **1b. Quan sát** | 3 cột: CV/TC · MQH · TTT. Mỗi ý có ô **"Nếu không làm thì sao?"**, bỏ trống thì cảnh báo. **Mang sang:** ý chưa đóng của hôm qua/tuần này hiện sẵn, nhãn "từ hôm qua"; người dùng giữ, sửa hoặc đóng. |
 | 3 | **2. Phân tích** | Nhóm theo 3 mảng. Tô đậm việc đủ nhân duyên giải quyết trong ngày. |
 | 4 | **3. Nguyên nhân lõi** | Với từng việc tô đậm: Tham · Sân · Si + câu kiểm *"Giải quyết nguyên nhân này thì vấn đề có hết không?"*. Nhắc quy tắc dừng: tới nguyên nhân đổi được bằng 1 hành động cụ thể. |
 | 5 | **Tiêu điểm O** | 1 câu · số đo O · 6 tiêu chí + nút Kiểm tra · chọn **phục vụ KR/KA tuần**. Hiện lại nguyên nhân ở bước 4 để O xử lý gốc, không xử lý triệu chứng. |
 | 6 | **KR1–KR3** | Mặc định 3 KR, tối đa 4 (cài đặt). Mỗi KR: SMART, số đo. |
 | 7 | **KA dưới từng KR** | Mỗi KR là một khối riêng có danh sách KA của nó, thụt lề rõ. Tick hoàn thành. |
+
+### 5.1 Cố định và Lặp lại (2 công tắc độc lập)
+
+| | Không lặp | Lặp lại |
+|---|---|---|
+| **Không cố định** | Việc thường, dời được | Thói quen dời giờ được (VD đọc sách 20 phút) |
+| **Cố định (tô vàng)** | Lịch hẹn 1 lần không dời (VD hẹn khách 14:00 thứ Năm 13/11) | Lịch cứng hằng tuần (VD gọi Phonetem 09:30 T2–T6) |
+
+- Lặp lại: hằng ngày / các thứ trong tuần / ngày X hằng tháng, có ngày kết thúc. Sửa: hỏi "chỉ lần này" hay "cả chuỗi".
+- Gắn KR tháng: VD "Chạy bộ 5km 16:30, hằng ngày" gắn KR TTT "Chạy 20 buổi/tháng"; mỗi Check ở Ngày cộng +1 vào thực tế KR.
 
 ---
 
@@ -206,12 +219,14 @@ Cuối bản, chữ đỏ: *Bản Kaizen đã cụ thể chưa? Bạn hài lòng
 4. **3 O** theo 3 mảng, mỗi O có 6 tiêu chí.
 5. **KR số** (§4.3): CV/TC ≥ 3, MQH và TTT mỗi O 1–2. KA tuỳ chọn.
 6. **Kiểm chứng** (Tháng, Quý) bằng bảng số liệu.
+7. **Sự kiện & mốc quan trọng** (tuỳ chọn): danh sách {ngày, giờ (nếu có), tên, với ai, loại: lịch hẹn / deadline / sự kiện / lời hứa, gắn O}. Tự hiện xuống lưới Tuần và bảng giờ Ngày khi đến tuần/ngày đó.
 
-Không có lịch cố định 1a, không có lưới lịch, không có nhật ký. Kaizen dùng **Kaizen số liệu** (§11).
+Không có lưới giờ, không có nhật ký. Kaizen dùng **Kaizen số liệu** (§11).
 
 ### 8.2 Tầm nhìn (rà 1 lần/năm)
 - Bảng gồm: Năm thứ · Mục tiêu · **Điều kiện kiểm tra** (bắt buộc) · trạng thái hợp lệ.
 - Người dùng chọn **ngày bắt đầu Năm 1**.
+- **Kỳ khởi động:** nếu bắt đầu giữa năm (VD 04/11/2026), phần còn lại của năm là kỳ khởi động dùng cấu trúc Quý (3 O, KR số, dự án trọng tâm). Chu kỳ năm chuẩn bắt đầu từ cửa sổ 1–5/1 năm sau.
 
 | Năm | Mục tiêu (ví dụ người dùng nhập) | Điều kiện kiểm tra |
 |---|---|---|
@@ -350,6 +365,20 @@ Kết quả đưa vào 3 chỗ:
 - Nhóm (a) không được hạ, chỉ được chọn "Tăng nỗ lực".
 - Mọi lần hạ ghi vào lịch sử phiên bản. Dashboard hiện "đã hạ X lần".
 
+### 11.5 Luật điều chỉnh kế hoạch (mọi cấp có KR số; Ngày/Tuần dùng khoá kế hoạch §4.5)
+
+| Loại thay đổi | Khi nào | Điều kiện | Giới hạn mặc định |
+|---|---|---|---|
+| **Thêm KR / O** | Bất cứ lúc nào | Không vượt trần số KR (§15). Đủ trần thì phải Tạm dừng hoặc Dừng 1 KR khác | Theo trần |
+| **Nâng đích · Đổi cách làm** | Bất cứ lúc nào | Ghi lý do | Không giới hạn |
+| **Hạ đích · Cắt phạm vi** | Chỉ ở buổi rà (Tháng/Quý) | Nguyên nhân nhóm (b)/(c)/(d) + số liệu. Nhóm (a) chỉ được chọn "Tăng nỗ lực" | 1 lần / KR / quý |
+| **Dừng KR / O** | Chỉ ở buổi rà | Lý do + chọn KR thay thế hoặc ghi "không thay" | 1 lần / quý |
+| **Sửa ngoài buổi rà** | Bất cứ lúc nào | Thành **"đề xuất điều chỉnh"**, áp dụng sau 48 giờ. Nhóm (d) (sự kiện bên ngoài) áp dụng ngay | — |
+| **Vượt giới hạn** | — | Vẫn sửa được nhưng bắt buộc ghi tên mentor đã duyệt (kiểm chứng dưới lên) | Dashboard hiện "vượt giới hạn x lần" |
+
+- Mọi thay đổi tạo **phiên bản mới**, luôn so với bản gốc (Dashboard và trang kỳ hiện "bản gốc → hiện tại").
+- Kế hoạch năm chỉ sửa ở Quý (hoặc kỳ khởi động); kế hoạch tháng sửa ở Kaizen tháng hoặc qua đề xuất điều chỉnh.
+
 ---
 
 ## 12. Kiểm chứng 3 chiều (Tuần, Tháng, Quý)
@@ -377,6 +406,8 @@ Kết quả đưa vào 3 chỗ:
 | Năm | 1–5/1 | Nửa ngày | Rà Tầm nhìn, OKR năm |
 
 - Buổi rà Tháng/Quý là lịch cố định. Bỏ qua phải ghi lý do.
+- Lập kỳ ngoài cửa sổ rà vẫn được, app ghi "lập muộn x ngày".
+- Lần đầu dùng: kỳ khởi động 11–12/2026 (§8.2).
 - Lập OKR ngày mai khi chưa có Kaizen hôm nay → cảnh báo nhẹ.
 - Nhắc giờ bằng banner trong app + file lịch .ics cho từng kỳ (web app tĩnh không gửi được thông báo khi đang tắt).
 
@@ -395,7 +426,11 @@ Kết quả đưa vào 3 chỗ:
 9. **Lịch sử Kaizen:** tìm theo từ khoá đỏ, nhóm nguyên nhân, quyết định.
 10. **Cài đặt**
 
-Ngày/Tuần chia đôi: **Trái OKR, Phải Kaizen**. Ô tiêu đề vàng nhạt, ô điền trắng, mục cố định vàng đậm, dải **TIÊU ĐIỂM + % HOÀN THÀNH**, câu hỏi gợi ý hiện dạng placeholder/tooltip. Responsive cho điện thoại, lưu tự động, xuất PDF/Excel từng kỳ.
+Mỗi cấp có **2 tab OKR | Kaizen**, chuyển bằng 1 chạm, không chia đôi màn hình.
+- Tab Kaizen có phần đầu **tóm tắt OKR chỉ đọc** (O, KR, %, KA đã tick).
+- Tab mở sẵn: trước giờ nhắc → OKR; sau giờ nhắc → Kaizen; lập kế hoạch kỳ tới → OKR. Tháng/Quý/Năm: trong cửa sổ rà → Kaizen, ngoài cửa sổ → OKR.
+
+Ô tiêu đề vàng nhạt, ô điền trắng, mục cố định vàng đậm, dải **TIÊU ĐIỂM + % HOÀN THÀNH**, câu hỏi gợi ý hiện dạng placeholder/tooltip. Responsive cho điện thoại, lưu tự động, xuất PDF/Excel từng kỳ.
 
 ---
 
@@ -418,6 +453,11 @@ Ngày/Tuần chia đôi: **Trái OKR, Phải Kaizen**. Ô tiêu đề vàng nh�
 | Khung giờ Ngày, độ dài ô | 04:30–22:30, 30 phút |
 | Tối đa hành động Kaizen/ngày (khuyến nghị) | 3 |
 | Tỷ giá | Nhập tay |
+| Trần số KR đang mở (Tháng/Quý/Năm, mỗi cấp) | 7 |
+| Hạ đích tối đa | 1 lần / KR / quý |
+| Dừng KR/O tối đa | 1 lần / quý |
+| Thời gian chờ đề xuất điều chỉnh | 48 giờ |
+| Tab mở sẵn | Theo giờ nhắc |
 
 ---
 
@@ -435,6 +475,8 @@ Ngày/Tuần chia đôi: **Trái OKR, Phải Kaizen**. Ô tiêu đề vàng nh�
 | `income_models` (mới) | Theo §9.1, `stages jsonb`, `unknown jsonb` |
 | `vision_items` (mới) | `year_no, start_date, goal, verification` |
 | `visions`, `goals`, `metrics` | **Bỏ** (C12). Nếu đã có dữ liệu thì xuất JSON trước khi xoá. |
+| `events` (mới) | Sự kiện & mốc Tháng/Quý/Năm: `period_id, date, time?, title, people, kind, objective_id?` |
+| `plan_changes` (mới) | `kr_id/objective_id, type (add / raise / method / lower / cut / stop), reason, cause_group?, evidence, mentor?, status (pending / applied), apply_at, version_id` |
 | `settings` | Thêm các mục §15 |
 
 Mọi bảng bật RLS và cấp quyền `authenticated`.
@@ -489,3 +531,5 @@ Mỗi giai đoạn dừng cho Luca dùng thử.
 | Q6 | Kế hoạch cộng dồn trong tuần | Nội suy tuyến tính |
 | Q7 | Tuần cắt ngang 2 tháng thuộc tháng nào? | Theo ngày thứ Năm của tuần |
 | Q8 | Dữ liệu ở màn Mục tiêu ưu tiên hiện tại | Xuất JSON rồi chuyển tay sang Tầm nhìn/Năm |
+| Q9 | Trần số KR đang mở mỗi cấp Tháng+ | 7 (3 CV/TC + 2 + 2) |
+| Q10 | Đề xuất điều chỉnh có huỷ được trong 48 giờ không? | Có, huỷ không tính vào giới hạn |
