@@ -93,6 +93,9 @@ function Frame({ children, sub }: { children: ReactNode; sub?: string }) {
   )
 }
 
+/** Ngày ≤ hôm nay → tab Hôm nay; ngày ≥ ngày mai → tab Ngày mai. */
+const dayScreen = (d: string): Screen => (d > today() ? 'plan' : 'today')
+
 function Main({ session }: { session: Session }) {
   const uid = session.user.id
   const [screen, setScreen] = useState<Screen>('today')
@@ -117,12 +120,19 @@ function Main({ session }: { session: Session }) {
   }, [uid, attempt])
 
   const go = useCallback((s: string, d?: string) => {
-    setScreen((s === 'day' ? 'today' : s) as Screen)
+    setScreen((s === 'day' || s === 'today' || s === 'plan' ? dayScreen(d ?? today()) : s) as Screen)
     if (d) setDate(d)
     window.scrollTo(0, 0)
   }, [])
 
   const ctx = useMemo<AppCtx | null>(() => (settings ? { uid, settings, setSettings, toast, go } : null), [uid, settings, toast, go])
+
+  /** Đổi ngày ở trang Ngày: tự chuyển tab Hôm nay ↔ Ngày mai theo ngày đích. */
+  const setDayDate = useCallback((d: string) => {
+    setDate(d)
+    setScreen(dayScreen(d))
+    window.scrollTo(0, 0)
+  }, [])
 
   const moreRef = useRef<HTMLDetailsElement>(null)
   function open(s: Screen) {
@@ -165,8 +175,8 @@ function Main({ session }: { session: Session }) {
           <p className="note">Đang tải cài đặt…</p>
         ) : (
           <Ctx.Provider value={ctx}>
-            {screen === 'today' && <Day key={'d' + date} date={date} setDate={setDate} mode="today" />}
-            {screen === 'plan' && <Day key={'p' + date} date={date} setDate={setDate} mode="plan" />}
+            {screen === 'today' && <Day key={'d' + date} date={date} setDate={setDayDate} mode="today" />}
+            {screen === 'plan' && <Day key={'p' + date} date={date} setDate={setDayDate} mode="plan" />}
             {screen === 'week' && <Week key={'w' + date} date={date} setDate={setDate} />}
             {screen === 'dash' && <Dashboard />}
             {screen === 'month' && <Long kind="month" date={date} setDate={setDate} />}
