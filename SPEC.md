@@ -1,16 +1,50 @@
-# SPEC: Ứng dụng quản lý OKR + Kaizen (Ngày – Tuần – Tháng – Năm)
+# SPEC v3: OKR + Kaizen · Tầm nhìn → Năm → Quý → Tháng → Tuần → Ngày
 
-> Tài liệu này dùng để giao cho Claude xây dựng ứng dụng. Phần **§12 Điểm chưa chốt** ghi các giả định mặc định. Claude làm theo giả định đó và làm thành **cài đặt có thể đổi**, không hard-code.
+> **Đã chốt ngày 04/11/2026.** Thay cho spec v1 (`docs/SPEC-v1.md`) và spec v2 của Luca (`docs/SPEC-v2-luca.md`).
+> Mọi ngưỡng ở §15 là **cài đặt**, không hard-code. Ngôn ngữ giao diện: tiếng Việt.
+> Ký hiệu: **[Mặc định]** = giá trị Claude đề xuất, Luca đã duyệt, đổi được.
 
 ---
 
-## 1. Mục đích
+## 0. Thay đổi so với v2
 
-Ứng dụng giúp một người lập kế hoạch và đánh giá theo vòng lặp **OKR (lập kế hoạch, thực thi) → KAIZEN (đo lường, cải tiến)**, ở 4 cấp thời gian: **Ngày, Tuần, Tháng, Năm**. Mỗi cấp liên kết với cấp trên, tick xong việc nhỏ thì % cấp lớn tự cập nhật.
+| # | Thay đổi | Lý do |
+|---|---|---|
+| C1 | Ngày/Tuần: **O → 3 KR → KA**. Tháng/Quý/Năm: **O → KR**, KA tuỳ chọn. | Cấp dài đo bằng số, không cần liệt kê hành động. |
+| C2 | **Bỏ quy tắc 60%** và cảnh báo đỏ. Thay bằng chỉ số thông tin **"Mức tập trung"** (x/7 ngày phục vụ O tuần). | KR/KA xong chưa chắc O đạt; ép tỉ lệ không giải quyết được điều đó. |
+| C3 | Thêm **% O thực tế** (đo trực tiếp O ở Kaizen) bên cạnh **% thực thi** (từ KR/KA). Lệch lớn → gợi ý "KR chọn chưa trúng O". | Sửa đúng gốc của vấn đề ở C2. |
+| C4 | Bỏ cờ "KR liên quan O" trong ngày. KR nằm dưới O thì mặc nhiên phục vụ O. Việc nền để ở lịch cố định. | Bớt thao tác, bớt ô lý do. |
+| C5 | **Tuần có 3 KR + KA riêng** (giống Ngày). O ngày chọn phục vụ 1 KR hoặc 1 KA tuần. Bỏ "KR tuần = các O ngày". | Đi từ trên xuống. |
+| C6 | Tháng/Quý/Năm có **3 O cố định theo 3 mảng**: Công việc/Tài chính · Mối quan hệ · Thân–Tâm–Trí. KR: CV/TC ≥ 3, hai O còn lại 1–2. | Rõ ràng, không quá tải (tối thiểu 5 KR/cấp). |
+| C7 | Tháng/Quý/Năm **giữ quan sát → phân tích → nguyên nhân lõi** (Tham–Sân–Si), bỏ lưới giờ. Thay bằng khối tuỳ chọn **"Sự kiện & mốc quan trọng"** (danh sách), tự hiện xuống Tuần/Ngày. Kaizen vẫn là **Kaizen số liệu**. | Không quên lịch hẹn/sự kiện lớn mà không phải giữ lưới trống. |
+| C8 | Lịch cố định: tách **Cố định** (không dời, tô vàng) và **Lặp lại** (ngày/thứ/ngày trong tháng). Mỗi ô giờ chứa **nhiều mục**. Mục lặp lại có thể **gắn KR tháng** để tự cộng số. | ★ trước đây mang 2 nghĩa. Đo O Mối quan hệ, O Thân–Tâm–Trí không cần nhập tay. |
+| C9 | Nhật ký Kaizen: dạng dòng **Giờ \| Đã làm gì \| Kết quả**, không chia buổi, tự điền từ lịch. | Xem lại việc đã làm trong ngày. |
+| C10 | Hiện **% O tuần, % 3 O tháng, % O năm** phía trên tiêu điểm Ngày/Tuần. Tuần có chart. | Luôn thấy cấp trên khi lập cấp dưới. |
+| C11 | Mô hình thu nhập dùng **phễu tự cấu hình** (n bước). | Phễu cố định gọi → hẹn → vào hệ thống không dùng được cho nguồn thu khác. |
+| C12 | Bỏ màn "Mục tiêu ưu tiên (≤ 5)". **Tầm nhìn + 3 O năm** là nguồn sự thật duy nhất. | Trùng vai. |
+| C13 | **Mang sang tự động:** quan sát/nguyên nhân chưa xử lý, lịch lặp lại, dòng nhật ký. Mục tiêu: lập kế hoạch Ngày ≤ 15 phút. | Rủi ro lớn nhất là bỏ cuộc vì nghi thức quá dài. |
+| C14 | Nút **"Kiểm tra tiêu điểm"**: hỏi 6 tiêu chí kèm giải thích, có kiểm tự động. | Theo yêu cầu Luca. |
+| C15 | Kaizen tháng chỉ sửa kế hoạch tháng. **Kế hoạch năm chỉ sửa ở Quý.** | Xoá mâu thuẫn v2 §8.3 với §11.1. |
+| C17 | **Luật điều chỉnh kế hoạch phân loại** (§11.5): thêm/nâng tự do trong trần KR; hạ ≤ 1 lần/KR/quý, cấm nhóm (a); dừng ≤ 1 lần/quý; sửa ngoài buổi rà chờ 48 giờ; vượt giới hạn phải có mentor duyệt. | Linh hoạt khi có cơ hội thật, chặn hạ mục tiêu vì nản. |
+| C18 | **Kỳ khởi động 11–12/2026** theo cấu trúc Quý, vào chu kỳ năm chuẩn từ 1–5/1/2027. Lập kỳ ngoài cửa sổ rà vẫn được, ghi "lập muộn x ngày". | Không bỏ trống 2 tháng cuối năm. |
+| C19 | **OKR và Kaizen là 2 tab riêng** mỗi cấp, không chia đôi màn hình. Tab Kaizen có phần tóm tắt OKR chỉ đọc ở đầu. Tab mở sẵn: trước giờ nhắc → OKR, sau giờ nhắc → Kaizen; lập kế hoạch kỳ tới → OKR. | Dùng tốt trên điện thoại, vẫn đối chiếu được kế hoạch khi viết Kaizen. |
+| C20 | **Nhắc trước giờ chốt 60–90 phút** (mặc định 90 phút: chốt 22:00 → nhắc 20:30). Giờ nhắc tính từ giờ chốt, không đặt riêng. | Đủ thời gian làm Kaizen + OKR trước khi kế hoạch tự khoá. |
+| C16 | Lưu trữ: Supabase (đang chạy), không local-first. Giữ 2 cơ chế kỷ luật (tự khoá 22:00, khoá khi đỏ nhiều ngày) làm cài đặt. | Quyết định 03/11/2026. |
 
-Ứng dụng phải **ép đúng quy trình** (từng bước, từng tiêu chí kiểm tra), không chỉ là bảng ghi chú.
+---
 
-Ngôn ngữ giao diện: **tiếng Việt**.
+## 1. Mục đích và nguyên tắc
+
+Đi từ **tầm nhìn dài hạn** xuống **việc hôm nay**, và đo ngược từ hôm nay lên tầm nhìn.
+
+- **Vòng ngắn (Ngày, Tuần):** OKR hoạt động + Kaizen nhật ký/nguyên nhân. Mục đích: kỷ luật hằng ngày.
+- **Vòng dài (Tháng, Quý, Năm, Tầm nhìn):** OKR bằng số + Kaizen số liệu. Mục đích: kiểm soát tiến độ, chống trì hoãn.
+
+Nguyên tắc:
+1. **Từ trên xuống:** lập Tầm nhìn → Năm → Quý → Tháng → Tuần → Ngày. Cấp dưới chọn phục vụ cấp trên. Không cộng ngược cứng nhắc từ dưới lên.
+2. **Ép đúng quy trình** bằng thứ tự bước và tiêu chí kiểm tra, không chỉ là sổ ghi chú.
+3. **Gợi ý thay vì cấm** ở các liên kết giữa cấp. **Chặn** chỉ ở "Chốt kế hoạch" khi thiếu ô bắt buộc (cho bỏ qua kèm lý do).
+4. **Ít nhập lại:** cái gì đã có thì mang sang, người dùng chỉ sửa.
 
 ---
 
@@ -18,320 +52,485 @@ Ngôn ngữ giao diện: **tiếng Việt**.
 
 | Thuật ngữ | Nghĩa |
 |---|---|
-| **O (Objective) / Tiêu điểm** | Mục tiêu chính của một kỳ (1 ngày, 1 tuần, 1 tháng, 1 năm). Mỗi kỳ có đúng 1 O. |
-| **KR (Key Result)** | Kết quả then chốt. Cần các KR hoàn thành thì O mới hoàn thành. |
-| **KA (Key Action)** | Hành động cụ thể, có ô tick. KA xong thì KR tiến lên, đủ KA thì KR xong. |
-| **SMART** | S: tất cả đều hiểu. M: đo lường được. A: khả thi. R: quan trọng nhất. T: thời gian rõ ràng. |
-| **Kaizen** | Cải tiến liên tục: đo lường → nguyên nhân → bài học → hành động tiếp theo. |
-| **Tô đậm (highlight)** | Đánh dấu việc/nguyên nhân/từ khóa được chọn. Từ khóa nguyên nhân hiển thị **màu đỏ**. |
+| **O / Tiêu điểm** | Mục tiêu chính của kỳ. Ngày, Tuần: 1 O. Tháng, Quý, Năm: 3 O theo 3 mảng. |
+| **KR** | Ngày/Tuần: hạng mục để hoàn thành O (đo bằng tick KA). Tháng+: **con số** Từ → Đến, Hạn, Nguồn đo. |
+| **KA** | Hành động cụ thể, bắt đầu bằng động từ, có ô tick. Luôn là cấp dưới của **một** KR. |
+| **3 mảng** | Công việc/Tài chính (CV/TC) · Mối quan hệ (MQH) · Thân–Tâm–Trí (TTT). |
+| **% thực thi** | % tính từ KA/KR đã tick. |
+| **% O thực tế** | Mức đạt của chính O, đo trực tiếp ở bước Đo lường của Kaizen. |
+| **Mức tập trung** | Số ngày trong tuần có O ngày phục vụ O tuần. Chỉ là thông tin. |
+| **Chỉ số kết quả / dẫn trước** | Lagging (cái muốn đạt) / leading (việc làm hằng ngày dẫn tới kết quả). |
+| **Nhịp độ chia ngược** | Từ đích tính ra việc phải làm mỗi tuần/ngày (§9). |
+| **Kế hoạch cộng dồn** | Số lẽ ra phải đạt tính đến hôm nay. |
+| **Tình trạng (TT)** | Thực tế cộng dồn / kế hoạch cộng dồn đến hôm nay. |
+| **Phiên bản kế hoạch** | Bản gốc và các bản điều chỉnh, luôn so với bản gốc. |
+| **Mục cố định** | Lịch không dời được, tô vàng. |
+| **Mục lặp lại** | Lịch tự xuất hiện theo chu kỳ (ngày / thứ trong tuần / ngày trong tháng). |
 
 ---
 
-## 3. Chuỗi liên kết các cấp
+## 3. Chuỗi các cấp và liên kết
 
 ```
-NĂM     O năm
-         └─ KR năm = các O THÁNG
-THÁNG   O tháng
-         └─ KR tháng = các O TUẦN (4–5 tuần)
-TUẦN    O tuần
-         └─ KR tuần = các O NGÀY (7 ngày)
-NGÀY    O ngày
-         └─ 3 KR ngày (tối thiểu 3)
-              └─ nhiều KA (hành động cụ thể, có ô tick)
+TẦM NHÌN (3–10 năm)   mục tiêu theo năm + điều kiện kiểm tra
+  └─ NĂM      3 O (CV/TC, MQH, TTT) · KR số (CV/TC ≥ 3, MQH/TTT 1–2) · mỗi KR chia 4 mốc quý
+      └─ QUÝ  3 O · KR lấy từ mốc quý · 1–2 dự án trọng tâm · nơi DUY NHẤT sửa kế hoạch năm
+          └─ THÁNG  3 O · KR số (KR CV/TC có 4 phần §8.4) · KA tuỳ chọn
+              └─ TUẦN   1 O → 3 KR → KA · O tuần ghi "đóng góp vào KR tháng" + chỉ tiêu tuần
+                  └─ NGÀY   1 O → 3 KR → KA · O ngày chọn phục vụ 1 KR hoặc 1 KA tuần
 ```
 
-**Nguyên tắc: O của kỳ nhỏ là KR của kỳ lớn.** KA xong → KR xong → O xong → lên cấp trên.
+### 3.1 Kiểu liên kết
 
-### Quy tắc mức liên quan (bắt buộc kiểm tra)
-
-| Cấp | Quy tắc | Mức mặc định |
+| Liên kết | Cách làm | Bắt buộc? |
 |---|---|---|
-| Ngày | Số KR (trong 3 KR ngày) liên quan trực tiếp O ngày | **≥ 1 KR** (cảnh báo nếu chỉ có 1, gợi ý ≥ 2) |
-| Tuần | Tỷ lệ O ngày liên quan O tuần | **≥ 60%** (7 ngày → tối thiểu 5 ngày) |
-| Tháng | Tỷ lệ O tuần liên quan O tháng | **≥ 60%** (4–5 tuần → tối thiểu 3 tuần) |
-| Năm | Tỷ lệ O tháng liên quan O năm | **≥ 60%** (12 tháng → tối thiểu 8 tháng) (giả định) |
+| **Ngày → Tuần** | O ngày chọn **"phục vụ"** 1 KR hoặc 1 KA của tuần (chọn từ danh sách). Gắn vào KA thì KA tuần **tự tick** khi % O ngày đạt ngưỡng đạt (mặc định 80%), sửa tay được. | Khuyến nghị. Hiện **Mức tập trung x/7**, không cảnh báo đỏ. |
+| **Tuần → Tháng** | O tuần ghi: **đóng góp vào KR tháng nào** + **chỉ tiêu tuần** (gợi ý sẵn từ kế hoạch cộng dồn/nhịp độ). Kaizen tuần ghi **thực tế tuần**, cộng vào KR tháng nếu bật liên kết. | Khuyến nghị. |
+| **Lịch lặp lại → KR tháng** | Mục lặp lại (VD "Chạy bộ 5km") gắn 1 KR tháng (thường MQH/TTT). Mỗi lần Check ở Ngày cộng giá trị (mặc định +1) vào thực tế KR. | Tuỳ chọn. |
+| **Tháng → Quý → Năm → Tầm nhìn** | KR tháng là phân kỳ của KR quý, KR quý là mốc của KR năm (`parent_kr_id`). % tính từ số thực tế, **không lấy trung bình từ cấp dưới**. | Khi lập Tháng, KR CV/TC nên có cha là KR quý. |
 
-- Phần ngưỡng là **cài đặt**, người dùng sửa được.
-- Phần ≤ 40% còn lại là việc nền, việc phát sinh, việc cá nhân.
-- **"Liên quan"** được đánh dấu thủ công bằng cờ `is_linked_to_parent` khi tạo/sửa, kèm **1 ô lý do bắt buộc**: *"Khi mục này đạt, O cấp trên tiến lên như thế nào, đo bằng gì?"*. Không có lý do thì không cho đánh dấu.
-- Không chặn lưu khi chưa đủ ngưỡng. **Hiện cảnh báo đỏ** ở đầu trang và ở bảng tổng quan.
+- **Tuần thuộc tháng** theo ngày thứ Năm của tuần (chuẩn ISO). **[Mặc định]**
+- Không có quy tắc 60%, không có cờ "KR liên quan O" ở Ngày.
 
 ---
 
 ## 4. Tiêu chí kiểm tra
 
-### 4.1 Tiêu điểm (O): 6 ô tick
+### 4.1 Tiêu điểm O (mọi cấp): 6 tiêu chí + nút "Kiểm tra tiêu điểm"
 
-| Ô | Câu hỏi |
+| Ô | Câu hỏi | Kiểm tự động |
+|---|---|---|
+| S | Tất cả đều hiểu? | Không |
+| M | Đo lường được? | Tick M bắt buộc có **số đo O** (ô riêng). Thiếu thì cảnh báo, không cho tick khi bấm "Kiểm tra". |
+| A | Khả thi? | Ngày: nhắc nếu lịch cố định đã kín > 80% khung giờ. **[Mặc định]** |
+| R | Quan trọng nhất? | Nhãn gợi ý: "Quan trọng nhất trong các việc làm được kỳ này để đạt O cấp trên". |
+| T | Thời gian rõ ràng? | Ngày/Tuần: mặc định hết kỳ. Tháng+: lấy theo hạn KR. |
+| KR→O | Các KR đạt thì O có đạt không? | Chỉ tick được khi đã có đủ số KR tối thiểu. |
+
+Nút **"Kiểm tra tiêu điểm"** mở lần lượt 6 câu, mỗi câu có giải thích ngắn và 1 ví dụ đúng/sai. Tick xong thì đóng.
+
+### 4.2 KR Ngày/Tuần
+- 5 ô S-M-A-R-T cho từng KR. Tick M thì phải có số đo.
+- Câu kiểm cuối khối: *"Hoàn thành các KA này thì KR có đạt không? Còn làm gì nữa để KR đạt trọn vẹn?"* kèm nút **+ Thêm KA**.
+- Gợi ý (không chặn): KR bắt đầu bằng động từ hành động → nhắc viết lại thành kết quả.
+
+### 4.3 KR Tháng/Quý/Năm (mẫu số)
+
+```
+Từ [hiện tại] → [đích] trước [ngày] · Nguồn đo: [nguồn]
+```
+
+Thiếu bất kỳ trường nào thì **không cho chốt**. 3 câu kiểm:
+1. Có con số (bắt đầu và đích) không?
+2. Có hạn và nguồn đo không?
+3. Nếu tất cả KR của O đạt thì O có đạt không?
+
+### 4.4 Tầm nhìn
+Mỗi mục tiêu năm phải có **Điều kiện kiểm tra** (kiểm chứng được). Chưa điền thì hiện **"chưa hợp lệ"**. App không tự đặt con số.
+
+### 4.5 Chốt kế hoạch
+
+| Cấp | Điều kiện bật nút Chốt |
 |---|---|
-| S | Tất cả đều hiểu? |
-| M | Đo lường được? |
-| A | Khả thi? |
-| R | Quan trọng nhất? |
-| T | Thời gian rõ ràng? |
-| **KR→O** | **Các KR đạt thì O có đạt không?** |
+| Ngày, Tuần | O đủ 6 tiêu chí · ≥ 3 KR (tối đa 4) · mỗi KR đủ 5 SMART |
+| Tháng, Quý, Năm | Đủ 3 O · O CV/TC ≥ 3 KR, O MQH và O TTT mỗi O ≥ 1 KR · mọi KR đủ Từ–Đến–Hạn–Nguồn · cảnh báo công suất (§9) đã có KR đội ngũ |
 
-### 4.2 KR: 5 ô tick + 1 câu hỏi kiểm
+Chưa đủ vẫn chốt được nếu **ghi lý do**.
 
-- 5 ô S-M-A-R-T cho **từng KR**.
-- Dòng kiểm ở cuối mỗi khối KR: *"Hoàn thành các KA này thì KR có đạt không? Còn có thể làm gì nữa để KR đạt trọn vẹn?"* → có nút **"+ Thêm KA"** ngay tại đó.
-
-### 4.3 KA
-Chỉ cần ô tick hoàn thành. Nội dung viết bằng **động từ**, cụ thể, ai cũng làm theo được (vd: "Đăng ký 5 data").
-
-### 4.4 Quy tắc ứng dụng thực thi
-- **Gợi ý cho M:** khi tick M, nhắc nhập **con số/dấu hiệu đo** vào một ô riêng (`metric`). Không có thì cảnh báo "M chưa có số đo".
-- **Chặn "Chốt kế hoạch":** chỉ cho nút "Chốt" (khóa kế hoạch kỳ) khi O đủ 6 ô tick, mỗi KR đủ 5 ô tick, và có ≥ 3 KR (ngày). Cho phép bỏ qua có ghi lý do.
-- Mỗi KR nên là **kết quả đo được**, KA mới là hành động. Hiện gợi ý nhẹ nếu KR bắt đầu bằng động từ hành động (không chặn).
+**Kỷ luật (cài đặt, mặc định bật):**
+- Kế hoạch ngày D tự khoá lúc 22:00 ngày D-1. Sửa sau giờ khoá phải ghi lý do.
+- Đỏ 2 ngày làm việc liền (% O ngày < ngưỡng đỏ hoặc không lập O) mà chưa viết Bài học → không thêm KR/KA mới cho đến khi viết.
 
 ---
 
-## 5. Quy trình lập OKR (7 bước, theo đúng thứ tự)
+## 5. OKR Ngày (7 bước)
 
-Giao diện dạng **wizard từng bước**, bước sau mở khi bước trước đủ nội dung tối thiểu. Áp dụng giống nhau cho Ngày, Tuần, Tháng.
+Dạng wizard: bước sau mở khi bước trước có nội dung tối thiểu.
 
-| Bước | Tên | Việc phải làm | Dữ liệu |
+**Dải cấp trên** (hiện trước bước 5): % O tuần · % 3 O tháng (O CV/TC nổi bật, kèm Tình trạng) · % O năm.
+
+| Bước | Tên | Nội dung |
+|---|---|---|
+| 1 | **1a. Lịch cố định & cam kết** | Bảng giờ 04:30–22:30, 2 cột (Sáng / Chiều–Tối). Mỗi ô giờ chứa **nhiều mục**: nội dung · loại (Việc / Lời hứa / Lịch hẹn) · với ai · Check. Thuộc tính **Cố định** (tô vàng). Thuộc tính **Lặp lại**: hằng ngày / các thứ trong tuần / ngày X hằng tháng; ngày bắt đầu và kết thúc; sửa 1 lần hay cả chuỗi. Gắn KR tháng (tuỳ chọn). Có thêm danh sách **"Lời hứa chưa có giờ"**. Sự kiện & mốc từ Tháng/Quý/Năm rơi vào ngày này tự hiện (nhãn nguồn). Cách dùng 2 thuộc tính: xem §5.1. |
+| 2 | **1b. Quan sát** | 3 cột: CV/TC · MQH · TTT. Mỗi ý có ô **"Nếu không làm thì sao?"**, bỏ trống thì cảnh báo. **Mang sang:** ý chưa đóng của hôm qua/tuần này hiện sẵn, nhãn "từ hôm qua"; người dùng giữ, sửa hoặc đóng. |
+| 3 | **2. Phân tích** | Nhóm theo 3 mảng. Tô đậm việc đủ nhân duyên giải quyết trong ngày. |
+| 4 | **3. Nguyên nhân lõi** | Với từng việc tô đậm: Tham · Sân · Si + câu kiểm *"Giải quyết nguyên nhân này thì vấn đề có hết không?"*. Nhắc quy tắc dừng: tới nguyên nhân đổi được bằng 1 hành động cụ thể. |
+| 5 | **Tiêu điểm O** | 1 câu · số đo O · 6 tiêu chí + nút Kiểm tra · chọn **phục vụ KR/KA tuần**. Hiện lại nguyên nhân ở bước 4 để O xử lý gốc, không xử lý triệu chứng. |
+| 6 | **KR1–KR3** | Mặc định 3 KR, tối đa 4 (cài đặt). Mỗi KR: SMART, số đo. |
+| 7 | **KA dưới từng KR** | Mỗi KR là một khối riêng có danh sách KA của nó, thụt lề rõ. Tick hoàn thành. |
+
+### 5.1 Cố định và Lặp lại (2 công tắc độc lập)
+
+| | Không lặp | Lặp lại |
+|---|---|---|
+| **Không cố định** | Việc thường, dời được | Thói quen dời giờ được (VD đọc sách 20 phút) |
+| **Cố định (tô vàng)** | Lịch hẹn 1 lần không dời (VD hẹn khách 14:00 thứ Năm 13/11) | Lịch cứng hằng tuần (VD gọi Phonetem 09:30 T2–T6) |
+
+- Lặp lại: hằng ngày / các thứ trong tuần / ngày X hằng tháng, có ngày kết thúc. Sửa: hỏi "chỉ lần này" hay "cả chuỗi".
+- Gắn KR tháng: VD "Chạy bộ 5km 16:30, hằng ngày" gắn KR TTT "Chạy 20 buổi/tháng"; mỗi Check ở Ngày cộng +1 vào thực tế KR.
+
+---
+
+## 6. Kaizen Ngày (4 bước)
+
+| Bước | Tên | Nội dung |
+|---|---|---|
+| 1 | **Đo lường** | **% thực thi** lấy tự động từ KR/KA. **O đạt thực tế:** nhập số đo O thực tế (nếu O có số), hoặc chọn Đạt / Một phần / Chưa đạt (= 100 / 50 / 0). Lệch ≥ 30 điểm giữa 2 số → gợi ý từ khoá "KR chọn chưa trúng O" ở bước 2b. **[Mặc định: 30 điểm]** Ô đánh giá ngắn. |
+| 2a | **Nhật ký** | Bảng dòng **Giờ \| Đã làm gì \| Kết quả**, không chia buổi. Tự điền sẵn dòng từ lịch giờ và KA đã tick, người dùng ghi Kết quả và thêm dòng. Chỉ ghi sự thật, có giờ và số liệu. |
+| 2b | **Nguyên nhân % tiêu điểm** | Nguyên nhân của cả thành công lẫn thất bại, tới tận cùng, dừng ở nguyên nhân đổi được bằng 1 hành động. Bôi đỏ từ khoá. |
+| 3 | **Bài học** | Mỗi bài học gắn 1 từ khoá đỏ, có ô "Dấu hiệu nhận biết". |
+| 4 | **Hành động tiếp theo** | SMART + tiêu chí 6 "Đưa được vào OKR kỳ tới". Nút **Chuyển thành KR/KA ngày mai** (bản nháp). Khuyến nghị tối đa 3/ngày. |
+
+Cuối bản, chữ đỏ: *Bản Kaizen đã cụ thể chưa? Bạn hài lòng chưa? Chưa thì chỗ nào? Ai có thể giúp? Liên hệ tham vấn ngay.* Kèm ô ghi tên người.
+
+**% dùng cho màu và chuỗi đỏ:** dùng % O thực tế nếu đã nhập, chưa nhập thì dùng % thực thi.
+
+---
+
+## 7. OKR Tuần + Kaizen Tuần
+
+**OKR Tuần** dùng cùng 7 bước như Ngày, khác ở các điểm sau:
+- **Dải cấp trên + chart** (trước bước 5):
+  - % 3 O tháng và % O năm.
+  - Chart cột: % các tuần trong tháng.
+  - Chart đường: kế hoạch cộng dồn so với thực tế của KR CV/TC tháng.
+- **1a:** lưới T2 → CN × Sáng/Chiều/Tối. Tự hiện mục cố định và mục lặp lại của các ngày.
+- **O tuần:** 6 tiêu chí + **đóng góp vào KR tháng nào + chỉ tiêu tuần** (gợi ý sẵn).
+- **3 KR → KA** riêng của tuần. KR/KA tuần là thứ O ngày chọn để phục vụ.
+- **Kiểm chứng 3 chiều** (§12).
+- **Mức tập trung x/7**: hiện như thông tin.
+
+**Kaizen Tuần** dùng cùng 4 bước như Ngày, khác ở các điểm sau:
+- Đo lường: % thực thi tuần (trung bình KR tuần) + O tuần thực tế + **thực tế đóng góp KR tháng** (số).
+- Nhật ký: dòng **Ngày \| Đã làm gì \| Kết quả**, tự điền từ O và % từng ngày.
+- Nguyên nhân: gợi ý sẵn **từ khoá đỏ lặp lại nhiều nhất** trong tuần và bài học trùng. Người dùng chỉnh lại, không nhập từ đầu.
+- Hành động chuyển vào KR/KA tuần sau.
+- Nếu luật kích hoạt (§11.3) đang bật cho KR tháng: bắt buộc chọn quyết định ngay trong Kaizen tuần.
+
+**Chu kỳ:** Chủ nhật hoặc thứ Hai.
+
+---
+
+## 8. OKR Tháng, Quý, Năm, Tầm nhìn
+
+### 8.1 Quy trình chung (Tháng, Quý, Năm)
+1. **Quan sát** 3 mảng, mỗi ý có "Nếu không làm thì sao?". Mang sang từ kỳ trước.
+2. **Phân tích**: tô đậm.
+3. **Nguyên nhân lõi**: Tham–Sân–Si.
+4. **3 O** theo 3 mảng, mỗi O có 6 tiêu chí.
+5. **KR số** (§4.3): CV/TC ≥ 3, MQH và TTT mỗi O 1–2. KA tuỳ chọn.
+6. **Kiểm chứng** (Tháng, Quý) bằng bảng số liệu.
+7. **Sự kiện & mốc quan trọng** (tuỳ chọn): danh sách {ngày, giờ (nếu có), tên, với ai, loại: lịch hẹn / deadline / sự kiện / lời hứa, gắn O}. Tự hiện xuống lưới Tuần và bảng giờ Ngày khi đến tuần/ngày đó.
+
+Không có lưới giờ, không có nhật ký. Kaizen dùng **Kaizen số liệu** (§11).
+
+### 8.2 Tầm nhìn (rà 1 lần/năm)
+- Bảng gồm: Năm thứ · Mục tiêu · **Điều kiện kiểm tra** (bắt buộc) · trạng thái hợp lệ.
+- Người dùng chọn **ngày bắt đầu Năm 1**.
+- **Kỳ khởi động:** nếu bắt đầu giữa năm (VD 04/11/2026), phần còn lại của năm là kỳ khởi động dùng cấu trúc Quý (3 O, KR số, dự án trọng tâm). Chu kỳ năm chuẩn bắt đầu từ cửa sổ 1–5/1 năm sau.
+
+| Năm | Mục tiêu (ví dụ người dùng nhập) | Điều kiện kiểm tra |
+|---|---|---|
+| 1 | Thu nhập bằng lương + hệ thống chạy ổn định | Hệ thống tạo ≥ [X]/tháng liên tục [3] tháng; tôi ≤ [Y] giờ/tuần |
+| 2 | Thu nhập thụ động 200.000 USD/năm | Nghỉ 90 ngày, thu nhập giữ ≥ [Z]% |
+| 3 | 500.000 USD/năm | Nhân bản bằng [đòn bẩy]: số người, thu nhập/người, tỷ lệ giữ chân |
+
+### 8.3 Năm
+- 3 O gắn mục tiêu Năm trong Tầm nhìn.
+- Mỗi KR chia ngược thành **4 mốc quý** (số).
+- KR thu nhập phải kèm **Mô hình thu nhập** (§9).
+- O có nhãn **"thụ động"** → bắt buộc ≥ 1 KR về **đội ngũ tự vận hành** (VD % thu nhập đến từ người mình không trực tiếp làm cùng).
+
+### 8.4 Quý (cấp điều chỉnh)
+- 3 O; KR lấy từ mốc quý của năm.
+- Chọn **1–2 dự án trọng tâm**, còn lại là việc nền.
+- **Nơi duy nhất được sửa kế hoạch năm.** Mỗi lần sửa tạo phiên bản mới, giữ bản gốc, kèm lý do bằng số liệu (§11.4).
+
+### 8.5 Tháng (mắt xích chống trì hoãn)
+KR của O CV/TC có đủ 4 phần:
+
+| Phần | Nội dung |
+|---|---|
+| Chỉ số kết quả | Lagging, VD: 10 người hoạt động mới |
+| Chỉ số dẫn trước | Leading, VD: 40 cuộc gọi/tuần, 8 hẹn/tuần |
+| Nhịp độ chia ngược | Tự tính từ Mô hình thu nhập (§9); "ước lượng" nếu có hệ số chưa đo |
+| Kế hoạch cộng dồn | Mốc theo tuần, VD: T1 = 2, T2 = 5, T3 = 8, T4 = 10. Mặc định chia đều, sửa được |
+
+KR của O MQH/TTT: dạng Từ–Đến–Hạn–Nguồn. Nguồn có thể là **"đếm từ lịch lặp lại X"**.
+
+Kế hoạch tháng chỉ sửa trong Kaizen tháng. Muốn sửa kế hoạch năm thì làm ở Quý.
+
+---
+
+## 9. Mô hình thu nhập (phễu tự cấu hình)
+
+### 9.1 Đầu vào (đổi được theo thời gian, mỗi hệ số có cờ "chưa đo")
+
+| Trường | Ý nghĩa |
+|---|---|
+| `name` | Tên nguồn thu (mỗi nguồn 1 mô hình) |
+| `target_income_month` | Thu nhập mục tiêu/tháng. Nhập theo năm thì chia 12 |
+| `currency`, `fx_rate`, `fx_updated_at` | Tỷ giá nhập tay, hiện rõ ngày cập nhật |
+| `value_per_unit` | Thu nhập mỗi đơn vị kết quả tạo ra/tháng (VD 500 USD/người hoạt động, hoặc hoa hồng/đơn) |
+| `retention` | Tỷ lệ giữ chân theo quý (tuỳ chọn, bỏ trống = 100%) |
+| `stages` | Danh sách bước từ trên xuống, mỗi bước có `name` + `conversion_to_next` |
+| `working_days_week` | Số ngày làm việc/tuần |
+| `capacity_per_day` | Công suất tối đa ở bước đầu/ngày |
+
+### 9.2 Phép tính
+
+```
+units_needed     = target_income_month / value_per_unit
+units_to_acquire = units_needed / retention
+Đi ngược qua từng bước: need[i] = need[i+1] / conversion_to_next[i]
+top_per_week     = need[0] × 12 / 52
+top_per_day      = top_per_week / working_days_week
+```
+
+Kết quả đưa vào 3 chỗ:
+- Nhịp độ chia ngược ở KR tháng.
+- Chỉ tiêu tuần ở O tuần.
+- Gợi ý số hành động/ngày ở Ngày.
+
+### 9.3 Quy tắc
+- Hệ số chưa đo → nhịp độ hiện "ước lượng". Trong 2 tháng đầu, app tự gợi ý KR **"đo hệ số X"**.
+- `top_per_day > capacity_per_day` → **cảnh báo đỏ**: "Tăng nỗ lực cá nhân không đủ, cần KR đội ngũ tự vận hành hoặc đòn bẩy". Phải có KR đó mới chốt được.
+- Mục tiêu năm sau gấp nhiều lần năm trước → hiện **hệ số nhân bản cần có**.
+
+### 9.4 Ví dụ (số minh hoạ, không phải dự báo)
+
+| Nguồn | Các bước |
+|---|---|
+| Hệ thống tuyển dụng | Cuộc gọi → (20%) Hẹn → (25%) Vào hệ thống → giữ chân 60% → Người hoạt động × 500 USD |
+| Affiliate quảng cáo | Click → (3%) Đơn → Hoa hồng/đơn. Bước đầu đo bằng click/ngày; công suất = ngân sách/ngày ÷ CPC |
+
+---
+
+## 10. Công thức tính
+
+### 10.1 Ngày, Tuần (tick)
+
+| Chỉ số | Công thức |
+|---|---|
+| % KR | KA đã tick / tổng KA. Chỉnh tay được, bắt buộc ghi lý do |
+| % thực thi O | Trung bình % các KR (trọng số tuỳ chọn) |
+| % O thực tế | Từ Kaizen bước 1 |
+| % tuần | Trung bình % các KR tuần. KA tuần có thể tự tick từ O ngày (§3.1) |
+
+### 10.2 Tháng, Quý, Năm (số)
+
+| Chỉ số | Công thức |
+|---|---|
+| % KR số | (thực tế − bắt đầu) / (đích − bắt đầu), chặn trong khoảng 0–100 |
+| Kế hoạch cộng dồn đến hôm nay | Mốc tuần đã qua + nội suy tuyến tính trong tuần hiện tại **[Mặc định]** |
+| Tình trạng | thực tế cộng dồn / kế hoạch cộng dồn đến hôm nay |
+| % O | Trung bình % KR của O (trọng số tuỳ chọn) |
+
+- Không lấy trung bình từ % Ngày/Tuần.
+- Thực tế được nhập tay, hoặc cộng tự động từ thực tế tuần / Check của lịch lặp lại nếu bật liên kết.
+- **Luôn hiện bảng từng KR**, để trung bình không che mất KR đang 0%.
+
+### 10.3 Màu
+
+| Đo cái gì | Đỏ | Vàng | Xanh |
 |---|---|---|---|
-| 1 | **1a. Quan sát: lịch cố định & cam kết** | Ghi việc đã chắc chắn: làm gì, với ai, khi nào, lời hứa, lịch hẹn. Ô tô vàng = không dời được. Có ô Check hoàn thành. | `schedule_items` |
-| 2 | **1b. Quan sát: vấn đề, nỗi đau, tồn đọng, cơ hội** | 3 ô: **Công việc/Tài chính**, **Mối quan hệ**, **Thân – Tâm – Trí**. Mỗi mục có ô *"Nếu không làm thì sao?"* (bắt buộc). | `observations` |
-| 3 | **2. Phân tích** | Từ danh sách bước 2, **tô đậm** việc đủ điều kiện (nhân duyên) giải quyết ngay trong kỳ này. | cờ `is_selected` |
-| 4 | **3. Nguyên nhân lỗi** | Với từng việc đã tô đậm, tìm nguyên nhân gốc. Có 3 dòng gợi ý: **Tham, Sân, Si**. Có câu kiểm: *"Nếu giải quyết nguyên nhân này, vấn đề có hết không?"* | `root_causes` |
-| 5 | **Tiêu điểm (O)** | Viết 1 câu mục tiêu, tick 6 tiêu chí (§4.1). | `objective` |
-| 6 | **KR1, KR2, KR3…** | Hỏi: "Để O hoàn thành cần những KR nào?" Mỗi KR tick SMART. | `key_results` |
-| 7 | **KA dưới mỗi KR** | Hành động cụ thể, có ô tick. | `key_actions` |
-
-**Điểm bắt buộc nhớ trong giao diện:**
-- Làm **bước 1 trước bước 2** (biết quỹ thời gian mới chọn được việc khả thi, tức chữ A).
-- Ô "Nếu không làm thì sao?" là bộ lọc: cảnh báo nếu hệ quả để trống.
-- O phải xử lý **nguyên nhân ở bước 4**, không xử lý triệu chứng.
-- Cấp **Ngày** có ≥ 3 KR (mặc định đúng 3, tối đa 4, cài đặt được).
-- Cấp **Tuần/Tháng**: số KR **không cố định** (KR tuần = các O ngày, KR tháng = các O tuần). Chọn từ danh sách O cấp dưới, tự lấy % về.
-- Cấp **Tuần/Tháng** có thêm **Kiểm chứng 3 chiều** (§7).
+| % hoàn thành Ngày/Tuần | < 50 | 50–79 | ≥ 80 (ngưỡng đạt) |
+| Tình trạng Tháng/Quý/Năm | < 70 | 70–89 | ≥ 90 |
 
 ---
 
-## 6. Quy trình Kaizen (4 bước)
+## 11. Kaizen số liệu (Tháng, Quý, Năm)
 
-Nằm ở nửa phải, làm **cuối mỗi kỳ**. Dải đầu trang hiển thị **Tiêu điểm** và **% hoàn thành** lấy tự động từ OKR.
+### 11.1 Năm bước
+1. **Số liệu:** bảng từng KR gồm kế hoạch cộng dồn · thực tế · chênh lệch · màu. Lấy tự động.
+2. **Chẩn đoán:** mỗi KR vàng/đỏ chọn 1 trong 4 nhóm nguyên nhân (§11.2), kèm số liệu chứng minh.
+3. **Quyết định:** mỗi KR chọn đúng 1: Giữ · Tăng nỗ lực · Cắt phạm vi · Đổi cách làm · Dừng.
+4. **Bài học:** tối đa 3 câu, mỗi câu kèm 1 con số.
+5. **Điều chỉnh:** Tháng sửa kế hoạch tháng. Quý sửa kế hoạch năm (tạo phiên bản). Năm rà Tầm nhìn.
 
-| Bước | Tên | Việc phải làm | Dữ liệu |
+### 11.2 Bốn nhóm nguyên nhân
+| Nhóm | Nghĩa | Dấu hiệu bằng số |
+|---|---|---|
+| (a) Đầu vào thiếu | Làm chưa đủ | Chỉ số dẫn trước < nhịp độ |
+| (b) Chuyển đổi thấp | Làm đủ mà ít kết quả | Dẫn trước đạt, tỷ lệ chuyển đổi < hệ số mô hình |
+| (c) Giữ chân kém | Có vào nhưng rời đi | Giữ chân thực tế < hệ số |
+| (d) Bên ngoài | Ngoài tầm kiểm soát | Sự kiện cụ thể + ngày |
+
+### 11.3 Luật kích hoạt (mặc định bật)
+- KR tháng trễ > 20% hai tuần liên tiếp → bắt buộc chọn quyết định ngay trong Kaizen tuần đó.
+- KR quý trễ > 30% → mở chẩn đoán đầy đủ.
+- Mỗi lần kích hoạt ghi vào nhật ký kích hoạt, hiện ở Dashboard.
+
+### 11.4 Chống hạ mục tiêu để trốn việc
+- Chỉ được **hạ** KR khi nguyên nhân thuộc nhóm (b), (c) hoặc (d), kèm số liệu.
+- Nhóm (a) không được hạ, chỉ được chọn "Tăng nỗ lực".
+- Mọi lần hạ ghi vào lịch sử phiên bản. Dashboard hiện "đã hạ X lần".
+
+### 11.5 Luật điều chỉnh kế hoạch (mọi cấp có KR số; Ngày/Tuần dùng khoá kế hoạch §4.5)
+
+| Loại thay đổi | Khi nào | Điều kiện | Giới hạn mặc định |
 |---|---|---|---|
-| 1 | **Đo lường** | Hoàn thành bao nhiêu % tiêu điểm kỳ trước? **Số lấy tự động** từ OKR, không cho nhập tay. Có ô đánh giá ngắn. | `measurement` |
-| 2a | **Nguyên nhân: Viết nhật ký** | 3 câu hỏi: đã làm gì, kết quả là gì, còn gì nữa không. Chia **Sáng – Chiều – Tối** (ngày). Chỉ ghi sự thật có giờ và số liệu. | `journal` |
-| 2b | **Nguyên nhân % tiêu điểm** | Đâu là nguyên nhân dẫn đến kết quả đó (**cả thành công lẫn thất bại**)? Phân tích tới tận cùng, còn gì nữa không? **Bôi đỏ từ khóa** rút ra. | `causes`, `keywords` |
-| 3 | **Bài học** | Đúc kết ngắn gọn dễ nhớ, mỗi bài học **gắn với 1 từ khóa đỏ** ở 2b. Kèm ô *"Dấu hiệu nhận biết khi nó xảy ra"* (khuyến nghị). | `lessons` |
-| 4 | **Hành động tiếp theo** | Hành động "tưới" hạt giống nguyên nhân đã tô đậm: phát huy thành công, cải tiến thất bại. Tick SMART + tiêu chí thứ 6: **"Đưa được vào OKR kỳ tới để thực thi"**. | `next_actions` |
+| **Thêm KR / O** | Bất cứ lúc nào | Không vượt trần số KR (§15). Đủ trần thì phải Tạm dừng hoặc Dừng 1 KR khác | Theo trần |
+| **Nâng đích · Đổi cách làm** | Bất cứ lúc nào | Ghi lý do | Không giới hạn |
+| **Hạ đích · Cắt phạm vi** | Chỉ ở buổi rà (Tháng/Quý) | Nguyên nhân nhóm (b)/(c)/(d) + số liệu. Nhóm (a) chỉ được chọn "Tăng nỗ lực" | 1 lần / KR / quý |
+| **Dừng KR / O** | Chỉ ở buổi rà | Lý do + chọn KR thay thế hoặc ghi "không thay" | 1 lần / quý |
+| **Sửa ngoài buổi rà** | Bất cứ lúc nào | Thành **"đề xuất điều chỉnh"**, áp dụng sau 48 giờ. Nhóm (d) (sự kiện bên ngoài) áp dụng ngay | — |
+| **Vượt giới hạn** | — | Vẫn sửa được nhưng bắt buộc ghi tên mentor đã duyệt (kiểm chứng dưới lên) | Dashboard hiện "vượt giới hạn x lần" |
 
-**Cuối bản Kaizen (câu tự kiểm, chữ đỏ):** *Bản Kaizen đã cụ thể chưa? Bạn hài lòng với nó chưa? Nếu chưa thì chưa hài lòng chỗ nào? Ai có thể giúp mình làm rõ phần này? Liên hệ tham vấn ngay.* → có ô ghi tên người cần liên hệ.
-
-**Quy tắc ứng dụng:**
-- Mỗi hành động ở bước 4 có nút **"Chuyển thành KA/KR của kỳ kế tiếp"**, tự tạo mục tương ứng trong OKR kỳ mới (bản nháp).
-- Tối đa **3 hành động** mỗi kỳ ngày (cảnh báo nếu vượt, không chặn).
-- Kaizen **tuần/tháng** tự tổng hợp từ Kaizen các kỳ nhỏ (hiển thị từ khóa đỏ lặp lại nhiều nhất, bài học trùng), người dùng chỉnh lại chứ không nhập lại từ đầu.
+- Mọi thay đổi tạo **phiên bản mới**, luôn so với bản gốc (Dashboard và trang kỳ hiện "bản gốc → hiện tại").
+- Kế hoạch năm chỉ sửa ở Quý (hoặc kỳ khởi động); kế hoạch tháng sửa ở Kaizen tháng hoặc qua đề xuất điều chỉnh.
 
 ---
 
-## 7. Kiểm chứng (chỉ ở Tuần và Tháng)
-
-3 khối, mỗi khối có hàng 5 ô SMART riêng và nhiều dòng người:
+## 12. Kiểm chứng 3 chiều (Tuần, Tháng, Quý)
 
 | Khối | Đối tượng |
 |---|---|
-| **1. Kiểm chứng trên xuống** | Người chịu ảnh hưởng bởi mục tiêu của bạn (Người 01, 02, 03…) |
-| **2. Kiểm chứng chéo** | Phòng ban/người khác bị ảnh hưởng |
-| **3. Kiểm chứng dưới lên** | Sếp, Thầy, Mentor (xin duyệt hướng đi) |
+| Trên xuống | Người chịu ảnh hưởng bởi mục tiêu |
+| Chéo | Phòng ban / người khác bị ảnh hưởng |
+| Dưới lên | Sếp, Thầy, Mentor (xin duyệt hướng đi) |
 
-Mỗi dòng: `tên người`, `đã hỏi ý kiến (tick)`, `ghi chú`. Làm sau khi viết O và KR, trước khi bắt tay làm.
-
----
-
-## 8. Công thức tính % hoàn thành
-
-```
-KA tick → % KR → % O ngày → % O tuần → % O tháng → % O năm
-```
-
-| Chỉ số | Công thức mặc định |
-|---|---|
-| % KR | số KA đã tick / tổng KA của KR |
-| % O ngày | trung bình % các KR của ngày |
-| % O tuần | trung bình % các O ngày là KR của tuần |
-| % O tháng | trung bình % các O tuần là KR của tháng |
-| % O năm | trung bình % các O tháng là KR của năm |
-
-- Mặc định **trung bình đơn giản** (các mục ngang nhau). Cho phép gán **trọng số** (`weight`) tùy chọn cho KA/KR, và nếu đặt thì dùng trung bình có trọng số.
-- Cài đặt: `chỉ tính phần liên quan O` (chỉ tính mục có `is_linked_to_parent = true`) hoặc `tính tất cả`. Mặc định: **chỉ tính phần liên quan**.
-- Hiển thị **cả hai số** nếu bật: "% mục tiêu" (chỉ phần liên quan) và "% tổng" (tất cả).
-- Màu dải %: **< 50% đỏ**, **50–79% vàng**, **≥ 80% xanh** (ngưỡng "đạt" mặc định 80%, cài đặt được).
-- Tự cập nhật theo thời gian thực khi tick.
+- Mỗi dòng: tên · đã hỏi ý kiến (tick) · 5 ô SMART · ghi chú.
+- Tháng/Quý: kiểm chứng bằng bảng số liệu (đính kèm bản xuất).
+- Ngày: không có kiểm chứng.
 
 ---
 
-## 9. Vòng lặp hằng ngày (luồng chính)
+## 13. Nhịp rà và nhắc giờ
 
-```
-Cuối ngày D:
-  1) Kaizen ngày D  (Đo lường → Nhật ký → Nguyên nhân → Bài học → Hành động)
-  2) Lập OKR ngày D+1 (7 bước)    ← Hành động Kaizen đi thẳng vào KA/KR
-Cuối tuần:  Kaizen tuần + Lập OKR tuần mới
-Cuối tháng: Kaizen tháng + Lập OKR tháng mới
-Thứ tự lập kế hoạch: Năm → Tháng → Tuần → Ngày (cấp lớn trước).
-```
-
-- Nhắc giờ (nhắc lập Kaizen + OKR, mặc định **20:00 mỗi ngày**, thời lượng gợi ý 20–30 phút).
-- Nhắc cuối tuần (CN), cuối tháng.
-- Khi lập OKR ngày D+1 mà chưa có Kaizen ngày D, hiện cảnh báo nhẹ.
-
----
-
-## 10. Màn hình và giao diện
-
-### Bố cục chung
-- Mỗi trang **chia đôi**: **Trái = OKRs**, **Phải = KAIZEN** (giống bản Excel gốc).
-- Ô tiêu đề màu **vàng nhạt**, ô điền màu trắng, việc cố định tô **vàng đậm**.
-- Dải đỏ giữa trang hiển thị **TIÊU ĐIỂM + HOÀN THÀNH + %** (to, nổi bật).
-- Chữ nhỏ dưới mỗi tiêu đề = **câu hỏi gợi ý** (hiện dạng placeholder/tooltip).
-
-### Danh sách màn hình
-
-1. **Tổng quan (Dashboard):** % hôm nay, tuần này, tháng này, năm nay. Biểu đồ xu hướng. Cảnh báo quy tắc 60%.
-2. **Trang Ngày:** bảng giờ **04h30–22h30** chia 2 cột (sáng/chiều tối), mỗi dòng 30–60 phút, ô Check. 3 khối KR cạnh nhau. Ô Kaizen bên phải.
-3. **Trang Tuần:** lưới **Thứ 2 → CN × Sáng/Chiều/Tối**, ngày hiển thị ngày tháng. Các O ngày hiển thị như KR tuần, kèm cờ "liên quan".
-4. **Trang Tháng:** 5 bảng **Tuần 01 → 05**, mỗi bảng 7 ngày × Sáng/Chiều/Tối. O tuần hiển thị như KR tháng.
-5. **Trang Năm:** 12 tháng, O tháng là KR năm. (Chia theo quý là tùy chọn, xem §12.)
-6. **Cây liên kết:** sơ đồ cây Năm → Tháng → Tuần → Ngày → KR → KA, bấm vào để xuống chi tiết, màu theo % hoàn thành.
-7. **Lịch sử Kaizen:** tìm theo từ khóa đỏ, thấy từ khóa lặp lại nhiều nhất.
-8. **Cài đặt:** các ngưỡng, giờ nhắc, trọng số, khung giờ.
-
-### Yêu cầu trải nghiệm
-- Responsive, dùng tốt trên điện thoại (lập Kaizen buổi tối).
-- Lưu tự động, không mất dữ liệu khi tắt tab.
-- Xuất **PDF/Excel** từng kỳ theo bố cục bản gốc.
-
----
-
-## 11. Mô hình dữ liệu (đề xuất)
-
-```
-Period            { id, type: day|week|month|year, start_date, end_date, status: draft|locked }
-Objective         { id, period_id, title, smart: {s,m,a,r,t}, kr_to_o_ok, parent_kr_id?,
-                    is_linked_to_parent, link_reason, percent }
-KeyResult         { id, objective_id, title, metric, smart: {s,m,a,r,t}, ka_complete_ok,
-                    source_objective_id?  // nếu KR này chính là O của kỳ nhỏ hơn
-                    is_linked_to_parent, weight?, percent }
-KeyAction         { id, key_result_id, title, done: bool, weight? }
-ScheduleItem      { id, period_id, date, time_from, time_to, title, people, fixed: bool,
-                    done: bool, kr_ref? }
-Observation       { id, period_id, category: work_finance|relationship|body_mind_wisdom,
-                    content, consequence_if_ignored, is_selected }
-RootCause         { id, observation_id, tham, san, si, note, resolve_check: bool }
-Validation        { id, period_id, direction: top_down|cross|bottom_up, person, asked: bool,
-                    smart:{s,m,a,r,t}, note }
-Kaizen            { id, period_id, measured_percent(auto), assessment, journal:[{slot,text}],
-                    causes:[{text}], keywords:[{text}], lessons:[{text, keyword_id, signal}],
-                    next_actions:[{text, smart:{s,m,a,r,t}, can_go_into_next_okr, converted_to_id?}],
-                    satisfied: bool, consult_who }
-Settings          { thresholds, reminder_time, weights_enabled, only_linked_percent, ... }
-```
-
-Quan hệ: `Objective(day).is_linked_to_parent` + `parent` trỏ tới `KeyResult(week)`. `KeyResult(week).source_objective_id` trỏ ngược về `Objective(day)`. Giữ nhất quán 2 chiều.
-
----
-
-## 12. Điểm chưa chốt (giả định mặc định cho Claude)
-
-| # | Câu hỏi còn mở | Giả định mặc định | Cài đặt? |
+| Kỳ | Khi nào | Thời lượng | Nội dung |
 |---|---|---|---|
-| 1 | Ngày: ≥ 1 hay ≥ 2/3 KR liên quan O? | **≥ 1 KR** (đúng yêu cầu), cảnh báo nếu chỉ có 1 | Có |
-| 2 | "Liên quan" định nghĩa và ai kiểm? | Tự đánh dấu + bắt buộc nhập lý do | Có |
-| 3 | Năm: chia theo tháng hay quý? | Theo **tháng** (12 mốc), ngưỡng 60% (≥ 8 tháng) | Có (thêm chế độ quý) |
-| 4 | Số KR tuần/tháng không khớp 3 ô trên bản gốc | Số KR **không giới hạn** ở tuần/tháng; ngày tối thiểu 3, tối đa 4 | Có |
-| 5 | % trung bình đơn giản hay trọng số? Tính cả việc nền? | Trung bình đơn giản; chỉ tính phần liên quan O | Có |
-| 6 | Nghĩa chữ **R** | "Quan trọng nhất trong các việc làm được kỳ này để đạt O" | Chỉ nhãn gợi ý |
-| 7 | KR là kết quả đo được hay hành động? | Khuyến khích kết quả đo được (có ô `metric`), không chặn | Có |
-| 8 | Ngưỡng "đạt" của Kaizen | **80%** | Có |
-| 9 | "Tối thiểu 3 KR" hay "đúng 3 KR"? | Tối thiểu 3, tối đa 4 | Có |
-| 10 | Quy tắc dừng khi hỏi nguyên nhân | Dừng ở nguyên nhân **mình có thể thay đổi bằng 1 hành động cụ thể** (hiện làm câu nhắc) | Không |
-| 11 | Ô "Sân" trong khung Tham–Sân–Si | Đủ 3 dòng Tham/Sân/Si | Không |
-| 12 | Phần Kiểm chứng của bản ngày | **Không có** ở ngày, chỉ tuần/tháng | Có |
+| Ngày | Trước giờ chốt 60–90 phút (mặc định 20:30, chốt 22:00) | ≤ 30 phút | Kaizen hôm nay + OKR ngày mai |
+| Tuần | Chủ nhật hoặc thứ Hai | 30 phút | Kaizen tuần + OKR tuần mới, đối chiếu cộng dồn tháng |
+| Tháng | Ngày cuối tháng hoặc ngày đầu tháng | 60 phút | Kaizen số liệu + OKR tháng |
+| Quý | Ngày cuối của tháng cuối quý hoặc ngày đầu của tháng đầu quý | 2–3 giờ | Rà KR, chỉnh hướng, dự án trọng tâm |
+| Năm | 1–5/1 | Nửa ngày | Rà Tầm nhìn, OKR năm |
+
+- Buổi rà Tháng/Quý là lịch cố định. Bỏ qua phải ghi lý do.
+- Lập kỳ ngoài cửa sổ rà vẫn được, app ghi "lập muộn x ngày".
+- Lần đầu dùng: kỳ khởi động 11–12/2026 (§8.2).
+- Lập OKR ngày mai khi chưa có Kaizen hôm nay → cảnh báo nhẹ.
+- Nhắc giờ bằng banner trong app + file lịch .ics cho từng kỳ (web app tĩnh không gửi được thông báo khi đang tắt).
 
 ---
 
-## 13. Yêu cầu kỹ thuật gợi ý
+## 14. Màn hình
 
-- **Web app** (React/Next.js + TypeScript) hoặc PWA để dùng được trên điện thoại.
-- Lưu trữ: bắt đầu **local-first** (IndexedDB/SQLite), có đăng nhập và đồng bộ đám mây ở giai đoạn sau.
-- Tính % chạy ở tầng logic riêng, có **unit test** cho: công thức %, quy tắc 60%, chặn "Chốt kế hoạch".
-- Xuất PDF/Excel đúng bố cục.
-- Dữ liệu mẫu: nạp sẵn ví dụ §14 để demo.
+1. **Dashboard:** thanh Tình trạng Năm/Quý/Tháng (cộng dồn so với thực tế) · bảng từng KR · % Ngày/Tuần · Mức tập trung · cảnh báo (luật kích hoạt, công suất, hệ số chưa đo, số lần hạ mục tiêu, buổi rà bị bỏ).
+2. **Tầm nhìn**
+3. **Năm** / **Quý**: 3 O, KR số, mốc quý, dự án trọng tâm, lịch sử phiên bản.
+4. **Tháng**: 3 O, KR số, bảng cộng dồn, kiểm chứng, Kaizen số liệu.
+5. **Mô hình thu nhập**
+6. **Tuần** (§7)
+7. **Ngày** (§5, §6)
+8. **Cây liên kết:** Tầm nhìn → … → KA, màu theo tình trạng.
+9. **Lịch sử Kaizen:** tìm theo từ khoá đỏ, nhóm nguyên nhân, quyết định.
+10. **Cài đặt**
 
-### Thứ tự xây dựng đề xuất
-1. Mô hình dữ liệu và logic tính % (có test).
-2. Trang **Ngày**: OKR 7 bước + Kaizen 4 bước.
-3. Liên kết Ngày → Tuần, quy tắc 60%.
-4. Trang Tuần + Kaizen tuần, Kiểm chứng.
-5. Trang Tháng, rồi Năm.
-6. Cây liên kết, Dashboard, nhắc giờ, xuất file.
+Mỗi cấp có **2 tab OKR | Kaizen**, chuyển bằng 1 chạm, không chia đôi màn hình.
+- Tab Kaizen có phần đầu **tóm tắt OKR chỉ đọc** (O, KR, %, KA đã tick).
+- Tab mở sẵn: trước giờ nhắc (giờ chốt − 60–90 phút) → OKR; sau giờ nhắc → Kaizen; lập kế hoạch kỳ tới → OKR. Tháng/Quý/Năm: trong cửa sổ rà → Kaizen, ngoài cửa sổ → OKR.
 
----
-
-## 14. Ví dụ dữ liệu mẫu (ngày 02/12/2024)
-
-**1a. Lịch cố định:** 04h30–06h15 tham gia trại X3K21 làm Mentor · 09h30–11h20 gọi Phonetem Droppii · 16h30–17h00 chạy bộ 5km · 19h00–21h00 lớp TikTok 3 góc K18.
-
-**1b. Vấn đề:**
-- *Công việc:* xây hệ thống kinh doanh online tại Droppii, tháng 12 đạt Mentor 1*; tuyển dụng chưa có kênh cá nhân hóa → *Nếu không làm:* trượt mục tiêu Mentor 1*.
-- *Mối quan hệ:* kết nối đồng đội, tìm mentor phát triển hệ thống.
-- *Thân – Tâm – Trí:* chạy bộ 5km, thiền 1 giờ/ngày, đọc sách 20 phút, học video 30 phút.
-
-**2. Phân tích (tô đậm):** kỹ năng tuyển dụng.
-
-**3. Nguyên nhân:** *Tham:* mong cầu kết quả. *Si:* chưa biết cách làm hiệu quả, chưa thay đổi sau các buổi kaizen.
-
-**Tiêu điểm O:** Hoàn thiện kỹ năng tuyển dụng Data Droppii. Hoàn thành: 73%.
-
-| KR | % | KA |
-|---|---|---|
-| KR1: Trước, chuẩn bị 100% kịch bản, tâm thái | 100% | Đăng ký 5 data · Đọc lại kịch bản · Xem lại bài học hôm trước |
-| KR2: Trong, thực hiện gọi và kaizen từng cuộc gọi 100% | 70% | Thực hiện cuộc gọi · Cùng đồng đội Kaizen kịch bản · Ghi chú cuộc gọi · Đánh giá tỷ lệ đạt |
-| KR3: Sau, Kaizen đúc kết bài học ứng dụng | 50% | Đọc lại nhật ký cuộc gọi · Đọc lại Kaizen đồng đội · Đúc kết bài học, hành động tiếp theo · Chăm sóc chốt với PBB |
-
-**Kaizen:**
-- *Nhật ký:* 4h30–6h15 khai giảng trại mentor X3 → khởi đầu đầy năng lượng. 9h30–11h20 phonetem cùng đồng đội → chưa hoàn thành, không chiến thắng được thời quen. 16h45–17h2 chạy bộ → rất hào hứng.
-- *Nguyên nhân (từ khóa đỏ):* **chưa tập trung** · **mất năng lượng** · **không rõ tiêu điểm** · **bài học thất bại trong kaizen**.
-- *Bài học:* Tự tạo năng lượng tích cực. Phân bổ thời gian rõ ràng cho mục tiêu.
-- *Hành động tiếp theo:* Xác định mục tiêu SMART cho từng công việc · Phân bổ thời gian hợp lý · Hoàn thiện lộ trình TikTok 3 góc.
+Ô tiêu đề vàng nhạt, ô điền trắng, mục cố định vàng đậm, dải **TIÊU ĐIỂM + % HOÀN THÀNH**, câu hỏi gợi ý hiện dạng placeholder/tooltip. Responsive cho điện thoại, lưu tự động, xuất PDF/Excel từng kỳ.
 
 ---
 
-## 15. Cảnh báo logic cần xử lý trong app (không bỏ qua)
+## 15. Cài đặt
 
-1. **Tự chấm điểm dễ sai:** tick M mà chưa có số đo thì cảnh báo.
-2. **KR viết như hành động** làm KA và KR trùng nhau: gợi ý viết lại KR thành kết quả đo được.
-3. **Ngưỡng 60% dễ bị lách** bằng cách nhận việc ít liên quan: bắt buộc ghi lý do liên quan.
-4. **KA xong ≠ kết quả đạt:** tick hết KA nhưng KR vẫn chưa đạt thì cho phép người dùng chỉnh % KR thủ công, ghi lý do.
-5. **Hành động Kaizen phình ra:** giới hạn mềm tối đa 3 hành động/ngày.
-6. **Kaizen/OKR làm lúc mệt:** nhắc giờ cố định, đặt thời lượng gợi ý 20–30 phút.
-
----
-
-## 16. Câu lệnh gợi ý để giao cho Claude
-
-> Hãy đọc kỹ file `OKR_KAIZEN_APP_SPEC.md` và xây dựng ứng dụng theo đúng thứ tự ở §13. Trước hết, tóm tắt lại bạn hiểu gì về chuỗi liên kết Năm → Tháng → Tuần → Ngày → KR → KA và quy tắc 60%. Sau đó làm **giai đoạn 1** (mô hình dữ liệu + công thức % + unit test) và dừng lại cho tôi xem trước khi sang giai đoạn tiếp theo. Mọi ngưỡng ở §12 phải là cài đặt, không hard-code. Giao diện tiếng Việt.
-
----
-
-## 17. Quyết định đã chốt với Luca (03/11/2026)
-
-Các mục dưới đây bổ sung/ghi đè spec ở trên. Muốn đổi phải hỏi Luca.
-
-| # | Quyết định |
+| Cài đặt | Mặc định |
 |---|---|
-| D1 | **Giữ tầng trên O năm:** Tầm nhìn 5 năm (≤3) + **tối đa 5 mục tiêu ưu tiên** có con số (điểm xuất phát, đích, đơn vị, hạn chót, ≥1 chỉ số hành động). O năm và O tháng gắn vào 1 mục tiêu ưu tiên, kèm lý do. |
-| D2 | **Giữ 2 cơ chế kỷ luật, làm cài đặt bật/tắt (mặc định bật):** (a) kế hoạch ngày D tự khoá lúc 22:00 ngày D-1, sửa sau giờ khoá phải ghi lý do; (b) đỏ N ngày liền (mặc định 2) mà chưa viết Bài học thì không thêm KR/KA mới. |
-| D3 | **Lưu trữ:** Supabase (đám mây, đăng nhập email + mật khẩu, RLS) thay cho local-first ở §13. |
-| D4 | **Nhắc giờ:** banner trong app + file lịch .ics (nhắc hằng ngày). Web app tĩnh không gửi thông báo khi đang tắt. |
-| D5 | **Thứ tự giao:** làm giai đoạn 1–2 (logic % có test + trang Ngày đầy đủ), dừng cho Luca dùng thử, rồi mới làm Tuần/Tháng/Năm, Dashboard, cây liên kết, xuất file. |
-| D6 | Bảng kế hoạch cũ (v0.1) bị xoá, Luca xác nhận chưa có dữ liệu. Spec cũ lưu ở `docs/SPEC-v0.1.md`. |
-| D7 | Màu tiến độ của mục tiêu ưu tiên dùng cùng ngưỡng §8: tỉ lệ thực tế / mức cần đạt theo thời gian, < 50% đỏ, 50–79% vàng, ≥ 80% xanh. |
+| Số KR Ngày/Tuần (tối thiểu / tối đa) | 3 / 4 |
+| Số KR Tháng+ (CV/TC tối thiểu; MQH, TTT tối thiểu / tối đa) | 3; 1 / 2 |
+| Ngưỡng màu % Ngày/Tuần (đỏ / đạt) | 50 / 80 |
+| Ngưỡng màu Tình trạng Tháng+ (đỏ / xanh) | 70 / 90 |
+| KA tuần tự tick khi O ngày đạt | Bật, theo ngưỡng đạt |
+| Lệch % thực thi và % O thực tế để gợi ý | 30 điểm |
+| Luật kích hoạt | trễ > 20% × 2 tuần; KR quý trễ > 30% |
+| Trọng số KR/KA | Tắt |
+| Tự khoá kế hoạch ngày | Bật, 22:00 hôm trước |
+| Khoá thêm việc khi đỏ liền | Bật, 2 ngày |
+| Ngày nghỉ trong tuần | Không |
+| Nhắc trước giờ chốt | 90 phút (cho chọn 60–90) |
+| Khung giờ Ngày, độ dài ô | 04:30–22:30, 30 phút |
+| Tối đa hành động Kaizen/ngày (khuyến nghị) | 3 |
+| Tỷ giá | Nhập tay |
+| Trần số KR đang mở (Tháng/Quý/Năm, mỗi cấp) | 7 |
+| Hạ đích tối đa | 1 lần / KR / quý |
+| Dừng KR/O tối đa | 1 lần / quý |
+| Thời gian chờ đề xuất điều chỉnh | 48 giờ |
+| Tab mở sẵn | Theo giờ nhắc |
+
+---
+
+## 16. Dữ liệu (thay đổi so với app hiện tại)
+
+| Thành phần | Thay đổi |
+|---|---|
+| `periods` | Thêm `kind = 'quarter'`. Bỏ O nằm sẵn trong kỳ, chuyển sang bảng `objectives`. |
+| `objectives` (mới) | `period_id, area (cv_tc / mqh / ttt / null cho Ngày/Tuần), title, smart, o_metric, o_actual, o_result (dat / mot_phan / chua), serves_kr_id?, serves_ka_id?, contributes_kr_id?, weekly_target?, weekly_actual?, passive (bool)` |
+| `key_results` | Thêm `kind (tick / numeric)`, `objective_id`, `parent_kr_id`, `baseline, target, deadline, source`, `leading (jsonb)`, `cumulative_plan (jsonb)`, `income_model_id`. Bỏ `linked`, `link_reason`. |
+| `kr_actuals` (mới) | `kr_id, date, value, source (manual / week / recurring)` |
+| `schedule_items` | Thêm `kind (viec / loi_hua / lich_hen)`, `series_id`, `untimed`. Bỏ ràng buộc mỗi ô 1 mục. |
+| `schedule_series` (mới) | Mẫu lặp lại: `rule (daily / weekly / monthly), weekdays[], month_day, start, end, time_from, time_to, title, fixed, kr_id, increment` |
+| `kaizen` | Ngày/Tuần: `journal` thành danh sách dòng `{time, did, result}`. Thêm bảng `kaizen_long` (snapshot, diagnoses, decisions, lessons) và `plan_versions`, `trigger_log` |
+| `income_models` (mới) | Theo §9.1, `stages jsonb`, `unknown jsonb` |
+| `vision_items` (mới) | `year_no, start_date, goal, verification` |
+| `visions`, `goals`, `metrics` | **Bỏ** (C12). Nếu đã có dữ liệu thì xuất JSON trước khi xoá. |
+| `events` (mới) | Sự kiện & mốc Tháng/Quý/Năm: `period_id, date, time?, title, people, kind, objective_id?` |
+| `plan_changes` (mới) | `kr_id/objective_id, type (add / raise / method / lower / cut / stop), reason, cause_group?, evidence, mentor?, status (pending / applied), apply_at, version_id` |
+| `settings` | Thêm các mục §15 |
+
+Mọi bảng bật RLS và cấp quyền `authenticated`.
+
+---
+
+## 17. Kỹ thuật
+
+- React + Vite + TypeScript, Supabase (đăng nhập, RLS), GitHub Pages.
+- Logic tính tách riêng ở `src/lib/`, **có unit test** cho:
+  - % tick và % số
+  - % O thực tế và độ lệch
+  - Phễu chia ngược
+  - Kế hoạch cộng dồn và Tình trạng
+  - Luật kích hoạt
+  - Chống hạ mục tiêu
+  - Sinh lịch lặp lại
+  - Tự tick KA tuần
+  - Chặn Chốt
+  - Chuỗi đỏ
+- Chart: thư viện nhẹ tải từ CDN hoặc SVG tự vẽ.
+
+### Thứ tự xây (đi từ trên xuống, nhưng giao giá trị dùng hằng ngày sớm)
+1. Logic mới + test (mục §17 ở trên).
+2. **Ngày theo v3:** lịch nhiều mục + lặp lại, dải cấp trên, bỏ cờ KR liên quan, Phân tích/Nguyên nhân nhóm 3 mảng, nhật ký dạng dòng, % O thực tế, mang sang, nút Kiểm tra tiêu điểm.
+3. **Tuần:** OKR 7 bước, 3 KR/KA, liên kết Ngày → Tuần, Kiểm chứng, Kaizen tuần tổng hợp.
+4. **Tầm nhìn + Năm + Quý (bản lập kế hoạch) + Mô hình thu nhập.**
+5. **Tháng:** 3 O, KR số, cộng dồn, liên kết Tuần → Tháng, lịch lặp lại → KR.
+6. **Kaizen số liệu**, phiên bản, luật kích hoạt, chống hạ mục tiêu.
+7. Dashboard, cây liên kết, lịch sử Kaizen, xuất PDF/Excel.
+
+Mỗi giai đoạn dừng cho Luca dùng thử.
+
+---
+
+## 18. Dữ liệu mẫu
+- Ngày 02/12/2024 (giữ nguyên spec v2 §18.1). O 73% = KR 100 / 70 (chỉnh tay, có lý do) / 50.
+- Mô hình thu nhập minh hoạ ở §9.4.
+- KR tháng mẫu: "Số người hoạt động mới: 0 → 10 trước 31/12, nguồn: bảng theo dõi. Dẫn trước 40 gọi/tuần, 8 hẹn/tuần. Cộng dồn T1 = 2, T2 = 5, T3 = 8, T4 = 10."
+
+---
+
+## 19. Giả định đã chốt (đổi được trong Cài đặt hoặc khi rà spec)
+
+| # | Câu hỏi | Giả định |
+|---|---|---|
+| Q1 | Gắn O ngày vào KR/KA tuần có cần ghi lý do không? | Không bắt buộc (đã bỏ quy tắc 60%) |
+| Q2 | KA tuần tự tick khi O ngày đạt bao nhiêu? | Theo ngưỡng đạt 80% |
+| Q3 | O ngày "thực tế" đo bằng số hay 3 mức? | Có số đo O thì nhập số; không có thì chọn 3 mức |
+| Q4 | Lệch bao nhiêu thì gợi ý "KR chọn chưa trúng O"? | 30 điểm |
+| Q5 | Lặp lại "ngày 31 hằng tháng" khi tháng chỉ có 30 ngày? | Rơi vào ngày cuối tháng |
+| Q6 | Kế hoạch cộng dồn trong tuần | Nội suy tuyến tính |
+| Q7 | Tuần cắt ngang 2 tháng thuộc tháng nào? | Theo ngày thứ Năm của tuần |
+| Q8 | Dữ liệu ở màn Mục tiêu ưu tiên hiện tại | Xuất JSON rồi chuyển tay sang Tầm nhìn/Năm |
+| Q9 | Trần số KR đang mở mỗi cấp Tháng+ | 7 (3 CV/TC + 2 + 2) |
+| Q10 | Đề xuất điều chỉnh có huỷ được trong 48 giờ không? | Có, huỷ không tính vào giới hạn |

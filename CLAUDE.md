@@ -1,13 +1,18 @@
 # CLAUDE.md
 
-Đọc `SPEC.md` trước khi làm bất cứ việc gì. Spec là nguồn sự thật; mục §17 là quyết định đã chốt với Luca. Muốn đổi quy tắc trong spec phải hỏi Luca.
+Đọc `SPEC.md` (spec v3, chốt 04/11/2026) trước khi làm bất cứ việc gì. Spec là nguồn sự thật. Muốn đổi quy tắc trong spec phải hỏi Luca trước. Spec cũ: `docs/SPEC-v1.md`, `docs/SPEC-v2-luca.md` (chỉ để tham khảo).
 
-- Giao tiếp với Luca bằng tiếng Việt, thẳng, ngắn. Giao diện app bằng tiếng Việt.
-- Stack: React + Vite + TypeScript, Supabase, GitHub Pages (repo public).
-- Mọi ngưỡng ở §12 là cài đặt trong bảng `settings`, không hard-code.
-- Logic % và quy tắc nằm ở `src/lib/okr.ts`, có test ở `src/lib/okr.test.ts`. Sửa logic thì sửa test, chạy `npm test`.
-- Không commit secret. Supabase URL và anon key để trong GitHub Secrets.
-- Mọi bảng Supabase phải bật Row Level Security và cấp quyền cho `authenticated`.
-- Migration mới đặt ở `supabase/migrations/NNN_*.sql`; Luca tự chạy trong SQL Editor, nhắc rõ khi có file mới.
+## Cách làm việc với Luca
+- Tiếng Việt, thẳng, ngắn. Giao diện app bằng tiếng Việt.
+- Làm theo **Thứ tự xây** ở SPEC §17. **Xong mỗi trang thì dừng, báo Luca duyệt rồi mới làm trang tiếp.**
+- Phản biện khi yêu cầu mâu thuẫn spec hoặc có rủi ro; đưa 1 đề xuất rõ ràng.
 - Hỏi trước khi làm việc có tác động ngoài repo: tạo tài khoản, đổi cài đặt GitHub/Supabase, xoá dữ liệu.
-- Làm theo thứ tự §13 và §17 D5; xong mỗi giai đoạn thì báo và chờ duyệt.
+- Cuối mỗi lần làm: liệt kê file tạo/sửa/xoá và file SQL Luca cần chạy.
+
+## Kỹ thuật
+- React + Vite + TypeScript · Supabase (email + mật khẩu, RLS) · GitHub Pages (repo public, deploy khi push `main`).
+- Mọi ngưỡng ở SPEC §15 nằm trong bảng `settings`, không hard-code.
+- Logic tính tách ở `src/lib/okr.ts` (và file `src/lib/*.ts` thuần khác), có test `*.test.ts`. Sửa logic thì sửa test; chạy `npm test` trước khi push (CI cũng chạy).
+- Migration: `supabase/migrations/NNN_*.sql`, chạy thử trên Postgres cục bộ trước khi giao. Luca tự chạy trong Supabase SQL Editor; nhắc rõ khi có file mới.
+- Mọi bảng mới: bật RLS (`user_id = auth.uid()`) và `grant ... to authenticated`.
+- Không commit secret. Supabase URL và anon key nằm trong GitHub Secrets.
