@@ -5,17 +5,21 @@ import { Analyze, CarryOver, Observe, RootCauses } from '../components/day/Obser
 import { FocusBand, PctPill, Step, UpperBand, type Upper } from '../components/ui'
 import { Verify } from '../components/week/Verify'
 import { WeekGrid } from '../components/week/WeekGrid'
+import { statusColor as statusColorN } from '../lib/numeric'
 import { useApp, useMainObjective, usePeriod, useRows } from '../lib/ctx'
-import { errMsg, findPeriods, listBy, listIn, objectivesOf, seriesBetween, update } from '../lib/db'
+import { errMsg, eventsBetween, findPeriods, listBy, listIn, objectivesOf, seriesBetween, update } from '../lib/db'
+import { AREA_NAME, loadLongSummary, type LongSum } from '../lib/long'
+import { plannedAt } from '../lib/numeric'
+import { StatusPill } from '../components/long/NumericKr'
+import { ExportButtons } from '../components/ExportButtons'
 import { addDays, DOW, fmtDM, fmtMonth, isoDow, mondayOf, monthOfWeek, today, weeksOfMonth } from '../lib/dates'
 import {
   autoTickIds, carryCandidates, colorOf, dayScore, effectiveLock, execPercent, focusLevel, keywordStats, krPercent, lockCheck, oActualPercent, weekDefaultTab,
 } from '../lib/okr'
-import { mergeSchedule, type Entry } from '../lib/schedule'
+import { eventEntries, mergeSchedule, type Entry } from '../lib/schedule'
 import type { KA, KaizenData, KR, NextAction, Objective, Observation, Period, ScheduleItem, Validation } from '../lib/types'
 import { PeriodNav } from './PeriodNav'
 
-const AREA_LABEL = { cv_tc: 'O Công việc/Tài chính', mqh: 'O Mối quan hệ', ttt: 'O Thân–Tâm–Trí' } as const
 
 interface DayInfo {
   date: string
@@ -49,6 +53,7 @@ export default function Week({ date, setDate }: { date: string; setDate: (d: str
   const [chart, setChart] = useState<{ label: string; pct: number | null; current: boolean }[]>([])
   const [prevObs, setPrevObs] = useState<Observation[]>([])
   const [monthKrs, setMonthKrs] = useState<KR[]>([])
+  const [msum, setMsum] = useState<LongSum | null>(null)
   const [tick, setTick] = useState(0)
   const [lockReason, setLockReason] = useState('')
   const [unlockReason, setUnlockReason] = useState('')
@@ -77,20 +82,19 @@ export default function Week({ date, setDate }: { date: string; setDate: (d: str
           const ac = od ? oActualPercent(od) : null
           return { date: d, period, o: od, exec: ex, actual: ac, score: od?.title.trim() ? dayScore(ex, ac) : null, kaizen: period?.kaizen }
         })
+        const evs = await eventsBetween(ws, we)
         const grid: Record<string, Entry[]> = {}
-        for (const d of info) grid[d.date] = mergeSchedule(series, items.filter((x) => x.date === d.date), d.date)
+        for (const d of info) grid[d.date] = [...mergeSchedule(series, items.filter((x) => x.date === d.date), d.date), ...eventEntries(evs, d.date)].sort((a, b) => (a.time_from ?? '99').localeCompare(b.time_from ?? '99'))
 
         const ms = monthOfWeek(ws)
-        const [mp] = await findPeriods('month', ms, ms)
-        const [yp] = await findPeriods('year', ms.slice(0, 4) + '-01-01', ms.slice(0, 4) + '-01-01')
-        const uos = await objectivesOf([mp?.id, yp?.id].filter(Boolean) as string[])
-        const mk = mp ? await listBy<KR>('key_results', 'period_id', mp.id) : []
-        const up: Upper[] = (['cv_tc', 'mqh', 'ttt'] as const).map((a) => {
-          const mo = uos.find((x) => x.period_id === mp?.id && x.area === a)
-          return { label: AREA_LABEL[a] + ' · ' + fmtMonth(ms).toLowerCase(), title: mo?.title ?? '', pct: null, note: mo ? 'Tình trạng: khi có trang Tháng' : undefined, go: () => go('month', ws) }
-        })
-        const yo = uos.filter((x) => x.period_id === yp?.id)
-        up.push({ label: 'O năm', title: yo.map((x) => x.title).filter(Boolean).join(' · '), pct: null, go: () => go('year', ws) })
+        const t00 = today()
+        const [msm, ysm] = await Promise.all([loadLongSummary('month', ms, t00, s), loadLongSummary('year', ms, t00, s)])
+        const mk = msm.objs.flatMap((o) => o.krs.map((x) => x.kr))
+        const up: Upper[] = msm.objs.length
+          ? msm.objs.map((o) => ({ label: `O ${AREA_NAME[o.o.area!]} · ${fmtMonth(ms).toLowerCase()}`, title: o.o.title, pct: o.pct, note: o.status !== null ? `Tình trạng ${o.status}%` : undefined, color: statusColorN(o.status, s), go: () => go('month', ws) }))
+          : [{ label: 'O tháng', title: '', pct: null, note: 'Chưa lập OKR tháng', go: () => go('month', ws) }]
+        const ycv = ysm.objs.find((o) => o.o.area === 'cv_tc')
+        up.push({ label: 'O năm', title: ysm.objs.map((x) => x.o.title).filter(Boolean).join(' · '), pct: ycv?.pct ?? null, note: ycv?.status != null ? `Tình trạng CV/TC ${ycv.status}%` : undefined, color: statusColorN(ycv?.status ?? null, s), go: () => go('year', ws) })
 
         const weeks = weeksOfMonth(ms)
         const wps = await findPeriods('week', weeks[0], weeks[weeks.length - 1])
@@ -110,6 +114,7 @@ export default function Week({ date, setDate }: { date: string; setDate: (d: str
         setByDay(grid)
         setUpper(up)
         setMonthKrs(mk)
+        setMsum(msm.period ? msm : null)
         setChart(bars)
         setPrevObs(po)
       } catch (e) {
@@ -153,6 +158,28 @@ export default function Week({ date, setDate }: { date: string; setDate: (d: str
   ]
   const open = (i: number) => i <= 1 || done.slice(1, i).every(Boolean) || done[i] || (i >= 4 && (!!o.title.trim() || krs.rows.length > 0))
   const causes = sel.flatMap((x) => [x.tham, x.san, x.si].map((y) => y.trim()).filter(Boolean))
+  // Chỉ tiêu tuần gợi ý = kế hoạch cộng dồn cuối tuần − đầu tuần của KR tháng được chọn
+  const ckr = monthKrs.find((k) => k.id === o.contributes_kr_id)
+  const weekHint =
+    ckr && ckr.baseline != null && ckr.target != null && msum
+      ? (() => {
+          const plan = ckr.cumulative_plan?.length ? ckr.cumulative_plan : [{ date: ckr.deadline || msum.end, planned: ckr.target! - ckr.baseline! }]
+          const v = plannedAt(plan, msum.start, we < msum.end ? we : msum.end) - plannedAt(plan, msum.start, addDays(ws, -1) > msum.start ? addDays(ws, -1) : msum.start)
+          return `Gợi ý ${Math.round(v * 10) / 10} ${ckr.unit ?? ''}`
+        })()
+      : undefined
+  const thisWeek = mondayOf(today())
+  const triggered = msum ? msum.objs.flatMap((x) => x.krs.filter((k) => k.st.triggered && msum.period?.kaizen?.decisions?.[k.kr.id]?.week !== thisWeek)) : []
+  const decide = async (krId: string, decision: 'keep' | 'increase' | 'cut' | 'change' | 'stop') => {
+    if (!msum?.period) return
+    const kz = { ...msum.period.kaizen, decisions: { ...(msum.period.kaizen?.decisions ?? {}), [krId]: { decision, reason: 'Quyết định trong Kaizen tuần (luật kích hoạt)', at: new Date().toISOString(), week: thisWeek } } }
+    try {
+      await update('periods', msum.period.id, { kaizen: kz })
+      refresh()
+    } catch (e) {
+      toast(errMsg(e))
+    }
+  }
   const servesLabel = (od?: Objective) => {
     if (!od) return ''
     const ki = krs.rows.findIndex((k) => k.id === od.serves_kr_id)
@@ -189,7 +216,35 @@ export default function Week({ date, setDate }: { date: string; setDate: (d: str
 
   return (
     <>
-      <PeriodNav kind="week" start={ws} onShift={(n) => setDate(addDays(ws, 7 * n))} extra={<span className="period-tag">{ws <= today() && today() <= we ? 'Tuần này' : ''}</span>} />
+      <PeriodNav
+        kind="week"
+        start={ws}
+        onShift={(n) => setDate(addDays(ws, 7 * n))}
+        extra={
+          <>
+            <span className="period-tag">{ws <= today() && today() <= we ? 'Tuần này' : ''}</span>
+            <ExportButtons p={p} title={`OKR + Kaizen tuần ${fmtDM(ws)}`} />
+          </>
+        }
+      />
+      {triggered.map(({ kr, st }) => (
+        <div key={kr.id} className="alert red">
+          Luật kích hoạt: KR tháng <b>{kr.title}</b> trễ &gt;{s.trigger_lag_pct}% {s.trigger_weeks} tuần liên tiếp (tình trạng {st.status}%). Bắt buộc chọn quyết định ngay tuần này:
+          {(
+            [
+              ['keep', 'Giữ'],
+              ['increase', 'Tăng nỗ lực'],
+              ['cut', 'Cắt phạm vi'],
+              ['change', 'Đổi cách làm'],
+              ['stop', 'Dừng'],
+            ] as const
+          ).map(([v, l]) => (
+            <button key={v} className="btn" onClick={() => decide(kr.id, v)}>
+              {l}
+            </button>
+          ))}
+        </div>
+      ))}
       <div className="tabs" role="tablist">
         <button role="tab" aria-selected={tab === 'okr'} onClick={() => setTab('okr')}>
           OKR tuần
@@ -206,7 +261,7 @@ export default function Week({ date, setDate }: { date: string; setDate: (d: str
             <section className="sec">
               <h3>
                 % các tuần trong {fmtMonth(monthOfWeek(ws)).toLowerCase()}
-                <span className="hint">Đường cộng dồn KR Công việc/Tài chính hiện khi có trang Tháng</span>
+                <span className="hint">Cột = % tiêu điểm từng tuần</span>
               </h3>
               <div className="bars">
                 {chart.map((c) => (
@@ -217,6 +272,35 @@ export default function Week({ date, setDate }: { date: string; setDate: (d: str
                   </div>
                 ))}
               </div>
+              {msum && (
+                <div className="tbl">
+                  <table className="ktable">
+                    <thead>
+                      <tr>
+                        <th>KR Công việc/Tài chính tháng</th>
+                        <th>Kế hoạch đến nay</th>
+                        <th>Thực tế</th>
+                        <th>Tình trạng</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {msum.objs
+                        .filter((x) => x.o.area === 'cv_tc')
+                        .flatMap((x) => x.krs)
+                        .map(({ kr, st }) => (
+                          <tr key={kr.id}>
+                            <td>{kr.title}</td>
+                            <td className="n">{kr.baseline != null ? Math.round((kr.baseline + st.plannedGain) * 10) / 10 : '–'}</td>
+                            <td className="n">{st.actual ?? '–'}</td>
+                            <td>
+                              <StatusPill v={st.status} color={st.color} />
+                            </td>
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </section>
           )}
           <FocusBand title={o.title} exec={exec} actual={actual} label="Tiêu điểm tuần" />
@@ -271,7 +355,7 @@ export default function Week({ date, setDate }: { date: string; setDate: (d: str
             <RootCauses obs={obs} editable={editable} />
           </Step>
           <Step n="5" title="Tiêu điểm tuần (O)" hint="1 câu, có số đo, kiểm đủ 6 tiêu chí, ghi đóng góp vào KR tháng." open={open(4)} done={done[4]} lockedMsg="Tìm nguyên nhân ở bước 4 trước.">
-            <ObjectiveBlock level="week" o={o} patch={patchO} editable={editable} causes={causes} krCount={krs.rows.length} load={0} monthKrs={monthKrs} />
+            <ObjectiveBlock level="week" o={o} patch={patchO} editable={editable} causes={causes} krCount={krs.rows.length} load={0} monthKrs={monthKrs} weekTargetHint={weekHint} />
           </Step>
           <Step n="6–7" title="KR và KA tuần" hint="KR/KA tuần là thứ O các ngày chọn để phục vụ." open={open(5)} done={done[5] && done[6]} lockedMsg="Viết tiêu điểm tuần trước.">
             <KrBlocks periodId={pid} objectiveId={o.id} krs={krs} kas={kas} pcts={krPcts} editable={editable} canAdd={editable} addBlockedMsg="" />

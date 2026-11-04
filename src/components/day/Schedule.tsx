@@ -100,7 +100,14 @@ export function Schedule(props: { date: string; periodId: string; entries: Entry
     }
   }
 
-  const row = (e: Entry) => (
+  const row = (e: Entry) =>
+    e.readonly ? (
+      <div key={e.key} className={'entry fixed event-row ' + e.kind} title="Sự kiện từ kế hoạch Tháng/Quý/Năm">
+        <span className="kind">Sự kiện</span>
+        <span className="et">{e.title}</span>
+        {e.people && <span className="who">với {e.people}</span>}
+      </div>
+    ) : (
     <div key={e.key} className={'entry ' + (e.fixed ? 'fixed ' : '') + (e.done ? 'done ' : '') + e.kind}>
       <input type="checkbox" aria-label="Đã làm" checked={e.done} onChange={() => toggleDone(e)} />
       <span className="kind">{KIND_LABEL[e.kind]}</span>
@@ -123,7 +130,7 @@ export function Schedule(props: { date: string; periodId: string; entries: Entry
         </button>
       )}
     </div>
-  )
+    )
 
   const slotRow = (sl: { from: string; to: string }) => {
     const list = entries.filter((e) => inSlot(e, sl.from, sl.to))

@@ -131,13 +131,15 @@ export interface Upper {
   pct: number | null
   note?: string
   go?: () => void
+  /** Màu theo tình trạng kỳ dài (ghi đè màu theo % Ngày/Tuần). */
+  color?: string
 }
 export function UpperBand({ items }: { items: Upper[] }) {
   const { settings } = useApp()
   return (
     <div className="upper">
       {items.map((u, i) => (
-        <button key={i} type="button" className={'up ' + colorOf(u.pct, settings)} onClick={u.go} disabled={!u.go}>
+        <button key={i} type="button" className={'up ' + (u.color ?? colorOf(u.pct, settings))} onClick={u.go} disabled={!u.go}>
           <small>{u.label}</small>
           <span className="up-t">{u.title || <em>Chưa lập</em>}</span>
           <b>{u.pct === null ? '–' : u.pct + '%'}</b>

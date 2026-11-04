@@ -6,20 +6,32 @@ import { errMsg, getSettings } from './lib/db'
 import { addDays, today } from './lib/dates'
 import type { Settings } from './lib/types'
 import Login, { NewPassword } from './Login'
-import Goals from './screens/Goals'
-import { Upcoming } from './screens/Upcoming'
 import Week from './screens/Week'
+import Long from './screens/Long'
+import Vision from './screens/Vision'
+import Income from './screens/Income'
+import Dashboard from './screens/Dashboard'
+import Tree from './screens/Tree'
+import History from './screens/History'
 import Day from './screens/Day'
 import SettingsScreen from './screens/SettingsScreen'
 
-type Screen = 'today' | 'plan' | 'week' | 'month' | 'year' | 'goals' | 'settings'
+type Screen = 'dash' | 'today' | 'plan' | 'week' | 'month' | 'quarter' | 'year' | 'kickoff' | 'vision' | 'income' | 'tree' | 'history' | 'settings'
 const SCREENS: { id: Screen; label: string }[] = [
+  { id: 'dash', label: 'Tổng quan' },
   { id: 'today', label: 'Hôm nay' },
   { id: 'plan', label: 'Ngày mai' },
   { id: 'week', label: 'Tuần' },
   { id: 'month', label: 'Tháng' },
+  { id: 'quarter', label: 'Quý' },
   { id: 'year', label: 'Năm' },
-  { id: 'goals', label: 'Mục tiêu' },
+]
+const MORE: { id: Screen; label: string }[] = [
+  { id: 'vision', label: 'Tầm nhìn' },
+  { id: 'kickoff', label: 'Kỳ khởi động' },
+  { id: 'income', label: 'Mô hình thu nhập' },
+  { id: 'tree', label: 'Cây liên kết' },
+  { id: 'history', label: 'Lịch sử Kaizen' },
   { id: 'settings', label: 'Cài đặt' },
 ]
 
@@ -112,9 +124,11 @@ function Main({ session }: { session: Session }) {
 
   const ctx = useMemo<AppCtx | null>(() => (settings ? { uid, settings, setSettings, toast, go } : null), [uid, settings, toast, go])
 
+  const moreRef = useRef<HTMLDetailsElement>(null)
   function open(s: Screen) {
     setScreen(s)
     setDate(s === 'plan' ? addDays(today(), 1) : today())
+    if (moreRef.current) moreRef.current.open = false
   }
 
   return (
@@ -129,9 +143,19 @@ function Main({ session }: { session: Session }) {
               {s.label}
             </button>
           ))}
-          <button className="ghost" onClick={() => supabase?.auth.signOut()}>
-            Đăng xuất
-          </button>
+          <details className="more" ref={moreRef}>
+            <summary aria-pressed={MORE.some((m) => m.id === screen)}>{MORE.find((m) => m.id === screen)?.label ?? 'Thêm'} ▾</summary>
+            <div className="more-m">
+              {MORE.map((s) => (
+                <button key={s.id} aria-pressed={s.id === screen} onClick={() => open(s.id)}>
+                  {s.label}
+                </button>
+              ))}
+              <button className="ghost" onClick={() => supabase?.auth.signOut()}>
+                Đăng xuất
+              </button>
+            </div>
+          </details>
         </nav>
       </header>
       <main>
@@ -144,9 +168,15 @@ function Main({ session }: { session: Session }) {
             {screen === 'today' && <Day key={'d' + date} date={date} setDate={setDate} mode="today" />}
             {screen === 'plan' && <Day key={'p' + date} date={date} setDate={setDate} mode="plan" />}
             {screen === 'week' && <Week key={'w' + date} date={date} setDate={setDate} />}
-            {screen === 'month' && <Upcoming title="Tháng" what="Trang Tháng (3 O theo 3 mảng, KR số, kế hoạch cộng dồn, Kaizen số liệu) làm sau Tầm nhìn + Năm + Quý (SPEC §17)." />}
-            {screen === 'year' && <Upcoming title="Năm" what="Tầm nhìn, Năm, Quý, Kỳ khởi động 11–12/2026 và Mô hình thu nhập làm ở giai đoạn 4 (SPEC §17)." />}
-            {screen === 'goals' && <Goals />}
+            {screen === 'dash' && <Dashboard />}
+            {screen === 'month' && <Long kind="month" date={date} setDate={setDate} />}
+            {screen === 'quarter' && <Long kind="quarter" date={date} setDate={setDate} />}
+            {screen === 'year' && <Long kind="year" date={date} setDate={setDate} />}
+            {screen === 'kickoff' && <Long kind="kickoff" date={date} setDate={setDate} />}
+            {screen === 'vision' && <Vision />}
+            {screen === 'income' && <Income />}
+            {screen === 'tree' && <Tree />}
+            {screen === 'history' && <History />}
             {screen === 'settings' && <SettingsScreen />}
           </Ctx.Provider>
         )}
@@ -170,7 +200,7 @@ function SetupError({ msg, retry }: { msg: string; retry: () => void }) {
       {missingTable ? (
         <p>
           Supabase chưa có bảng của app. Vào Supabase → <b>SQL Editor → New query</b>, dán và chạy lần lượt <code>supabase/migrations/001_init.sql</code> rồi{' '}
-          <code>002_goal_current.sql</code>, <code>003_grants.sql</code>, <code>004_okr_kaizen_v2.sql</code>, <code>005_v3_day.sql</code>, <code>006_week.sql</code> trong repo, sau đó bấm Thử lại.
+          <code>002_goal_current.sql</code>, <code>003_grants.sql</code>, <code>004_okr_kaizen_v2.sql</code>, <code>005_v3_day.sql</code>, <code>006_week.sql</code>, <code>007_long_periods.sql</code> trong repo, sau đó bấm Thử lại.
         </p>
       ) : noGrant ? (
         <p>

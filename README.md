@@ -6,16 +6,21 @@ Kiểm tra logic: `npm test`.
 
 App: https://buunq1977.github.io/okrs-kaizen/
 
-## Dùng hằng ngày (SPEC §9)
+## Nhịp dùng (SPEC v3 §13)
 
 | Khi nào | Màn hình | Làm gì |
 |---|---|---|
-| Một lần | Mục tiêu | Tầm nhìn 5 năm, tối đa 5 mục tiêu ưu tiên có con số |
-| Cuối ngày D (20:00) | Hôm nay | Kaizen 4 bước: Đo lường → Nhật ký + Nguyên nhân (bôi đỏ từ khoá) → Bài học → Hành động, chuyển hành động vào ngày mai |
-| Ngay sau đó | Ngày mai | OKR 7 bước: Lịch cố định → Quan sát → Phân tích → Nguyên nhân → O → KR → KA, rồi Chốt kế hoạch (trước 22:00) |
-| Trong ngày D+1 | Hôm nay | Tick KA, Check lịch |
+| 1 lần/năm | Thêm → Tầm nhìn | Mục tiêu từng năm + điều kiện kiểm tra, ngày bắt đầu Năm 1 |
+| Lần đầu (11–12/2026) | Thêm → Kỳ khởi động | 3 O theo 3 mảng, KR số, 1–2 dự án trọng tâm |
+| 1–5/1 | Năm | 3 O, KR số chia 4 mốc quý, gắn mô hình thu nhập |
+| Cuối/đầu quý | Quý | KR từ mốc quý, dự án trọng tâm, điều chỉnh kế hoạch năm (có luật) |
+| Cuối/đầu tháng | Tháng | Kaizen số liệu 5 bước, lập 3 O + KR số, kế hoạch cộng dồn, dẫn trước |
+| CN hoặc T2 | Tuần | Kaizen tuần (tổng hợp từ các ngày) + OKR tuần, đóng góp KR tháng |
+| Trước giờ chốt 60–90 phút | Hôm nay → Ngày mai | Kaizen hôm nay, rồi OKR ngày mai 7 bước, Chốt trước 22:00 |
+| Trong ngày | Hôm nay | Tick KA, Check lịch |
+| Bất cứ lúc nào | Tổng quan · Cây liên kết · Lịch sử Kaizen | Cảnh báo, tình trạng từng KR, tìm từ khoá đỏ |
 
-Tuần / Tháng / Năm đầy đủ: giai đoạn tiếp theo.
+Mô hình thu nhập (Thêm → Mô hình thu nhập): phễu tự cấu hình, app tính nhịp độ chia ngược.
 
 ## Cài đặt Supabase
 
@@ -24,7 +29,10 @@ Chạy lần lượt trong **SQL Editor** (mỗi file chạy một lần):
 1. `supabase/migrations/001_init.sql`
 2. `supabase/migrations/002_goal_current.sql`
 3. `supabase/migrations/003_grants.sql`
-4. `supabase/migrations/004_okr_kaizen_v2.sql` (xoá bảng kế hoạch cũ, tạo bảng OKR + Kaizen v2)
+4. `supabase/migrations/004_okr_kaizen_v2.sql`
+5. `supabase/migrations/005_v3_day.sql`
+6. `supabase/migrations/006_week.sql`
+7. `supabase/migrations/007_long_periods.sql`
 
 GitHub Secrets cần có: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`.
 

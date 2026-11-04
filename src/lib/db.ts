@@ -4,6 +4,7 @@ import type { Goal, Metric, Objective, Period, PeriodKind, ScheduleSeries, Setti
 export type Table =
   | 'visions' | 'goals' | 'metrics'
   | 'periods' | 'objectives' | 'schedule_series' | 'key_results' | 'key_actions' | 'schedule_items' | 'observations' | 'next_actions' | 'validations'
+  | 'kr_actuals' | 'plan_changes' | 'income_models' | 'vision_items' | 'events'
   | 'settings'
 
 function sb() {
@@ -17,6 +18,7 @@ function must<T>(r: { data: T | null; error: { message: string } | null }): T {
 export function viDbError(msg: string) {
   if (/goals_target_differs/.test(msg)) return 'Mục tiêu phải khác điểm xuất phát.'
   if (/goals_drop_needs_reason/.test(msg)) return 'Bỏ mục tiêu phải ghi lý do.'
+  if (/change_lower_rule/.test(msg)) return 'Nhóm (a) "làm chưa đủ" không được hạ mục tiêu.'
   if (/link_reason/.test(msg)) return 'Đánh dấu "liên quan" phải ghi lý do.'
   if (/override_reason/.test(msg)) return 'Chỉnh % tay phải ghi lý do.'
   if (/settings_thresholds/.test(msg)) return 'Ngưỡng đỏ phải nhỏ hơn ngưỡng đạt.'
@@ -77,6 +79,18 @@ export async function seriesActiveOn(date: string): Promise<ScheduleSeries[]> {
   return must(await sb().from('schedule_series').select('*').lte('start_date', date).or(`end_date.is.null,end_date.gte.${date}`).order('time_from'))
 }
 
+/** Sự kiện & mốc quan trọng trong khoảng ngày (C7). */
+export async function eventsBetween(from: string, to: string): Promise<import('./types').EventItem[]> {
+  return must(await sb().from('events').select('*').gte('date', from).lte('date', to).order('date'))
+}
+export async function listAll<T>(table: Table, order = 'created_at'): Promise<T[]> {
+  return must(await sb().from(table).select('*').order(order))
+}
+/** Kỳ dài (tháng/quý/năm/khởi động) chứa ngày `date`. */
+export async function periodsCovering(date: string): Promise<Period[]> {
+  return must(await sb().from('periods').select('*').in('kind', ['month', 'quarter', 'year', 'kickoff']).lte('start_date', date))
+}
+
 /** Chuỗi lặp có hiệu lực trong khoảng [from, to]. */
 export async function seriesBetween(from: string, to: string): Promise<ScheduleSeries[]> {
   return must(await sb().from('schedule_series').select('*').lte('start_date', to).or(`end_date.is.null,end_date.gte.${from}`).order('time_from'))
@@ -106,8 +120,8 @@ export async function saveSettings(s: Settings): Promise<Settings> {
 
 /* ---------- xuất toàn bộ ---------- */
 export async function exportAll() {
-  const tables: Table[] = ['visions', 'goals', 'metrics', 'periods', 'objectives', 'schedule_series', 'key_results', 'key_actions', 'schedule_items', 'observations', 'next_actions', 'validations', 'settings']
-  const out: Record<string, unknown> = { exported_at: new Date().toISOString(), version: 3 }
+  const tables: Table[] = ['visions', 'goals', 'metrics', 'vision_items', 'income_models', 'periods', 'objectives', 'schedule_series', 'key_results', 'key_actions', 'kr_actuals', 'plan_changes', 'events', 'schedule_items', 'observations', 'next_actions', 'validations', 'settings']
+  const out: Record<string, unknown> = { exported_at: new Date().toISOString(), version: 4 }
   for (const t of tables) out[t] = must(await sb().from(t).select('*'))
   return out
 }

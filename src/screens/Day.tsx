@@ -4,18 +4,20 @@ import { KrBlocks, ObjectiveBlock } from '../components/day/Okr'
 import { Analyze, CarryOver, Observe, RootCauses } from '../components/day/Observe'
 import { Schedule } from '../components/day/Schedule'
 import { FocusBand, Step, UpperBand, type Upper } from '../components/ui'
+import { statusColor as statusColorN } from '../lib/numeric'
 import { useApp, useMainObjective, usePeriod, useRows } from '../lib/ctx'
-import { errMsg, findPeriods, listBy, listIn, objectivesOf, seriesActiveOn, update } from '../lib/db'
-import { addDays, fmtDM, mondayOf, monthStart, today } from '../lib/dates'
+import { errMsg, eventsBetween, findPeriods, listBy, listIn, objectivesOf, seriesActiveOn, update } from '../lib/db'
+import { AREA_NAME, loadLongSummary } from '../lib/long'
+import { ExportButtons } from '../components/ExportButtons'
+import { addDays, fmtDM, mondayOf, today } from '../lib/dates'
 import {
   carryCandidates, dayScore, defaultTab, effectiveLock, execPercent, hasLessons, kaizenStarted, krPercent, lockCheck,
   oActualPercent, redStreak, remindTime, scheduleLoad, type DayRecord,
 } from '../lib/okr'
-import { mergeSchedule } from '../lib/schedule'
-import type { KA, KR, NextAction, Observation, ScheduleItem, ScheduleSeries } from '../lib/types'
+import { eventEntries, mergeSchedule } from '../lib/schedule'
+import type { EventItem, KA, KR, NextAction, Observation, ScheduleItem, ScheduleSeries } from '../lib/types'
 import { PeriodNav } from './PeriodNav'
 
-const AREA_LABEL = { cv_tc: 'O Công việc/Tài chính', mqh: 'O Mối quan hệ', ttt: 'O Thân–Tâm–Trí' } as const
 
 export default function Day({ date, setDate, mode }: { date: string; setDate: (d: string) => void; mode: 'today' | 'plan' }) {
   const { settings: s, toast, go } = useApp()
@@ -35,6 +37,7 @@ export default function Day({ date, setDate, mode }: { date: string; setDate: (d
   const [tab, setTab] = useState<'okr' | 'kaizen'>(() => (mode === 'plan' ? 'okr' : defaultTab(date, today(), new Date(), s)))
   const [prevObs, setPrevObs] = useState<Observation[]>([])
   const [upper, setUpper] = useState<Upper[]>([])
+  const [events, setEvents] = useState<EventItem[]>([])
   const [weekKrs, setWeekKrs] = useState<KR[]>([])
   const [weekKas, setWeekKas] = useState<KA[]>([])
   const [streak, setStreak] = useState<{ locked: boolean; day?: string }>({ locked: false })
@@ -55,20 +58,19 @@ export default function Day({ date, setDate, mode }: { date: string; setDate: (d
       try {
         const ws = mondayOf(date)
         const [wp] = await findPeriods('week', ws, ws)
-        const [mp] = await findPeriods('month', monthStart(date), monthStart(date))
-        const [yp] = await findPeriods('year', date.slice(0, 4) + '-01-01', date.slice(0, 4) + '-01-01')
-        const os = await objectivesOf([wp?.id, mp?.id, yp?.id].filter(Boolean) as string[])
+        const os = await objectivesOf([wp?.id].filter(Boolean) as string[])
+        const t00 = today()
+        const [ms, ys] = await Promise.all([loadLongSummary('month', date, t00, s), loadLongSummary('year', date, t00, s)])
+        const evs = await eventsBetween(date, date)
         const wk = wp ? await listBy<KR>('key_results', 'period_id', wp.id) : []
         const wka = await listIn<KA>('key_actions', 'kr_id', wk.map((k) => k.id))
         const wo = os.find((x) => x.period_id === wp?.id && !x.area)
         const wExec = execPercent(wk.map((k) => ({ pct: krPercent(k, wka.filter((a) => a.kr_id === k.id), s.weights_enabled), weight: k.weight })), s.weights_enabled)
         const up: Upper[] = [{ label: 'O tuần', title: wo?.title ?? '', pct: wo ? (oActualPercent(wo) ?? wExec) : null, go: () => go('week', date) }]
-        for (const a of ['cv_tc', 'mqh', 'ttt'] as const) {
-          const mo = os.find((x) => x.period_id === mp?.id && x.area === a)
-          up.push({ label: AREA_LABEL[a] + ' · tháng', title: mo?.title ?? '', pct: null, note: mo ? 'Tình trạng: khi có trang Tháng' : undefined, go: () => go('month', date) })
-        }
-        const yo = os.filter((x) => x.period_id === yp?.id)
-        up.push({ label: 'O năm', title: yo.map((x) => x.title).filter(Boolean).join(' · '), pct: null, go: () => go('year', date) })
+        if (!ms.objs.length) up.push({ label: 'O tháng', title: '', pct: null, note: 'Chưa lập OKR tháng', go: () => go('month', date) })
+        for (const o of ms.objs) up.push({ label: `O ${AREA_NAME[o.o.area!]} · tháng`, title: o.o.title, pct: o.pct, note: o.status !== null ? `Tình trạng ${o.status}%` : undefined, color: statusColorN(o.status, s), go: () => go('month', date) })
+        const ycv = ys.objs.find((o) => o.o.area === 'cv_tc')
+        up.push({ label: 'O năm', title: ys.objs.map((x) => x.o.title).filter(Boolean).join(' · '), pct: ycv?.pct ?? null, note: ycv?.status != null ? `Tình trạng CV/TC ${ycv.status}%` : undefined, color: statusColorN(ycv?.status ?? null, s), go: () => go('year', date) })
 
         const [pp] = await findPeriods('day', addDays(date, -1), addDays(date, -1))
         const po = pp ? await listBy<Observation>('observations', 'period_id', pp.id) : []
@@ -94,6 +96,7 @@ export default function Day({ date, setDate, mode }: { date: string; setDate: (d
         }
         if (!live) return
         setUpper(up)
+        setEvents(evs)
         setWeekKrs(wk)
         setWeekKas(wka)
         setPrevObs(po)
@@ -114,7 +117,7 @@ export default function Day({ date, setDate, mode }: { date: string; setDate: (d
   const lock = effectiveLock(p, s, now)
   const editable = !lock.locked
   const canAdd = editable && !streak.locked
-  const entries = mergeSchedule(series.rows, items.rows, date)
+  const entries = [...mergeSchedule(series.rows, items.rows, date), ...eventEntries(events, date)].sort((a, b) => (a.time_from ?? '99').localeCompare(b.time_from ?? '99'))
   const krPcts = krs.rows.map((k) => krPercent(k, kas.rows.filter((a) => a.kr_id === k.id), s.weights_enabled))
   const exec = execPercent(krs.rows.map((k, i) => ({ pct: krPcts[i], weight: k.weight })), s.weights_enabled)
   const actual = oActualPercent(o)
@@ -151,7 +154,13 @@ export default function Day({ date, setDate, mode }: { date: string; setDate: (d
 
   return (
     <>
-      <PeriodNav kind="day" start={date} onShift={(n) => setDate(addDays(date, n))} extra={<span className="period-tag">{mode === 'plan' ? 'Lập kế hoạch' : date === t0 ? 'Hôm nay' : ''}</span>} />
+      <PeriodNav kind="day" start={date} onShift={(n) => setDate(addDays(date, n))} extra={
+          <>
+            <span className="period-tag">{mode === 'plan' ? 'Lập kế hoạch' : date === t0 ? 'Hôm nay' : ''}</span>
+            <ExportButtons p={p} title={`OKR + Kaizen ngày ${fmtDM(date)}`} />
+          </>
+        }
+      />
 
       <div className="tabs" role="tablist">
         <button role="tab" aria-selected={tab === 'okr'} onClick={() => setTab('okr')}>

@@ -27,6 +27,28 @@ export interface Entry {
   fixed: boolean
   done: boolean
   untimed: boolean
+  /** Sự kiện & mốc từ Tháng/Quý/Năm: chỉ đọc ở Ngày/Tuần (C7). */
+  readonly?: boolean
+}
+
+/** Đổi sự kiện kỳ dài thành dòng lịch chỉ đọc. */
+export function eventEntries(events: { id: string; date: string; time: string | null; title: string; people: string; kind: string }[], date: string): Entry[] {
+  return events
+    .filter((e) => e.date === date)
+    .map((e) => ({
+      key: 'e' + e.id,
+      item: null,
+      series: null,
+      time_from: e.time ? e.time.slice(0, 5) : null,
+      time_to: null,
+      title: '◆ ' + e.title,
+      people: e.people,
+      kind: (e.kind === 'lich_hen' || e.kind === 'loi_hua' ? e.kind : 'viec') as EntryKind,
+      fixed: true,
+      done: false,
+      untimed: !e.time,
+      readonly: true,
+    }))
 }
 
 export function mergeSchedule(series: ScheduleSeries[], items: ScheduleItem[], date: string): Entry[] {

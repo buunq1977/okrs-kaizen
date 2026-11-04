@@ -47,7 +47,22 @@ export interface JournalRow {
   did: string
   result: string
 }
+/** Kaizen số liệu Tháng/Quý/Năm (§11) — lưu chung trong periods.kaizen */
+export interface Diagnosis {
+  group: 'a' | 'b' | 'c' | 'd'
+  evidence: string
+}
+export interface Decision {
+  decision: 'keep' | 'increase' | 'cut' | 'change' | 'stop'
+  reason: string
+  at: string
+  week?: string
+}
 export interface KaizenData {
+  diagnoses?: Record<string, Diagnosis>
+  decisions?: Record<string, Decision>
+  num_lessons?: { id: string; text: string; number: string }[]
+  skip_reason?: string
   assessment?: string
   journal?: JournalRow[]
   causes?: string
@@ -72,6 +87,7 @@ export interface Period {
   end_date: string | null
   no_fixed_schedule: boolean
   kaizen: KaizenData
+  projects?: { id: string; title: string }[]
 }
 
 export interface Objective {
@@ -105,6 +121,84 @@ export interface KR {
   override_reason: string | null
   from_action_id: string | null
   sort: number
+  kind?: 'tick' | 'numeric'
+  parent_kr_id?: string | null
+  baseline?: number | null
+  target?: number | null
+  unit?: string
+  deadline?: string | null
+  source?: string
+  leading_ind?: Leading[]
+  cumulative_plan?: { date: string; planned: number }[]
+  milestones?: { q: number; value: number }[]
+  income_model_id?: string | null
+  is_team?: boolean
+  is_coef?: boolean
+  series_id?: string | null
+  orig_target?: number | null
+  orig_deadline?: string | null
+  status?: 'active' | 'paused' | 'stopped'
+}
+export interface Leading {
+  id: string
+  name: string
+  per_week: number | null
+  actuals: Record<string, number>
+}
+export interface KrActual {
+  id: string
+  kr_id: string
+  date: string
+  value: number
+  note: string
+}
+export interface PlanChange {
+  id: string
+  kr_id: string | null
+  period_id: string | null
+  type: 'add' | 'raise' | 'method' | 'lower' | 'cut' | 'stop' | 'pause'
+  before: Record<string, unknown>
+  after: Record<string, unknown>
+  reason: string
+  cause_group: 'a' | 'b' | 'c' | 'd' | null
+  evidence: string
+  mentor: string
+  status: 'pending' | 'applied' | 'cancelled'
+  apply_at: string | null
+  applied_at: string | null
+  created_at: string
+}
+export interface IncomeModel {
+  id: string
+  name: string
+  currency: string
+  target_income_month: number | null
+  fx_rate: number | null
+  fx_updated_at: string | null
+  value_per_unit: number | null
+  unit_name: string
+  retention: number | null
+  stages: { id: string; name: string; conversion: number | null }[]
+  working_days_week: number
+  capacity_per_day: number | null
+  unknown: Record<string, boolean>
+  prev_year_income: number | null
+}
+export interface VisionItem {
+  id: string
+  year_no: number
+  goal: string
+  verification: string
+}
+export interface EventItem {
+  id: string
+  period_id: string | null
+  date: string
+  time: string | null
+  title: string
+  people: string
+  kind: 'lich_hen' | 'deadline' | 'su_kien' | 'loi_hua'
+  objective_id: string | null
 }
 
 export interface KA {
@@ -226,4 +320,5 @@ export interface Settings {
   default_tab: 'auto' | 'okr' | 'kaizen'
   year_mode: 'month' | 'quarter'
   timezone: string
+  vision_start: string | null
 }

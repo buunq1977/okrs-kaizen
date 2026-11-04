@@ -88,6 +88,22 @@ export default function SettingsScreen() {
         {flag('weights_enabled', 'Dùng trọng số cho KR/KA')}
       </Sec>
 
+      <Sec title="Tháng · Quý · Năm" hint="SPEC §10.3, §11, §15">
+        <Row label="Tình trạng đỏ khi dưới" unit="%">{num('status_red', 0, 99)}</Row>
+        <Row label="Tình trạng xanh từ" unit="%">{num('status_green', 1, 200)}</Row>
+        <Row label="KR tối thiểu O Công việc/Tài chính" unit="KR">{num('kr_min_cvtc', 1, 6)}</Row>
+        <Row label="KR O Mối quan hệ, O Thân–Tâm–Trí: tối thiểu" unit="KR">{num('kr_min_other', 0, 4)}</Row>
+        <Row label="… tối đa" unit="KR">{num('kr_max_other', 1, 6)}</Row>
+        <Row label="Trần số KR đang mở mỗi kỳ" unit="KR">{num('max_open_kr', 3, 15)}</Row>
+        <Row label="Luật kích hoạt: trễ hơn" unit="%">{num('trigger_lag_pct', 5, 60)}</Row>
+        <Row label="… trong số tuần liên tiếp" unit="tuần">{num('trigger_weeks', 1, 4)}</Row>
+        <Row label="KR quý trễ hơn thì mở chẩn đoán" unit="%">{num('trigger_quarter_pct', 5, 60)}</Row>
+        <Row label="Hạ mục tiêu tối đa" unit="lần / KR / quý">{num('lower_per_kr_quarter', 0, 5)}</Row>
+        <Row label="Dừng KR tối đa" unit="lần / quý">{num('stop_per_quarter', 0, 5)}</Row>
+        <Row label="Thời gian chờ đề xuất điều chỉnh" unit="giờ">{num('change_cooldown_h', 0, 168)}</Row>
+        {flag('ka_autotick', 'KA tuần tự tick khi O ngày phục vụ nó đạt ngưỡng đạt')}
+      </Sec>
+
       <Sec title="Trang Ngày">
         <Row label="Số KR tối thiểu" unit="KR">{num('day_min_kr', 1, 6)}</Row>
         <Row label="Số KR tối đa" unit="KR">{num('day_max_kr', 1, 8)}</Row>
