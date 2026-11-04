@@ -257,7 +257,7 @@ export default function Day({ date, setDate, mode }: { date: string; setDate: (d
           </Step>
 
           <Step n="5" title="Tiêu điểm (O)" hint="1 câu, có số đo, kiểm đủ 6 tiêu chí." open={open(4)} done={done[4]} lockedMsg="Tìm nguyên nhân ở bước 4 trước.">
-            <ObjectiveBlock o={o} patch={patchO} editable={editable} causes={causes} krCount={krs.rows.length} load={load} weekKrs={weekKrs} weekKas={weekKas} />
+            <ObjectiveBlock level="day" o={o} patch={patchO} editable={editable} causes={causes} krCount={krs.rows.length} load={load} weekKrs={weekKrs} weekKas={weekKas} />
           </Step>
 
           <Step n="6–7" title="KR và KA" hint="Để O hoàn thành cần những KR nào? Mỗi KR có danh sách KA riêng." open={open(5)} done={done[5] && done[6]} lockedMsg="Viết tiêu điểm O ở bước 5 trước.">
@@ -310,7 +310,20 @@ export default function Day({ date, setDate, mode }: { date: string; setDate: (d
       ) : date <= t0 ? (
         <div className="stack">
           <OkrSummary o={o} krs={krs.rows} kas={kas.rows} pcts={krPcts} />
-          <Kaizen p={p} save={patchKaizen} o={o} patchO={patchO} exec={exec} actual={actual} acts={acts} entries={entries} kas={kas.rows} />
+          <Kaizen
+            level="day"
+            p={p}
+            save={patchKaizen}
+            o={o}
+            patchO={patchO}
+            exec={exec}
+            actual={actual}
+            acts={acts}
+            prefill={() => [
+              ...entries.filter((e) => e.title.trim()).map((e) => ({ time: e.time_from ?? '', did: e.title })),
+              ...kas.rows.filter((a) => a.done).map((a) => ({ time: '', did: 'KA: ' + a.title })),
+            ]}
+          />
         </div>
       ) : (
         <p className="empty">Kaizen ngày {fmtDM(date)} mở vào cuối ngày đó.</p>

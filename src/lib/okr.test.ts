@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   colorOf, krPercent, execPercent, oActualPercent, dayScore, gapSuggest, remindTime, defaultTab, scheduleLoad,
-  focusAutoChecks, carryCandidates, lockCheck, looksLikeAction,
+  focusAutoChecks, carryCandidates, lockCheck, looksLikeAction, autoTickIds, focusLevel, weekDefaultTab, bucketOf,
   highlight, keywordStats, effectiveLock, redStreak, timeSlots, kaizenStarted, average,
 } from './okr'
 
@@ -204,5 +204,33 @@ describe('lịch giờ', () => {
     expect(s.length).toBe(36)
     expect(s[0]).toEqual({ from: '04:30', to: '05:00' })
     expect(s[35]).toEqual({ from: '22:00', to: '22:30' })
+  })
+})
+
+describe('tuần (§3.1, §7)', () => {
+  const kas = [
+    { id: 'a', done: false, auto_ticked: false },
+    { id: 'b', done: false, auto_ticked: true },
+    { id: 'c', done: true, auto_ticked: false },
+    { id: 'd', done: false, auto_ticked: false },
+  ]
+  it('tự tick KA khi O ngày phục vụ đạt ≥ 80%', () => {
+    const days = [{ serves_ka_id: 'a', score: 85 }, { serves_ka_id: 'b', score: 100 }, { serves_ka_id: 'd', score: 60 }, { serves_ka_id: null, score: 100 }]
+    expect(autoTickIds(kas, days, 80, true)).toEqual(['a'])
+    expect(autoTickIds(kas, days, 80, false)).toEqual([])
+  })
+  it('mức tập trung đếm ngày phục vụ KR hoặc KA tuần', () => {
+    const days = [{ serves_kr_id: 'k1', serves_ka_id: null }, { serves_kr_id: null, serves_ka_id: 'a' }, { serves_kr_id: 'kX', serves_ka_id: null }, { serves_kr_id: null, serves_ka_id: null }]
+    expect(focusLevel(days, ['k1'], ['a'])).toBe(2)
+  })
+  it('tab tuần: tuần đã qua / Chủ nhật → Kaizen, còn lại OKR', () => {
+    expect(weekDefaultTab('2026-10-26', '2026-11-04', 'auto')).toBe('kaizen')
+    expect(weekDefaultTab('2026-11-02', '2026-11-04', 'auto')).toBe('okr')
+    expect(weekDefaultTab('2026-11-02', '2026-11-08', 'auto')).toBe('kaizen')
+    expect(weekDefaultTab('2026-11-09', '2026-11-08', 'auto')).toBe('okr')
+    expect(weekDefaultTab('2026-10-26', '2026-11-04', 'okr')).toBe('okr')
+  })
+  it('buổi trong ngày', () => {
+    expect([bucketOf('04:30'), bucketOf('12:00'), bucketOf('17:59'), bucketOf('18:00'), bucketOf(null)]).toEqual(['s', 'c', 'c', 't', 'u'])
   })
 })

@@ -103,6 +103,35 @@ export function focusAutoChecks(o: { title: string; o_metric: string; o_target: 
   }
 }
 
+/* ---------- Tuần (§3.1, §7) ---------- */
+/** KA tuần cần tự tick: có O ngày phục vụ đạt ngưỡng đạt; bỏ qua KA đã tick hoặc đã từng tự tick (người dùng bỏ tick tay thì tôn trọng). */
+export function autoTickIds(
+  kas: { id: string; done: boolean; auto_ticked: boolean }[],
+  days: { serves_ka_id: string | null; score: number | null }[],
+  pass: number,
+  enabled: boolean,
+): string[] {
+  if (!enabled) return []
+  const hit = new Set(days.filter((d) => d.serves_ka_id && d.score !== null && d.score >= pass).map((d) => d.serves_ka_id!))
+  return kas.filter((k) => !k.done && !k.auto_ticked && hit.has(k.id)).map((k) => k.id)
+}
+/** Mức tập trung: số ngày có O phục vụ một KR/KA của tuần (chỉ là thông tin, C2). */
+export function focusLevel(days: { serves_kr_id: string | null; serves_ka_id: string | null }[], krIds: string[], kaIds: string[]): number {
+  const kr = new Set(krIds)
+  const ka = new Set(kaIds)
+  return days.filter((d) => (d.serves_kr_id && kr.has(d.serves_kr_id)) || (d.serves_ka_id && ka.has(d.serves_ka_id))).length
+}
+/** Tab mở sẵn trang Tuần: tuần đã qua hoặc Chủ nhật của tuần hiện tại → Kaizen. */
+export function weekDefaultTab(weekStart: string, todayIso: string, mode: 'auto' | 'okr' | 'kaizen'): 'okr' | 'kaizen' {
+  if (mode !== 'auto') return mode
+  const end = addDays(weekStart, 6)
+  if (end < todayIso) return 'kaizen'
+  if (weekStart <= todayIso && todayIso <= end && isoDow(todayIso) === 7) return 'kaizen'
+  return 'okr'
+}
+/** Buổi trong ngày cho lưới tuần: Sáng < 12:00 ≤ Chiều < 18:00 ≤ Tối. */
+export const bucketOf = (time: string | null): 's' | 'c' | 't' | 'u' => (!time ? 'u' : time < '12:00' ? 's' : time < '18:00' ? 'c' : 't')
+
 /* ---------- Mang sang quan sát chưa xử lý (C13) ---------- */
 export function carryCandidates<T extends { id: string; closed: boolean; content: string }>(prev: T[], today: { carried_from: string | null }[]): T[] {
   const taken = new Set(today.map((x) => x.carried_from).filter(Boolean))

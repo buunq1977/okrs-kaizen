@@ -67,16 +67,20 @@ function FocusCheck({ o, krCount, minKr, load, onDone }: { o: Objective; krCount
 
 /** Bước 5 · Tiêu điểm O. */
 export function ObjectiveBlock(props: {
+  level: 'day' | 'week'
   o: Objective
   patch: (f: Partial<Objective>) => void
   editable: boolean
   causes: string[]
   krCount: number
   load: number
-  weekKrs: KR[]
-  weekKas: KA[]
+  weekKrs?: KR[]
+  weekKas?: KA[]
+  /** Tuần: KR tháng để ghi "đóng góp vào" (C5, §3.1). */
+  monthKrs?: KR[]
+  weekTargetHint?: string
 }) {
-  const { o, patch, editable, causes, krCount, load, weekKrs, weekKas } = props
+  const { level, o, patch, editable, causes, krCount, load, weekKrs = [], weekKas = [], monthKrs = [], weekTargetHint } = props
   const { settings: s } = useApp()
   const [checking, setChecking] = useState(false)
   const serves = o.serves_ka_id ? 'ka:' + o.serves_ka_id : o.serves_kr_id ? 'kr:' + o.serves_kr_id : ''
@@ -87,7 +91,7 @@ export function ObjectiveBlock(props: {
           O phải xử lý nguyên nhân, không xử lý triệu chứng. Nguyên nhân đã tìm: <b>{causes.join(' · ')}</b>
         </p>
       )}
-      <Txt className="focus-title" value={o.title} onSave={(v) => patch({ title: v })} disabled={!editable} placeholder="Viết 1 câu tiêu điểm cho ngày" />
+      <Txt className="focus-title" value={o.title} onSave={(v) => patch({ title: v })} disabled={!editable} placeholder={`Viết 1 câu tiêu điểm cho ${level === 'day' ? 'ngày' : 'tuần'}`} />
       <div className="grid2">
         <label className="fld">
           <span>Số đo O (M)</span>
@@ -117,6 +121,25 @@ export function ObjectiveBlock(props: {
           }}
         />
       )}
+      {level === 'week' ? (
+        <div className="grid2">
+          <label className="fld">
+            <span>Đóng góp vào KR tháng</span>
+            <select value={o.contributes_kr_id ?? ''} disabled={!editable} onChange={(e) => patch({ contributes_kr_id: e.target.value || null })}>
+              <option value="">{monthKrs.length ? '— chọn KR tháng —' : '— tháng này chưa có KR số (trang Tháng làm sau) —'}</option>
+              {monthKrs.map((k) => (
+                <option key={k.id} value={k.id}>
+                  {k.title}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="fld">
+            <span>Chỉ tiêu tuần</span>
+            <Txt type="number" value={o.weekly_target === null ? '' : String(o.weekly_target)} onSave={(v) => patch({ weekly_target: toNum(v) })} disabled={!editable} placeholder={weekTargetHint ?? 'VD: 3'} />
+          </label>
+        </div>
+      ) : (
       <label className="fld">
         <span>Phục vụ KR / KA tuần (khuyến nghị)</span>
         <select
@@ -143,6 +166,7 @@ export function ObjectiveBlock(props: {
           ))}
         </select>
       </label>
+      )}
     </div>
   )
 }

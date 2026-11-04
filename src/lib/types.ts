@@ -112,8 +112,20 @@ export interface KA {
   kr_id: string
   title: string
   done: boolean
+  auto_ticked: boolean
   weight: number | null
   from_action_id: string | null
+  sort: number
+}
+
+export interface Validation {
+  id: string
+  period_id: string
+  direction: 'top_down' | 'cross' | 'bottom_up'
+  person: string
+  asked: boolean
+  smart: Smart
+  note: string
   sort: number
 }
 

@@ -395,3 +395,22 @@ input.need, select.need { border-color: var(--warn) }
 .journal { display: flex; flex-direction: column; gap: 4px; overflow-x: auto }
 .jr { display: grid; grid-template-columns: 80px minmax(140px, 1fr) minmax(140px, 1fr) 28px; gap: 6px; align-items: center; min-width: 440px }
 .jh span { font: 700 11px var(--f-body); text-transform: uppercase; letter-spacing: .05em; color: var(--ink-2) }
+
+/* ===== Trang Tuần ===== */
+.wcell { padding: 4px !important; min-width: 0 }
+.wentry { font-size: 11px; line-height: 1.35; padding: 3px 5px; border-radius: 4px; background: var(--paper); margin-bottom: 3px; overflow-wrap: anywhere }
+.wentry.fixed { background: var(--mark); color: #18233a }
+.wentry.done { text-decoration: line-through; opacity: .7 }
+.wentry.loi_hua { border-left: 3px solid var(--signal) }
+.wentry.lich_hen { border-left: 3px solid var(--brand) }
+.wentry .tm { font-weight: 700; font-variant-numeric: tabular-nums }
+.wadd { display: flex; flex-direction: column; gap: 4px; padding: 4px; border: 1px solid var(--brand); border-radius: 4px; background: var(--sheet) }
+.wadd input, .wadd select { font-size: 12px; padding: 3px 4px }
+.verify { display: flex; flex-direction: column; gap: 10px }
+.vrow2 { display: grid; grid-template-columns: minmax(160px, 220px) minmax(0, 1fr); gap: 6px 10px; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--rule); position: relative }
+.vrow2 .smart { grid-column: 1 / -1 }
+.vrow2 .x { position: absolute; right: 0; top: 4px }
+@media (max-width: 560px) { .vrow2 { grid-template-columns: minmax(0, 1fr) } }
+.wkday small { color: var(--ink-2) }
+.bars .cur i { outline: 2px solid var(--brand); outline-offset: 1px }
+.kws.sugg { align-items: center }

@@ -77,6 +77,11 @@ export async function seriesActiveOn(date: string): Promise<ScheduleSeries[]> {
   return must(await sb().from('schedule_series').select('*').lte('start_date', date).or(`end_date.is.null,end_date.gte.${date}`).order('time_from'))
 }
 
+/** Chuỗi lặp có hiệu lực trong khoảng [from, to]. */
+export async function seriesBetween(from: string, to: string): Promise<ScheduleSeries[]> {
+  return must(await sb().from('schedule_series').select('*').lte('start_date', to).or(`end_date.is.null,end_date.gte.${from}`).order('time_from'))
+}
+
 /* ---------- tầng mục tiêu ưu tiên (bỏ ở giai đoạn Tầm nhìn, C12) ---------- */
 export async function listVisions(): Promise<Vision[]> {
   return must(await sb().from('visions').select('*').order('target_year'))
