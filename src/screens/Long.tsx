@@ -307,6 +307,10 @@ function LongInner({ kind, start, setDate }: { kind: LongKind; start: string; se
             )}
           </div>
 
+          <Step n="0" title="Sự kiện & mốc quan trọng" hint="Xem trước khi quan sát: lịch hẹn, hạn chót, mốc trong kỳ. Tuỳ chọn; tự hiện xuống lưới Tuần và bảng giờ Ngày." open done={ev.rows.length > 0}>
+            <Events periodId={pid} start={start} end={end} ev={ev} objs={objs} />
+          </Step>
+
           <Step n="1" title="1. Quan sát" hint="3 mảng. Mỗi ý trả lời: Nếu không làm thì sao?" open done={obs.rows.some((x) => x.content.trim())}>
             {!locked && <CarryOver prev={carry} onKeep={(x) => obs.add({ period_id: pid, category: x.category, content: x.content, consequence: x.consequence, tham: x.tham, san: x.san, si: x.si, cause_note: x.cause_note, carried_from: x.id, sort: obs.rows.length })} onClose={async (x) => {
               await update('observations', x.id, { closed: true })
@@ -413,10 +417,6 @@ function LongInner({ kind, start, setDate }: { kind: LongKind; start: string; se
               <Verify periodId={pid} v={vals} editable />
             </Step>
           )}
-
-          <Step n="9" title="Sự kiện & mốc quan trọng" hint="Tuỳ chọn. Tự hiện xuống lưới Tuần và bảng giờ Ngày." open done={ev.rows.length > 0}>
-            <Events periodId={pid} start={start} end={end} ev={ev} objs={objs} />
-          </Step>
 
           <section className="lockpanel">
             {lock.blockers.length > 0 && (
