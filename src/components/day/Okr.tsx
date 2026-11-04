@@ -1,67 +1,85 @@
 import { useState } from 'react'
 import { useApp } from '../../lib/ctx'
-import { looksLikeAction, O_CRITERIA, SMART5 } from '../../lib/okr'
-import type { KA, KR, Period } from '../../lib/types'
+import { focusAutoChecks, looksLikeAction, O_CRITERIA, SMART5 } from '../../lib/okr'
+import type { KA, KR, Objective } from '../../lib/types'
 import { Criteria, PctPill, Txt, toNum } from '../ui'
 
-type KrRows = {
-  rows: KR[]
-  add: (r: Record<string, unknown>) => Promise<KR | null>
-  patch: (id: string, p: Partial<KR>) => Promise<void>
-  del: (id: string) => Promise<void>
-}
-type KaRows = {
-  rows: KA[]
-  add: (r: Record<string, unknown>) => Promise<KA | null>
-  patch: (id: string, p: Partial<KA>) => Promise<void>
+type Rows<T> = {
+  rows: T[]
+  add: (r: Record<string, unknown>) => Promise<T | null>
+  patch: (id: string, p: Partial<T>) => Promise<void>
   del: (id: string) => Promise<void>
 }
 
-/** Ô "liên quan" kèm lý do bắt buộc (§3). */
-export function LinkToggle({ linked, reason, onChange, label, disabled }: { linked: boolean; reason: string; onChange: (p: { linked?: boolean; link_reason?: string }) => void; label: string; disabled?: boolean }) {
-  const [draft, setDraft] = useState(reason)
-  const [open, setOpen] = useState(false)
-  if (linked)
-    return (
-      <div className="link on">
-        <label className="li">
-          <input type="checkbox" checked disabled={disabled} onChange={() => onChange({ linked: false })} />
-          <b>{label}</b>
-        </label>
-        <Txt value={reason} onSave={(v) => v.trim() && onChange({ link_reason: v.trim() })} disabled={disabled} placeholder="Đạt thì O cấp trên tiến lên thế nào, đo bằng gì?" />
-      </div>
-    )
+/** Giải thích + ví dụ cho từng tiêu chí (C14). */
+const GUIDE: Record<string, { q: string; why: string; good: string; bad: string }> = {
+  S: { q: 'Tất cả đều hiểu?', why: 'Người khác đọc 1 lần là hiểu bạn sẽ làm xong cái gì, không cần giải thích thêm.', good: 'Chốt 3 lịch hẹn tư vấn tuyển dụng với data mới', bad: 'Đẩy mạnh tuyển dụng' },
+  M: { q: 'Đo lường được?', why: 'Có con số hoặc dấu hiệu nhìn thấy để biết cuối ngày đạt hay chưa.', good: 'Đích: 3 lịch hẹn', bad: 'Làm tốt hơn hôm qua' },
+  A: { q: 'Khả thi?', why: 'Vừa với quỹ thời gian còn lại sau lịch cố định và năng lực hiện tại.', good: '3 hẹn trong 2 khung gọi 09:30 và 14:00', bad: '20 hẹn khi chỉ còn 1 giờ trống' },
+  R: { q: 'Quan trọng nhất?', why: 'Quan trọng nhất trong các việc làm được kỳ này để đạt O cấp trên.', good: 'Phục vụ KR tuần "10 hẹn"', bad: 'Việc gấp nhưng không dẫn tới mục tiêu tuần' },
+  T: { q: 'Thời gian rõ ràng?', why: 'Biết hạn chót. Với O ngày, mặc định là hết ngày; ghi rõ nếu sớm hơn.', good: 'Trước 17:00', bad: 'Khi nào rảnh' },
+  KRO: { q: 'Các KR đạt thì O có đạt không?', why: 'Hình dung 3 KR đã xong 100%. Nếu O vẫn có thể chưa đạt thì KR còn thiếu hoặc chọn sai.', good: 'KR: chuẩn bị kịch bản · gọi 20 data · chốt hẹn', bad: 'KR: đọc sách · dọn bàn · trả lời tin nhắn' },
+}
+
+function FocusCheck({ o, krCount, minKr, load, onDone }: { o: Objective; krCount: number; minKr: number; load: number; onDone: (smart: Objective['smart']) => void }) {
+  const auto = focusAutoChecks(o, krCount, minKr, load)
+  const [i, setI] = useState(0)
+  const [ans, setAns] = useState<Record<string, boolean>>({ ...o.smart } as Record<string, boolean>)
+  const [k] = O_CRITERIA[i]
+  const g = GUIDE[k]
+  const a = auto[k]
+  const last = i === O_CRITERIA.length - 1
   return (
-    <div className="link">
-      {!open ? (
-        <label className="li">
-          <input type="checkbox" checked={false} disabled={disabled} onChange={() => setOpen(true)} />
-          {label}
-        </label>
-      ) : (
-        <div className="addrow">
-          <input autoFocus value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="Đạt thì O cấp trên tiến lên thế nào, đo bằng gì? (bắt buộc)" aria-label="Lý do liên quan" />
-          <button
-            className="btn"
-            disabled={!draft.trim()}
-            onClick={() => {
-              onChange({ linked: true, link_reason: draft.trim() })
-              setOpen(false)
-            }}
-          >
-            Đánh dấu liên quan
+    <div className="fcheck" role="dialog" aria-label="Kiểm tra tiêu điểm">
+      <div className="fcheck-h">
+        Kiểm tra tiêu điểm · {i + 1}/{O_CRITERIA.length}
+      </div>
+      <p className="fcheck-o">“{o.title || 'Chưa viết tiêu điểm'}”</p>
+      <h4>
+        {k.length === 1 ? k + ' · ' : ''}
+        {g.q}
+      </h4>
+      <p>{g.why}</p>
+      <div className="grid2 ex">
+        <span className="good">Đạt: {g.good}</span>
+        <span className="bad">Chưa đạt: {g.bad}</span>
+      </div>
+      {a.ok === false && <p className="flag">{a.note}</p>}
+      <div className="addrow">
+        <button className="btn primary" disabled={a.ok === false} onClick={() => (setAns({ ...ans, [k]: true }), last ? onDone({ ...ans, [k]: true }) : setI(i + 1))}>
+          Đạt
+        </button>
+        <button className="btn" onClick={() => (setAns({ ...ans, [k]: false }), last ? onDone({ ...ans, [k]: false }) : setI(i + 1))}>
+          Chưa đạt, sửa lại
+        </button>
+        {i > 0 && (
+          <button className="btn ghost" onClick={() => setI(i - 1)}>
+            ‹ Câu trước
           </button>
-          <button className="btn ghost" onClick={() => setOpen(false)}>
-            Huỷ
-          </button>
-        </div>
-      )}
+        )}
+        <button className="btn ghost" onClick={() => onDone(ans)}>
+          Đóng
+        </button>
+      </div>
     </div>
   )
 }
 
 /** Bước 5 · Tiêu điểm O. */
-export function Objective({ p, patch, editable, weekTitle, causes }: { p: Period; patch: (f: Partial<Period>) => void; editable: boolean; weekTitle: string; causes: string[] }) {
+export function ObjectiveBlock(props: {
+  o: Objective
+  patch: (f: Partial<Objective>) => void
+  editable: boolean
+  causes: string[]
+  krCount: number
+  load: number
+  weekKrs: KR[]
+  weekKas: KA[]
+}) {
+  const { o, patch, editable, causes, krCount, load, weekKrs, weekKas } = props
+  const { settings: s } = useApp()
+  const [checking, setChecking] = useState(false)
+  const serves = o.serves_ka_id ? 'ka:' + o.serves_ka_id : o.serves_kr_id ? 'kr:' + o.serves_kr_id : ''
   return (
     <div className="objective">
       {causes.length > 0 && (
@@ -69,29 +87,69 @@ export function Objective({ p, patch, editable, weekTitle, causes }: { p: Period
           O phải xử lý nguyên nhân, không xử lý triệu chứng. Nguyên nhân đã tìm: <b>{causes.join(' · ')}</b>
         </p>
       )}
-      <Txt className="focus-title" value={p.o_title} onSave={(v) => patch({ o_title: v })} disabled={!editable} placeholder="Viết 1 câu tiêu điểm cho ngày" />
-      <Criteria keys={O_CRITERIA} value={p.o_smart} onChange={(v) => patch({ o_smart: v })} disabled={!editable} />
-      {(p.o_smart?.M || p.o_metric) && (
-        <label className="fld inline">
-          <span>Số đo (M)</span>
-          <Txt value={p.o_metric} onSave={(v) => patch({ o_metric: v })} disabled={!editable} placeholder="Con số / dấu hiệu đo, VD: 20 data, 3 cuộc hẹn" />
-          {p.o_smart?.M && !p.o_metric.trim() && <span className="flag">M chưa có số đo</span>}
+      <Txt className="focus-title" value={o.title} onSave={(v) => patch({ title: v })} disabled={!editable} placeholder="Viết 1 câu tiêu điểm cho ngày" />
+      <div className="grid2">
+        <label className="fld">
+          <span>Số đo O (M)</span>
+          <Txt value={o.o_metric} onSave={(v) => patch({ o_metric: v })} disabled={!editable} placeholder="VD: số lịch hẹn chốt được" />
         </label>
+        <label className="fld">
+          <span>Đích số (nếu có)</span>
+          <Txt type="number" value={o.o_target === null ? '' : String(o.o_target)} onSave={(v) => patch({ o_target: toNum(v) })} disabled={!editable} placeholder="VD: 3" />
+        </label>
+      </div>
+      <Criteria keys={O_CRITERIA} value={o.smart} onChange={(v) => patch({ smart: v })} disabled={!editable} />
+      {o.smart?.M && !o.o_metric.trim() && o.o_target === null && <span className="flag">M chưa có số đo</span>}
+      {editable && !checking && (
+        <button className="btn" onClick={() => setChecking(true)}>
+          ✓ Kiểm tra tiêu điểm (6 tiêu chí)
+        </button>
       )}
-      <LinkToggle
-        linked={p.linked}
-        reason={p.link_reason}
-        label={weekTitle ? `Liên quan O tuần: “${weekTitle}”` : 'Liên quan O tuần (tuần này chưa đặt O)'}
-        onChange={(x) => patch(x)}
-        disabled={!editable}
-      />
+      {checking && (
+        <FocusCheck
+          o={o}
+          krCount={krCount}
+          minKr={s.day_min_kr}
+          load={load}
+          onDone={(smart) => {
+            patch({ smart })
+            setChecking(false)
+          }}
+        />
+      )}
+      <label className="fld">
+        <span>Phục vụ KR / KA tuần (khuyến nghị)</span>
+        <select
+          value={serves}
+          disabled={!editable}
+          onChange={(e) => {
+            const [t, id] = e.target.value.split(':')
+            patch({ serves_kr_id: t === 'kr' ? id : null, serves_ka_id: t === 'ka' ? id : null })
+          }}
+        >
+          <option value="">{weekKrs.length ? '— không gắn (việc nền) —' : '— tuần này chưa có KR —'}</option>
+          {weekKrs.map((k, i) => (
+            <optgroup key={k.id} label={`KR${i + 1} tuần: ${k.title || '(chưa đặt tên)'}`}>
+              <option value={'kr:' + k.id}>Cả KR{i + 1}</option>
+              {weekKas
+                .filter((a) => a.kr_id === k.id)
+                .map((a) => (
+                  <option key={a.id} value={'ka:' + a.id}>
+                    KA: {a.title}
+                    {a.done ? ' ✓' : ''}
+                  </option>
+                ))}
+            </optgroup>
+          ))}
+        </select>
+      </label>
     </div>
   )
 }
 
-/** Bước 6–7 · KR và KA. */
-export function KrBlocks(props: { periodId: string; krs: KrRows; kas: KaRows; pcts: number[]; editable: boolean; canAdd: boolean; addBlockedMsg: string }) {
-  const { periodId, krs, kas, pcts, editable, canAdd, addBlockedMsg } = props
+/** Bước 6–7 · KR và KA (KA là cấp dưới của từng KR). */
+export function KrBlocks(props: { periodId: string; objectiveId: string; krs: Rows<KR>; kas: Rows<KA>; pcts: number[]; editable: boolean; canAdd: boolean; addBlockedMsg: string }) {
+  const { periodId, objectiveId, krs, kas, pcts, editable, canAdd, addBlockedMsg } = props
   const { settings: s } = useApp()
   const [kaDraft, setKaDraft] = useState<Record<string, string>>({})
   const [ovOpen, setOvOpen] = useState<Record<string, { pct: string; reason: string } | undefined>>({})
@@ -111,7 +169,7 @@ export function KrBlocks(props: { periodId: string; krs: KrRows; kas: KaRows; pc
           const list = kas.rows.filter((a) => a.kr_id === k.id)
           const ov = ovOpen[k.id]
           return (
-            <div key={k.id} className={'krb ' + (k.linked ? 'linked' : '')}>
+            <div key={k.id} className="krb">
               <div className="krb-h">
                 <b>KR{i + 1}</b>
                 {k.from_action_id && <span className="tag kz">Từ Kaizen</span>}
@@ -125,26 +183,24 @@ export function KrBlocks(props: { periodId: string; krs: KrRows; kas: KaRows; pc
               <Txt className="strong" value={k.title} onSave={(v) => krs.patch(k.id, { title: v })} disabled={!editable} placeholder="Kết quả đo được, VD: 100% kịch bản sẵn sàng" multiline rows={2} />
               {looksLikeAction(k.title) && <span className="flag">Viết như hành động. KR nên là kết quả đo được, hành động để ở KA.</span>}
               <Criteria keys={SMART5} value={k.smart} onChange={(v) => krs.patch(k.id, { smart: v })} disabled={!editable} />
-              {(k.smart?.M || k.metric) && (
-                <Txt value={k.metric} onSave={(v) => krs.patch(k.id, { metric: v })} disabled={!editable} placeholder="Số đo (M), VD: 5 data đăng ký" />
-              )}
+              {(k.smart?.M || k.metric) && <Txt value={k.metric} onSave={(v) => krs.patch(k.id, { metric: v })} disabled={!editable} placeholder="Số đo (M), VD: 5 data đăng ký" />}
               {k.smart?.M && !k.metric.trim() && <span className="flag">M chưa có số đo</span>}
-              <LinkToggle linked={k.linked} reason={k.link_reason} label="Liên quan trực tiếp O ngày" onChange={(x) => krs.patch(k.id, x)} disabled={!editable} />
               {s.weights_enabled && (
                 <label className="fld inline">
                   <span>Trọng số</span>
-                  <Txt type="number" value={k.weight === null ? '' : String(k.weight)} onSave={(v) => krs.patch(k.id, { weight: toNum(v) && toNum(v)! > 0 ? toNum(v) : null })} disabled={!editable} placeholder="1" />
+                  <Txt type="number" value={k.weight === null ? '' : String(k.weight)} onSave={(v) => krs.patch(k.id, { weight: (toNum(v) ?? 0) > 0 ? toNum(v) : null })} disabled={!editable} placeholder="1" />
                 </label>
               )}
 
               <div className="kas">
+                <div className="kas-h">KA của KR{i + 1}</div>
                 {list.map((a) => (
                   <div key={a.id} className={'ka ' + (a.done ? 'done' : '')}>
                     <input type="checkbox" checked={a.done} aria-label="Xong" onChange={() => kas.patch(a.id, { done: !a.done })} />
                     <Txt value={a.title} onSave={(v) => v.trim() && kas.patch(a.id, { title: v.trim() })} disabled={!editable} label="KA" />
                     {a.from_action_id && <span className="tag kz">Kaizen</span>}
                     {s.weights_enabled && (
-                      <Txt className="num" type="number" value={a.weight === null ? '' : String(a.weight)} onSave={(v) => kas.patch(a.id, { weight: toNum(v) && toNum(v)! > 0 ? toNum(v) : null })} disabled={!editable} placeholder="1" label="Trọng số" />
+                      <Txt className="num" type="number" value={a.weight === null ? '' : String(a.weight)} onSave={(v) => kas.patch(a.id, { weight: (toNum(v) ?? 0) > 0 ? toNum(v) : null })} disabled={!editable} placeholder="1" label="Trọng số" />
                     )}
                     {editable && (
                       <button className="x" aria-label="Xoá KA" onClick={() => kas.del(a.id)}>
@@ -153,22 +209,22 @@ export function KrBlocks(props: { periodId: string; krs: KrRows; kas: KaRows; pc
                     )}
                   </div>
                 ))}
+                {editable && canAdd && (
+                  <div className="addrow">
+                    <input
+                      value={kaDraft[k.id] ?? ''}
+                      onChange={(e) => setKaDraft({ ...kaDraft, [k.id]: e.target.value })}
+                      onKeyDown={(e) => e.key === 'Enter' && addKa(k)}
+                      placeholder="Động từ + việc cụ thể"
+                      aria-label={`KA mới cho KR${i + 1}`}
+                    />
+                    <button className="btn" onClick={() => addKa(k)} disabled={!(kaDraft[k.id] ?? '').trim()}>
+                      + KA
+                    </button>
+                  </div>
+                )}
               </div>
-              <p className="check-line">Hoàn thành các KA này thì KR có đạt không? Còn có thể làm gì nữa để KR đạt trọn vẹn?</p>
-              {editable && canAdd && (
-                <div className="addrow">
-                  <input
-                    value={kaDraft[k.id] ?? ''}
-                    onChange={(e) => setKaDraft({ ...kaDraft, [k.id]: e.target.value })}
-                    onKeyDown={(e) => e.key === 'Enter' && addKa(k)}
-                    placeholder="Động từ + việc cụ thể, VD: Đăng ký 5 data"
-                    aria-label="KA mới"
-                  />
-                  <button className="btn" onClick={() => addKa(k)} disabled={!(kaDraft[k.id] ?? '').trim()}>
-                    + Thêm KA
-                  </button>
-                </div>
-              )}
+              <p className="check-line">Hoàn thành các KA này thì KR có đạt không? Còn làm gì nữa để KR đạt trọn vẹn?</p>
 
               <div className="override">
                 {k.pct_override !== null ? (
@@ -205,13 +261,13 @@ export function KrBlocks(props: { periodId: string; krs: KrRows; kas: KaRows; pc
       </div>
       {editable &&
         (canAdd ? (
-          <button className="add" disabled={full} onClick={() => krs.add({ period_id: periodId, title: '', sort: krs.rows.length })}>
+          <button className="add" disabled={full} onClick={() => krs.add({ period_id: periodId, objective_id: objectiveId, title: '', sort: krs.rows.length })}>
             {full ? `Đã đủ tối đa ${s.day_max_kr} KR` : `+ Thêm KR${krs.rows.length + 1}`}
           </button>
         ) : (
           <p className="flag">{addBlockedMsg}</p>
         ))}
-      {krs.rows.length < s.day_min_kr && <p className="note">Ngày cần ít nhất {s.day_min_kr} KR. Hỏi: để O hoàn thành cần những KR nào?</p>}
+      {krs.rows.length < s.day_min_kr && <p className="note">Cần {s.day_min_kr} KR. Hỏi: để O hoàn thành cần những kết quả nào?</p>}
     </>
   )
 }

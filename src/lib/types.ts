@@ -32,7 +32,8 @@ export interface Metric {
 }
 
 /* ---------- OKR + Kaizen ---------- */
-export type PeriodKind = 'day' | 'week' | 'month' | 'year'
+export type PeriodKind = 'day' | 'week' | 'month' | 'quarter' | 'year' | 'kickoff'
+export type Area = 'cv_tc' | 'mqh' | 'ttt'
 
 export interface Lesson {
   id: string
@@ -40,9 +41,15 @@ export interface Lesson {
   keyword: string
   signal: string
 }
+export interface JournalRow {
+  id: string
+  time: string
+  did: string
+  result: string
+}
 export interface KaizenData {
   assessment?: string
-  journal?: { s?: string; c?: string; t?: string }
+  journal?: JournalRow[]
   causes?: string
   keywords?: string[]
   lessons?: Lesson[]
@@ -62,24 +69,37 @@ export interface Period {
   locked_at: string | null
   lock_reason: string | null
   unlocks: Unlock[]
-  o_title: string
-  o_smart: Smart
-  o_metric: string
-  linked: boolean
-  link_reason: string
-  goal_id: string | null
+  end_date: string | null
   no_fixed_schedule: boolean
   kaizen: KaizenData
+}
+
+export interface Objective {
+  id: string
+  period_id: string
+  area: Area | null
+  title: string
+  smart: Smart
+  o_metric: string
+  o_target: number | null
+  o_actual: number | null
+  o_result: 'dat' | 'mot_phan' | 'chua' | null
+  serves_kr_id: string | null
+  serves_ka_id: string | null
+  contributes_kr_id: string | null
+  weekly_target: number | null
+  weekly_actual: number | null
+  passive: boolean
+  sort: number
 }
 
 export interface KR {
   id: string
   period_id: string
+  objective_id: string | null
   title: string
   metric: string
   smart: Smart
-  linked: boolean
-  link_reason: string
   weight: number | null
   pct_override: number | null
   override_reason: string | null
@@ -97,17 +117,38 @@ export interface KA {
   sort: number
 }
 
+export type EntryKind = 'viec' | 'loi_hua' | 'lich_hen'
 export interface ScheduleItem {
   id: string
   period_id: string
   date: string
+  time_from: string | null
+  time_to: string | null
+  title: string
+  people: string
+  kind: EntryKind
+  fixed: boolean
+  done: boolean
+  untimed: boolean
+  series_id: string | null
+  skipped: boolean
+  kr_id: string | null
+}
+export interface ScheduleSeries {
+  id: string
+  rule: 'daily' | 'weekly' | 'monthly'
+  weekdays: number[]
+  month_day: number | null
+  start_date: string
+  end_date: string | null
   time_from: string
   time_to: string
   title: string
   people: string
+  kind: EntryKind
   fixed: boolean
-  done: boolean
   kr_id: string | null
+  increment: number
 }
 
 export type ObsCategory = 'work_finance' | 'relationship' | 'body_mind_wisdom'
@@ -123,6 +164,8 @@ export interface Observation {
   si: string
   cause_note: string
   resolve_check: boolean
+  closed: boolean
+  carried_from: string | null
   sort: number
 }
 
@@ -141,11 +184,7 @@ export interface Settings {
   user_id: string
   red_below: number
   pass_pct: number
-  only_linked_pct: boolean
-  show_both_pct: boolean
   weights_enabled: boolean
-  link_pct: number
-  day_min_linked_kr: number
   day_min_kr: number
   day_max_kr: number
   max_daily_actions: number
@@ -157,7 +196,22 @@ export interface Settings {
   red_lock: boolean
   red_streak: number
   rest_weekdays: number[]
-  remind_time: string
+  remind_lead_min: number
+  gap_suggest_pts: number
+  ka_autotick: boolean
+  status_red: number
+  status_green: number
+  kr_min_cvtc: number
+  kr_min_other: number
+  kr_max_other: number
+  max_open_kr: number
+  lower_per_kr_quarter: number
+  stop_per_quarter: number
+  change_cooldown_h: number
+  trigger_lag_pct: number
+  trigger_weeks: number
+  trigger_quarter_pct: number
+  default_tab: 'auto' | 'okr' | 'kaizen'
   year_mode: 'month' | 'quarter'
   timezone: string
 }

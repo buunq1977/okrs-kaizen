@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
-import { errMsg, getPeriod, insert, remove, update, type Table } from './db'
-import type { KaizenData, Period, PeriodKind, Settings } from './types'
+import { errMsg, getMainObjective, getPeriod, insert, remove, update, type Table } from './db'
+import type { KaizenData, Objective, Period, PeriodKind, Settings } from './types'
 
 export interface AppCtx {
   uid: string
@@ -54,6 +54,42 @@ export function usePeriod(kind: PeriodKind, start: string) {
   )
   const patchKaizen = useCallback((part: Partial<KaizenData>) => patch({ kaizen: { ...ref.current!.kaizen, ...part } }), [patch])
   return { p, patch, patchKaizen }
+}
+
+/** O duy nhất của kỳ Ngày/Tuần: tải (hoặc tạo) và sửa từng phần. */
+export function useMainObjective(periodId: string) {
+  const { uid, toast } = useApp()
+  const [o, setO] = useState<Objective | null>(null)
+  const ref = useRef<Objective | null>(null)
+  useEffect(() => {
+    if (!periodId) return
+    let live = true
+    getMainObjective(uid, periodId)
+      .then((x) => {
+        if (!live) return
+        ref.current = x
+        setO(x)
+      })
+      .catch((e) => toast(errMsg(e)))
+    return () => {
+      live = false
+    }
+  }, [uid, periodId, toast])
+  const patch = useCallback(
+    async (fields: Partial<Objective>) => {
+      const cur = ref.current
+      if (!cur) return
+      ref.current = { ...cur, ...fields }
+      setO(ref.current)
+      try {
+        await update('objectives', cur.id, fields)
+      } catch (e) {
+        toast(errMsg(e))
+      }
+    },
+    [toast],
+  )
+  return { o, patch }
 }
 
 /** Danh sách dòng của một bảng: tải lại khi `key` đổi; thêm/sửa/xoá cập nhật ngay trên màn hình. */

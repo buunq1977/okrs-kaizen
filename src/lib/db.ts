@@ -1,9 +1,9 @@
 import { supabase } from './supabase'
-import type { Goal, Metric, Period, PeriodKind, Settings, Vision } from './types'
+import type { Goal, Metric, Objective, Period, PeriodKind, ScheduleSeries, Settings, Vision } from './types'
 
 export type Table =
   | 'visions' | 'goals' | 'metrics'
-  | 'periods' | 'key_results' | 'key_actions' | 'schedule_items' | 'observations' | 'next_actions' | 'validations'
+  | 'periods' | 'objectives' | 'schedule_series' | 'key_results' | 'key_actions' | 'schedule_items' | 'observations' | 'next_actions' | 'validations'
   | 'settings'
 
 function sb() {
@@ -24,7 +24,7 @@ export function viDbError(msg: string) {
   if (/Đã đủ 5 mục tiêu/.test(msg)) return msg
   if (/null value in column/.test(msg)) return 'Còn thiếu ô bắt buộc.'
   if (/permission denied/.test(msg)) return msg + ' (chạy lại các file SQL trong supabase/migrations)'
-  if (/relation .* does not exist|schema cache/.test(msg)) return msg + ' (chưa chạy file SQL 004_okr_kaizen_v2.sql)'
+  if (/relation .* does not exist|schema cache/.test(msg)) return msg + ' (chưa chạy file SQL mới nhất trong supabase/migrations)'
   return msg
 }
 export const errMsg = (e: unknown) => (e instanceof Error ? e.message : String(e))
@@ -59,7 +59,25 @@ export async function findPeriods(kind: PeriodKind, from: string, to: string): P
   return must(await sb().from('periods').select('*').eq('kind', kind).gte('start_date', from).lte('start_date', to).order('start_date'))
 }
 
-/* ---------- tầng mục tiêu ưu tiên ---------- */
+/* ---------- tiêu điểm O ---------- */
+/** O duy nhất của kỳ Ngày/Tuần: lấy hoặc tạo. */
+export async function getMainObjective(uid: string, periodId: string): Promise<Objective> {
+  const found = must(await sb().from('objectives').select('*').eq('period_id', periodId).is('area', null).maybeSingle())
+  if (found) return found as Objective
+  return must(await sb().from('objectives').insert({ user_id: uid, period_id: periodId }).select().single())
+}
+/** O của các kỳ (chỉ đọc). */
+export async function objectivesOf(periodIds: string[]): Promise<Objective[]> {
+  if (!periodIds.length) return []
+  return must(await sb().from('objectives').select('*').in('period_id', periodIds).order('sort'))
+}
+
+/* ---------- lịch lặp lại ---------- */
+export async function seriesActiveOn(date: string): Promise<ScheduleSeries[]> {
+  return must(await sb().from('schedule_series').select('*').lte('start_date', date).or(`end_date.is.null,end_date.gte.${date}`).order('time_from'))
+}
+
+/* ---------- tầng mục tiêu ưu tiên (bỏ ở giai đoạn Tầm nhìn, C12) ---------- */
 export async function listVisions(): Promise<Vision[]> {
   return must(await sb().from('visions').select('*').order('target_year'))
 }
@@ -83,8 +101,8 @@ export async function saveSettings(s: Settings): Promise<Settings> {
 
 /* ---------- xuất toàn bộ ---------- */
 export async function exportAll() {
-  const tables: Table[] = ['visions', 'goals', 'metrics', 'periods', 'key_results', 'key_actions', 'schedule_items', 'observations', 'next_actions', 'validations', 'settings']
-  const out: Record<string, unknown> = { exported_at: new Date().toISOString(), version: 2 }
+  const tables: Table[] = ['visions', 'goals', 'metrics', 'periods', 'objectives', 'schedule_series', 'key_results', 'key_actions', 'schedule_items', 'observations', 'next_actions', 'validations', 'settings']
+  const out: Record<string, unknown> = { exported_at: new Date().toISOString(), version: 3 }
   for (const t of tables) out[t] = must(await sb().from(t).select('*'))
   return out
 }

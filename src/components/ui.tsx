@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useApp } from '../lib/ctx'
-import { colorOf, type Color, type Pct } from '../lib/okr'
+import { colorOf, type Color } from '../lib/okr'
 import { fmtNum } from '../lib/pace'
 import type { Smart } from '../lib/types'
 
@@ -103,24 +103,47 @@ export function PctPill({ pct, big }: { pct: number | null; big?: boolean }) {
   )
 }
 
-/** Dải TIÊU ĐIỂM + HOÀN THÀNH + % (§10). */
-export function FocusBand({ title, pct, label = 'Tiêu điểm' }: { title: string; pct: Pct; label?: string }) {
+/** Dải TIÊU ĐIỂM + HOÀN THÀNH + % (§14). Màu theo O thực tế nếu đã đo, chưa thì theo % thực thi. */
+export function FocusBand({ title, exec, actual, label = 'Tiêu điểm' }: { title: string; exec: number | null; actual: number | null; label?: string }) {
   const { settings } = useApp()
+  const main = actual ?? exec
   return (
-    <div className={'band ' + colorOf(pct.main, settings)}>
+    <div className={'band ' + colorOf(main, settings)}>
       <div className="band-t">
         <small>{label}</small>
         <b>{title.trim() || 'Chưa đặt tiêu điểm'}</b>
       </div>
       <div className="band-p">
         <small>Hoàn thành</small>
-        <b>{pct.main === null ? '–' : pct.main + '%'}</b>
-        {settings.show_both_pct && (
-          <span>
-            mục tiêu {pct.target ?? '–'}% · tổng {pct.total ?? '–'}%
-          </span>
-        )}
+        <b>{main === null ? '–' : main + '%'}</b>
+        <span>
+          thực thi {exec ?? '–'}% · O thực tế {actual === null ? 'chưa đo' : actual + '%'}
+        </span>
       </div>
+    </div>
+  )
+}
+
+/** Dải cấp trên (C10): % O tuần, 3 O tháng, O năm. */
+export interface Upper {
+  label: string
+  title: string
+  pct: number | null
+  note?: string
+  go?: () => void
+}
+export function UpperBand({ items }: { items: Upper[] }) {
+  const { settings } = useApp()
+  return (
+    <div className="upper">
+      {items.map((u, i) => (
+        <button key={i} type="button" className={'up ' + colorOf(u.pct, settings)} onClick={u.go} disabled={!u.go}>
+          <small>{u.label}</small>
+          <span className="up-t">{u.title || <em>Chưa lập</em>}</span>
+          <b>{u.pct === null ? '–' : u.pct + '%'}</b>
+          {u.note && <span className="up-n">{u.note}</span>}
+        </button>
+      ))}
     </div>
   )
 }

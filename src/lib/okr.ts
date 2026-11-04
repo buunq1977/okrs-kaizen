@@ -42,42 +42,71 @@ export function krPercent(kr: { pct_override: number | null }, kas: { done: bool
   return average(kas.map((k) => ({ value: k.done ? 100 : 0, weight: k.weight })), useWeights) ?? 0
 }
 
-/* ---------- % O = trung bình các KR (ngày) / các O cấp dưới (tuần, tháng, năm) ---------- */
-export interface Pct {
-  /** Số chính, theo cài đặt "chỉ tính phần liên quan" */
-  main: number | null
-  /** Chỉ phần liên quan O */
-  target: number | null
-  /** Tất cả */
-  total: number | null
-}
-export function rollup(children: { pct: number; linked: boolean; weight?: number | null }[], s: Pick<Settings, 'only_linked_pct' | 'weights_enabled'>): Pct {
-  const total = average(children.map((c) => ({ value: c.pct, weight: c.weight })), s.weights_enabled)
-  const target = average(children.filter((c) => c.linked).map((c) => ({ value: c.pct, weight: c.weight })), s.weights_enabled)
-  return { main: round(s.only_linked_pct ? target : total), target: round(target), total: round(total) }
+/* ---------- % thực thi O = trung bình % các KR (Ngày/Tuần, §10.1) ---------- */
+export function execPercent(children: { pct: number; weight?: number | null }[], useWeights: boolean): number | null {
+  return round(average(children.map((c) => ({ value: c.pct, weight: c.weight })), useWeights))
 }
 
-/* ---------- Quy tắc mức liên quan (§3) ---------- */
-export const requiredLinked = (slots: number, pct: number) => Math.ceil((slots * pct) / 100 - 1e-9)
+/* ---------- % O thực tế (C3, §6 bước 1) ---------- */
+const RESULT_PCT = { dat: 100, mot_phan: 50, chua: 0 } as const
+export function oActualPercent(o: { o_target: number | null; o_actual: number | null; o_result: 'dat' | 'mot_phan' | 'chua' | null }): number | null {
+  if (o.o_target !== null && o.o_target > 0 && o.o_actual !== null) return Math.round(clamp((o.o_actual / o.o_target) * 100))
+  if (o.o_result) return RESULT_PCT[o.o_result]
+  return null
+}
+/** Số dùng cho màu và chuỗi đỏ: O thực tế nếu đã nhập, chưa thì % thực thi. */
+export const dayScore = (exec: number | null, actual: number | null) => (actual ?? exec)
+/** Lệch lớn giữa % thực thi và % O thực tế → gợi ý "KR chọn chưa trúng O". */
+export function gapSuggest(exec: number | null, actual: number | null, pts: number): boolean {
+  return exec !== null && actual !== null && Math.abs(exec - actual) >= pts
+}
+export const GAP_KEYWORD = 'KR chọn chưa trúng O'
 
-export interface LinkCheck {
-  linked: number
-  required: number
-  ok: boolean
-  message: string
+/* ---------- Giờ nhắc & tab mở sẵn (C19, C20) ---------- */
+const toMin = (t: string) => {
+  const [h, m] = t.slice(0, 5).split(':').map(Number)
+  return h * 60 + m
 }
-export function dayLinkCheck(krs: { linked: boolean }[], s: Pick<Settings, 'day_min_linked_kr'>): LinkCheck {
-  const linked = krs.filter((k) => k.linked).length
-  const required = s.day_min_linked_kr
-  if (linked < required) return { linked, required, ok: false, message: `Cần ít nhất ${required} KR liên quan trực tiếp tiêu điểm (đang có ${linked}).` }
-  if (linked === 1 && krs.length > 1) return { linked, required, ok: true, message: 'Chỉ 1 KR liên quan tiêu điểm. Nên có từ 2 KR trở lên.' }
-  return { linked, required, ok: true, message: '' }
+const fmtHM = (n: number) => `${String(Math.floor(n / 60)).padStart(2, '0')}:${String(n % 60).padStart(2, '0')}`
+export function remindTime(lockTime: string, leadMin: number) {
+  return fmtHM((((toMin(lockTime) - leadMin) % 1440) + 1440) % 1440)
 }
-/** Tuần: 7 ngày. Tháng: số tuần của tháng. Năm: 12 tháng. */
-export function parentLinkCheck(linked: number, slots: number, label: string, s: Pick<Settings, 'link_pct'>): LinkCheck {
-  const required = requiredLinked(slots, s.link_pct)
-  const ok = linked >= required
-  return { linked, required, ok, message: ok ? '' : `Mới ${linked}/${slots} ${label} liên quan, cần tối thiểu ${required} (${s.link_pct}%).` }
+export function defaultTab(date: string, todayIso: string, now: Date, s: Pick<Settings, 'lock_time' | 'remind_lead_min' | 'default_tab'>): 'okr' | 'kaizen' {
+  if (s.default_tab !== 'auto') return s.default_tab
+  if (date > todayIso) return 'okr'
+  if (date < todayIso) return 'kaizen'
+  return now.getHours() * 60 + now.getMinutes() >= toMin(remindTime(s.lock_time, s.remind_lead_min)) ? 'kaizen' : 'okr'
+}
+
+/* ---------- Tải lịch cố định trong ngày (gợi ý cho chữ A) ---------- */
+export function scheduleLoad(entries: { time_from: string | null; time_to: string | null; fixed: boolean }[], dayStart: string, dayEnd: string): number {
+  const total = toMin(dayEnd) - toMin(dayStart)
+  if (total <= 0) return 0
+  const used = entries.filter((e) => e.fixed && e.time_from && e.time_to).reduce((a, e) => a + Math.max(0, toMin(e.time_to!) - toMin(e.time_from!)), 0)
+  return Math.round((used / total) * 100)
+}
+
+/* ---------- Nút "Kiểm tra tiêu điểm" (C14, §4.1) ---------- */
+export interface CheckItem {
+  key: string
+  ok: boolean | null // null = người dùng tự xác nhận
+  note: string
+}
+export function focusAutoChecks(o: { title: string; o_metric: string; o_target: number | null }, krCount: number, minKr: number, loadPct: number): Record<string, CheckItem> {
+  return {
+    S: { key: 'S', ok: o.title.trim().length >= 8 ? null : false, note: o.title.trim().length >= 8 ? '' : 'Tiêu điểm quá ngắn để người khác hiểu.' },
+    M: { key: 'M', ok: o.o_metric.trim() || o.o_target !== null ? true : false, note: o.o_metric.trim() || o.o_target !== null ? '' : 'Chưa có số đo O. Ghi con số hoặc dấu hiệu đo được.' },
+    A: { key: 'A', ok: loadPct > 80 ? false : null, note: loadPct > 80 ? `Lịch cố định đã chiếm ${loadPct}% ngày. Kiểm tra lại quỹ thời gian.` : '' },
+    R: { key: 'R', ok: null, note: '' },
+    T: { key: 'T', ok: null, note: '' },
+    KRO: { key: 'KRO', ok: krCount >= minKr ? null : false, note: krCount >= minKr ? '' : `Cần ít nhất ${minKr} KR mới đánh giá được.` },
+  }
+}
+
+/* ---------- Mang sang quan sát chưa xử lý (C13) ---------- */
+export function carryCandidates<T extends { id: string; closed: boolean; content: string }>(prev: T[], today: { carried_from: string | null }[]): T[] {
+  const taken = new Set(today.map((x) => x.carried_from).filter(Boolean))
+  return prev.filter((o) => !o.closed && o.content.trim() && !taken.has(o.id))
 }
 
 /* ---------- Tiêu chí kiểm tra & chặn "Chốt kế hoạch" (§4) ---------- */
@@ -109,19 +138,19 @@ export interface LockCheck {
   warnings: string[]
 }
 export function lockCheck(
-  kind: 'day' | 'week' | 'month' | 'year',
-  o: { o_title: string; o_smart: Smart; o_metric: string },
+  kind: 'day' | 'week',
+  o: { title: string; smart: Smart; o_metric: string; o_target: number | null },
   krs: { title: string; smart: Smart; metric: string; kas: number }[],
   s: Pick<Settings, 'day_min_kr' | 'day_max_kr'>,
 ): LockCheck {
   const blockers: string[] = []
   const warnings: string[] = []
-  if (!o.o_title.trim()) blockers.push('Chưa viết tiêu điểm (O).')
-  const om = missingKeys(o.o_smart, O_CRITERIA)
+  if (!o.title.trim()) blockers.push('Chưa viết tiêu điểm (O).')
+  const om = missingKeys(o.smart, O_CRITERIA)
   if (om.length) blockers.push(`Tiêu điểm còn thiếu tiêu chí: ${om.map(keyName).join(', ')}.`)
-  if (o.o_smart?.M && !o.o_metric.trim()) warnings.push('Tiêu điểm tick M nhưng chưa có số đo.')
-  if (kind === 'day' && krs.length < s.day_min_kr) blockers.push(`Cần ít nhất ${s.day_min_kr} KR (đang có ${krs.length}).`)
-  if (kind === 'day' && krs.length > s.day_max_kr) warnings.push(`Nhiều hơn ${s.day_max_kr} KR, dễ dàn trải.`)
+  if (o.smart?.M && !o.o_metric.trim() && o.o_target === null) warnings.push('Tiêu điểm tick M nhưng chưa có số đo.')
+  if (krs.length < s.day_min_kr) blockers.push(`Cần ít nhất ${s.day_min_kr} KR ${kind === "day" ? "ngày" : "tuần"} (đang có ${krs.length}).`)
+  if (krs.length > s.day_max_kr) warnings.push(`Nhiều hơn ${s.day_max_kr} KR, dễ dàn trải.`)
   krs.forEach((k, i) => {
     const n = `KR${i + 1}`
     if (!k.title.trim()) blockers.push(`${n} chưa có nội dung.`)
@@ -135,9 +164,10 @@ export function lockCheck(
 }
 
 /* ---------- Kaizen ---------- */
-export function kaizenStarted(k: { journal?: { s?: string; c?: string; t?: string }; causes?: string; lessons?: { text: string }[]; assessment?: string } | undefined) {
+export function kaizenStarted(k: { journal?: { did: string; result: string }[] | unknown; causes?: string; lessons?: { text: string }[]; assessment?: string } | undefined) {
   if (!k) return false
-  return Boolean(k.journal?.s?.trim() || k.journal?.c?.trim() || k.journal?.t?.trim() || k.causes?.trim() || k.assessment?.trim() || k.lessons?.some((l) => l.text.trim()))
+  const rows = Array.isArray(k.journal) ? (k.journal as { did: string; result: string }[]) : []
+  return Boolean(rows.some((r) => r.result?.trim() || r.did?.trim()) || k.causes?.trim() || k.assessment?.trim() || k.lessons?.some((l) => l.text.trim()))
 }
 export const hasLessons = (k: { lessons?: { text: string }[] } | undefined) => Boolean(k?.lessons?.some((l) => l.text.trim()))
 

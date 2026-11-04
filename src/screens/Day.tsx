@@ -1,22 +1,30 @@
 import { useEffect, useState } from 'react'
-import { Kaizen } from '../components/day/Kaizen'
-import { KrBlocks, Objective } from '../components/day/Okr'
-import { Analyze, Observe, RootCauses } from '../components/day/Observe'
+import { Kaizen, OkrSummary } from '../components/day/Kaizen'
+import { KrBlocks, ObjectiveBlock } from '../components/day/Okr'
+import { Analyze, CarryOver, Observe, RootCauses } from '../components/day/Observe'
 import { Schedule } from '../components/day/Schedule'
-import { FocusBand, Step } from '../components/ui'
-import { useApp, usePeriod, useRows } from '../lib/ctx'
-import { errMsg, findPeriods, listBy, listIn } from '../lib/db'
-import { addDays, fmtDM, mondayOf, today } from '../lib/dates'
-import { dayLinkCheck, effectiveLock, hasLessons, kaizenStarted, krPercent, lockCheck, redStreak, rollup, type DayRecord } from '../lib/okr'
-import type { KA, KR, NextAction, Observation, Period, ScheduleItem } from '../lib/types'
+import { FocusBand, Step, UpperBand, type Upper } from '../components/ui'
+import { useApp, useMainObjective, usePeriod, useRows } from '../lib/ctx'
+import { errMsg, findPeriods, listBy, listIn, objectivesOf, seriesActiveOn, update } from '../lib/db'
+import { addDays, fmtDM, mondayOf, monthStart, today } from '../lib/dates'
+import {
+  carryCandidates, dayScore, defaultTab, effectiveLock, execPercent, hasLessons, kaizenStarted, krPercent, lockCheck,
+  oActualPercent, redStreak, remindTime, scheduleLoad, type DayRecord,
+} from '../lib/okr'
+import { mergeSchedule } from '../lib/schedule'
+import type { KA, KR, NextAction, Observation, ScheduleItem, ScheduleSeries } from '../lib/types'
 import { PeriodNav } from './PeriodNav'
+
+const AREA_LABEL = { cv_tc: 'O Công việc/Tài chính', mqh: 'O Mối quan hệ', ttt: 'O Thân–Tâm–Trí' } as const
 
 export default function Day({ date, setDate, mode }: { date: string; setDate: (d: string) => void; mode: 'today' | 'plan' }) {
   const { settings: s, toast, go } = useApp()
   const { p, patch, patchKaizen } = usePeriod('day', date)
   const pid = p?.id ?? ''
+  const { o, patch: patchO } = useMainObjective(pid)
   const none = <T,>() => Promise.resolve([] as T[])
-  const sched = useRows<ScheduleItem>('schedule_items', pid, () => (pid ? listBy('schedule_items', 'period_id', pid, 'time_from') : none()))
+  const items = useRows<ScheduleItem>('schedule_items', pid, () => (pid ? listBy('schedule_items', 'period_id', pid, 'created_at') : none()))
+  const series = useRows<ScheduleSeries>('schedule_series', date, () => seriesActiveOn(date))
   const obs = useRows<Observation>('observations', pid, () => (pid ? listBy('observations', 'period_id', pid) : none()))
   const krs = useRows<KR>('key_results', pid, () => (pid ? listBy('key_results', 'period_id', pid) : none()))
   const krIds = krs.rows.map((k) => k.id).join(',')
@@ -24,7 +32,11 @@ export default function Day({ date, setDate, mode }: { date: string; setDate: (d
   const acts = useRows<NextAction>('next_actions', pid, () => (pid ? listBy('next_actions', 'period_id', pid) : none()))
 
   const [now, setNow] = useState(() => new Date())
-  const [weekTitle, setWeekTitle] = useState('')
+  const [tab, setTab] = useState<'okr' | 'kaizen'>(() => (mode === 'plan' ? 'okr' : defaultTab(date, today(), new Date(), s)))
+  const [prevObs, setPrevObs] = useState<Observation[]>([])
+  const [upper, setUpper] = useState<Upper[]>([])
+  const [weekKrs, setWeekKrs] = useState<KR[]>([])
+  const [weekKas, setWeekKas] = useState<KA[]>([])
   const [streak, setStreak] = useState<{ locked: boolean; day?: string }>({ locked: false })
   const [todayKaizenDone, setTodayKaizenDone] = useState(true)
   const [lockReason, setLockReason] = useState('')
@@ -36,28 +48,57 @@ export default function Day({ date, setDate, mode }: { date: string; setDate: (d
     return () => clearInterval(t)
   }, [])
 
-  // O tuần (để đánh dấu liên quan), chuỗi ngày đỏ, Kaizen hôm nay (khi lập kế hoạch ngày mai)
+  // Cấp trên (tuần, tháng, năm), quan sát hôm qua, chuỗi đỏ, Kaizen hôm nay
   useEffect(() => {
     let live = true
     ;(async () => {
       try {
-        const w = await findPeriods('week', mondayOf(date), mondayOf(date))
-        if (live) setWeekTitle(w[0]?.o_title ?? '')
+        const ws = mondayOf(date)
+        const [wp] = await findPeriods('week', ws, ws)
+        const [mp] = await findPeriods('month', monthStart(date), monthStart(date))
+        const [yp] = await findPeriods('year', date.slice(0, 4) + '-01-01', date.slice(0, 4) + '-01-01')
+        const os = await objectivesOf([wp?.id, mp?.id, yp?.id].filter(Boolean) as string[])
+        const wk = wp ? await listBy<KR>('key_results', 'period_id', wp.id) : []
+        const wka = await listIn<KA>('key_actions', 'kr_id', wk.map((k) => k.id))
+        const wo = os.find((x) => x.period_id === wp?.id && !x.area)
+        const wExec = execPercent(wk.map((k) => ({ pct: krPercent(k, wka.filter((a) => a.kr_id === k.id), s.weights_enabled), weight: k.weight })), s.weights_enabled)
+        const up: Upper[] = [{ label: 'O tuần', title: wo?.title ?? '', pct: wo ? (oActualPercent(wo) ?? wExec) : null, go: () => go('week', date) }]
+        for (const a of ['cv_tc', 'mqh', 'ttt'] as const) {
+          const mo = os.find((x) => x.period_id === mp?.id && x.area === a)
+          up.push({ label: AREA_LABEL[a] + ' · tháng', title: mo?.title ?? '', pct: null, note: mo ? 'Tình trạng: khi có trang Tháng' : undefined, go: () => go('month', date) })
+        }
+        const yo = os.filter((x) => x.period_id === yp?.id)
+        up.push({ label: 'O năm', title: yo.map((x) => x.title).filter(Boolean).join(' · '), pct: null, go: () => go('year', date) })
+
+        const [pp] = await findPeriods('day', addDays(date, -1), addDays(date, -1))
+        const po = pp ? await listBy<Observation>('observations', 'period_id', pp.id) : []
+
         const t0 = today()
-        if (date < t0) return live && setStreak({ locked: false })
-        const past = await findPeriods('day', addDays(t0, -45), date === t0 ? addDays(t0, -1) : t0)
-        const pk = await listIn<KR>('key_results', 'period_id', past.map((x) => x.id))
-        const pa = await listIn<KA>('key_actions', 'kr_id', pk.map((x) => x.id))
-        const recs: DayRecord[] = past
-          .filter((x) => x.start_date < t0)
-          .map((d) => {
-            const ks = pk.filter((k) => k.period_id === d.id)
-            const r = rollup(ks.map((k) => ({ pct: krPercent(k, pa.filter((a) => a.kr_id === k.id), s.weights_enabled), linked: k.linked, weight: k.weight })), s)
-            return { date: d.start_date, hasO: !!d.o_title.trim(), pct: r.main, lessons: hasLessons(d.kaizen) }
-          })
+        let st: { locked: boolean; day?: string } = { locked: false }
+        let tk = true
+        if (date >= t0) {
+          const past = await findPeriods('day', addDays(t0, -45), t0)
+          const pos = await objectivesOf(past.map((x) => x.id))
+          const pk = await listIn<KR>('key_results', 'period_id', past.map((x) => x.id))
+          const pa = await listIn<KA>('key_actions', 'kr_id', pk.map((x) => x.id))
+          const recs: DayRecord[] = past
+            .filter((d) => d.start_date < t0)
+            .map((d) => {
+              const od = pos.find((x) => x.period_id === d.id && !x.area)
+              const ks = pk.filter((k) => k.period_id === d.id)
+              const ex = execPercent(ks.map((k) => ({ pct: krPercent(k, pa.filter((a) => a.kr_id === k.id), s.weights_enabled), weight: k.weight })), s.weights_enabled)
+              return { date: d.start_date, hasO: !!od?.title.trim(), pct: dayScore(ex, od ? oActualPercent(od) : null), lessons: hasLessons(d.kaizen) }
+            })
+          st = redStreak(t0, recs, s)
+          if (date > t0) tk = kaizenStarted(past.find((x) => x.start_date === t0)?.kaizen)
+        }
         if (!live) return
-        setStreak(redStreak(t0, recs, s))
-        if (date > t0) setTodayKaizenDone(kaizenStarted(past.find((x: Period) => x.start_date === t0)?.kaizen))
+        setUpper(up)
+        setWeekKrs(wk)
+        setWeekKas(wka)
+        setPrevObs(po)
+        setStreak(st)
+        setTodayKaizenDone(tk)
       } catch (e) {
         toast(errMsg(e))
       }
@@ -65,38 +106,61 @@ export default function Day({ date, setDate, mode }: { date: string; setDate: (d
     return () => {
       live = false
     }
-  }, [date, s, toast])
+  }, [date, s, toast, go])
 
-  if (!p) return <p className="note">Đang mở ngày…</p>
+  if (!p || !o) return <p className="note">Đang mở ngày…</p>
 
   const t0 = today()
   const lock = effectiveLock(p, s, now)
   const editable = !lock.locked
   const canAdd = editable && !streak.locked
+  const entries = mergeSchedule(series.rows, items.rows, date)
   const krPcts = krs.rows.map((k) => krPercent(k, kas.rows.filter((a) => a.kr_id === k.id), s.weights_enabled))
-  const pct = rollup(krs.rows.map((k, i) => ({ pct: krPcts[i], linked: k.linked, weight: k.weight })), s)
-  const link = dayLinkCheck(krs.rows, s)
-  const check = lockCheck('day', p, krs.rows.map((k) => ({ ...k, kas: kas.rows.filter((a) => a.kr_id === k.id).length })), s)
+  const exec = execPercent(krs.rows.map((k, i) => ({ pct: krPcts[i], weight: k.weight })), s.weights_enabled)
+  const actual = oActualPercent(o)
+  const check = lockCheck('day', o, krs.rows.map((k) => ({ ...k, kas: kas.rows.filter((a) => a.kr_id === k.id).length })), s)
+  const load = scheduleLoad(entries, s.day_start, s.day_end)
+  const carry = carryCandidates(prevObs, obs.rows)
 
-  // Mở bước khi bước trước đủ nội dung tối thiểu, hoặc bước đó đã có nội dung
-  const sel = obs.rows.filter((o) => o.is_selected)
+  const sel = obs.rows.filter((x) => x.is_selected)
   const done = [
-    p.no_fixed_schedule || sched.rows.some((x) => x.title.trim()),
-    obs.rows.some((o) => o.content.trim()),
+    p.no_fixed_schedule || entries.some((e) => e.title.trim()),
+    obs.rows.some((x) => x.content.trim()),
     sel.length > 0,
-    sel.some((o) => o.tham.trim() || o.san.trim() || o.si.trim()),
-    !!p.o_title.trim(),
+    sel.some((x) => x.tham.trim() || x.san.trim() || x.si.trim()),
+    !!o.title.trim(),
     krs.rows.length > 0,
     kas.rows.length > 0,
   ]
-  const open = (i: number) => done.slice(0, i).every(Boolean) || done[i] || (i >= 4 && (!!p.o_title.trim() || krs.rows.length > 0))
-  const causes = sel.flatMap((o) => [o.tham, o.san, o.si].map((x) => x.trim()).filter(Boolean))
-  const remind = s.remind_time.slice(0, 5)
+  const open = (i: number) => done.slice(0, i).every(Boolean) || done[i] || (i >= 4 && (!!o.title.trim() || krs.rows.length > 0))
+  const causes = sel.flatMap((x) => [x.tham, x.san, x.si].map((y) => y.trim()).filter(Boolean))
+  const remind = remindTime(s.lock_time, s.remind_lead_min)
   const nowHM = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
+
+  const keep = async (x: Observation) => {
+    await obs.add({ period_id: pid, category: x.category, content: x.content, consequence: x.consequence, tham: x.tham, san: x.san, si: x.si, cause_note: x.cause_note, carried_from: x.id, sort: obs.rows.length })
+  }
+  const close = async (x: Observation) => {
+    try {
+      await update('observations', x.id, { closed: true })
+      setPrevObs((xs) => xs.map((y) => (y.id === x.id ? { ...y, closed: true } : y)))
+    } catch (e) {
+      toast(errMsg(e))
+    }
+  }
 
   return (
     <>
       <PeriodNav kind="day" start={date} onShift={(n) => setDate(addDays(date, n))} extra={<span className="period-tag">{mode === 'plan' ? 'Lập kế hoạch' : date === t0 ? 'Hôm nay' : ''}</span>} />
+
+      <div className="tabs" role="tablist">
+        <button role="tab" aria-selected={tab === 'okr'} onClick={() => setTab('okr')}>
+          OKR ngày
+        </button>
+        <button role="tab" aria-selected={tab === 'kaizen'} onClick={() => setTab('kaizen')}>
+          Kaizen ngày
+        </button>
+      </div>
 
       {streak.locked && (
         <div className="alert red">
@@ -108,7 +172,7 @@ export default function Day({ date, setDate, mode }: { date: string; setDate: (d
       )}
       {date > t0 && !todayKaizenDone && (
         <div className="alert yellow">
-          Chưa làm Kaizen hôm nay. Thứ tự đúng: Kaizen ngày {fmtDM(t0)} trước, rồi mới lập OKR ngày {fmtDM(date)}.{' '}
+          Chưa làm Kaizen hôm nay. Thứ tự đúng: Kaizen ngày {fmtDM(t0)} trước, rồi lập OKR ngày {fmtDM(date)}.{' '}
           <button className="btn" onClick={() => go('day', t0)}>
             Làm Kaizen hôm nay
           </button>
@@ -116,20 +180,22 @@ export default function Day({ date, setDate, mode }: { date: string; setDate: (d
       )}
       {mode === 'today' && date === t0 && nowHM >= remind && !kaizenStarted(p.kaizen) && (
         <div className="alert blue">
-          Đã {remind}: dành 20–30 phút làm Kaizen hôm nay và lập OKR ngày mai.{' '}
+          Đã {remind}: còn ít hơn {s.remind_lead_min} phút đến giờ chốt kế hoạch ngày mai ({s.lock_time.slice(0, 5)}). Làm Kaizen hôm nay rồi lập OKR ngày mai.{' '}
+          {tab === 'okr' && (
+            <button className="btn" onClick={() => setTab('kaizen')}>
+              Mở Kaizen
+            </button>
+          )}
           <button className="btn" onClick={() => go('plan', addDays(t0, 1))}>
             Lập OKR ngày mai
           </button>
         </div>
       )}
-      {!link.ok && krs.rows.length > 0 && <div className="alert red">{link.message}</div>}
-      {link.ok && link.message && <div className="alert yellow">{link.message}</div>}
 
-      <FocusBand title={p.o_title} pct={pct} />
-
-      <div className="panes">
-        <div className="pane">
-          <div className="pane-h">OKRs ngày</div>
+      {tab === 'okr' ? (
+        <div className="stack">
+          <UpperBand items={upper} />
+          <FocusBand title={o.title} exec={exec} actual={actual} />
           <div className="lockbar">
             {editable ? (
               <span>
@@ -169,8 +235,8 @@ export default function Day({ date, setDate, mode }: { date: string; setDate: (d
             )}
           </div>
 
-          <Step n="1" title="1a. Quan sát · Lịch cố định & cam kết" hint="Làm bước này trước: biết quỹ thời gian mới chọn được việc khả thi (chữ A)." open done={done[0]}>
-            <Schedule date={date} periodId={pid} sched={sched} editable={editable} />
+          <Step n="1" title="1a. Quan sát · Lịch cố định & cam kết" hint="Làm trước: biết quỹ thời gian mới chọn được việc khả thi (chữ A)." open done={done[0]}>
+            <Schedule date={date} periodId={pid} entries={entries} items={items} reloadSeries={series.reload} editable={editable} />
             <label className="li">
               <input type="checkbox" checked={p.no_fixed_schedule} disabled={!editable} onChange={() => patch({ no_fixed_schedule: !p.no_fixed_schedule })} />
               Ngày này không có lịch cố định
@@ -178,6 +244,7 @@ export default function Day({ date, setDate, mode }: { date: string; setDate: (d
           </Step>
 
           <Step n="2" title="1b. Quan sát · Vấn đề, nỗi đau, tồn đọng, cơ hội" hint="Mỗi ý trả lời: Nếu không làm thì sao?" open={open(1)} done={done[1]} lockedMsg="Ghi lịch cố định (hoặc tick 'không có lịch cố định') trước.">
+            {editable && <CarryOver prev={carry} onKeep={keep} onClose={close} label="hôm qua" />}
             <Observe periodId={pid} obs={obs} editable={editable} />
           </Step>
 
@@ -185,17 +252,18 @@ export default function Day({ date, setDate, mode }: { date: string; setDate: (d
             <Analyze obs={obs} editable={editable} />
           </Step>
 
-          <Step n="4" title="3. Nguyên nhân lỗi" hint="Với từng việc đã tô đậm: gốc rễ nằm ở Tham, Sân hay Si?" open={open(3)} done={done[3]} lockedMsg="Tô đậm ít nhất 1 việc ở bước 3 trước.">
+          <Step n="4" title="3. Nguyên nhân lõi" hint="Với từng việc tô đậm: gốc rễ ở Tham, Sân hay Si?" open={open(3)} done={done[3]} lockedMsg="Tô đậm ít nhất 1 việc ở bước 3 trước.">
             <RootCauses obs={obs} editable={editable} />
           </Step>
 
-          <Step n="5" title="Tiêu điểm (O)" hint="1 câu mục tiêu, tick đủ 6 tiêu chí." open={open(4)} done={done[4]} lockedMsg="Tìm nguyên nhân ở bước 4 trước.">
-            <Objective p={p} patch={patch} editable={editable} weekTitle={weekTitle} causes={causes} />
+          <Step n="5" title="Tiêu điểm (O)" hint="1 câu, có số đo, kiểm đủ 6 tiêu chí." open={open(4)} done={done[4]} lockedMsg="Tìm nguyên nhân ở bước 4 trước.">
+            <ObjectiveBlock o={o} patch={patchO} editable={editable} causes={causes} krCount={krs.rows.length} load={load} weekKrs={weekKrs} weekKas={weekKas} />
           </Step>
 
-          <Step n="6–7" title="KR và KA" hint="Để O hoàn thành cần những KR nào? Dưới mỗi KR là các KA có ô tick." open={open(5)} done={done[5] && done[6]} lockedMsg="Viết tiêu điểm O ở bước 5 trước.">
+          <Step n="6–7" title="KR và KA" hint="Để O hoàn thành cần những KR nào? Mỗi KR có danh sách KA riêng." open={open(5)} done={done[5] && done[6]} lockedMsg="Viết tiêu điểm O ở bước 5 trước.">
             <KrBlocks
               periodId={pid}
+              objectiveId={o.id}
               krs={krs}
               kas={kas}
               pcts={krPcts}
@@ -239,12 +307,14 @@ export default function Day({ date, setDate, mode }: { date: string; setDate: (d
             {!editable && p.lock_reason && <p className="note">Đã chốt khi chưa đủ tiêu chí. Lý do: {p.lock_reason}</p>}
           </section>
         </div>
-
-        <div className="pane">
-          <div className="pane-h">Kaizen ngày</div>
-          {date <= t0 ? <Kaizen p={p} save={patchKaizen} pct={pct} acts={acts} /> : <p className="empty">Kaizen ngày {fmtDM(date)} mở vào cuối ngày đó.</p>}
+      ) : date <= t0 ? (
+        <div className="stack">
+          <OkrSummary o={o} krs={krs.rows} kas={kas.rows} pcts={krPcts} />
+          <Kaizen p={p} save={patchKaizen} o={o} patchO={patchO} exec={exec} actual={actual} acts={acts} entries={entries} kas={kas.rows} />
         </div>
-      </div>
+      ) : (
+        <p className="empty">Kaizen ngày {fmtDM(date)} mở vào cuối ngày đó.</p>
+      )}
     </>
   )
 }

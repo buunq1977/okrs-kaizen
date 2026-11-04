@@ -3,6 +3,7 @@ import { Sec } from '../components/ui'
 import { useApp } from '../lib/ctx'
 import { errMsg, exportAll, saveSettings } from '../lib/db'
 import { addDays, DOW_LONG, today } from '../lib/dates'
+import { remindTime } from '../lib/okr'
 import { supabase } from '../lib/supabase'
 import type { Settings } from '../lib/types'
 
@@ -50,6 +51,7 @@ export default function SettingsScreen() {
   async function save() {
     if (s.red_below >= s.pass_pct) return toast('Ngưỡng đỏ phải nhỏ hơn ngưỡng đạt.')
     if (s.day_max_kr < s.day_min_kr) return toast('Số KR tối đa phải ≥ số KR tối thiểu.')
+    if (s.status_red >= s.status_green) return toast('Ngưỡng đỏ tình trạng phải nhỏ hơn ngưỡng xanh.')
     try {
       const u = await saveSettings(s)
       setSettings(u)
@@ -62,7 +64,7 @@ export default function SettingsScreen() {
   const num = (k: keyof Settings, min: number, max: number) => (
     <input type="number" min={min} max={max} value={s[k] as number} onChange={(e) => set(k, Number(e.target.value) as never)} />
   )
-  const time = (k: 'lock_time' | 'remind_time' | 'day_start' | 'day_end') => <input type="time" value={s[k].slice(0, 5)} onChange={(e) => set(k, e.target.value)} />
+  const time = (k: 'lock_time' | 'day_start' | 'day_end') => <input type="time" value={s[k].slice(0, 5)} onChange={(e) => set(k, e.target.value)} />
   const flag = (k: keyof Settings, label: string) => (
     <label className="li">
       <input type="checkbox" checked={s[k] as boolean} onChange={() => set(k, !s[k] as never)} />
@@ -79,20 +81,11 @@ export default function SettingsScreen() {
         {dirty && <span className="flag">Có thay đổi chưa lưu</span>}
       </div>
 
-      <Sec title="Màu % hoàn thành" hint="§8: đỏ dưới ngưỡng đỏ, vàng ở giữa, xanh từ ngưỡng đạt">
+      <Sec title="Màu % hoàn thành Ngày/Tuần" hint="SPEC §10.3">
         <Row label="Đỏ khi dưới" unit="%">{num('red_below', 0, 99)}</Row>
         <Row label="Đạt (xanh) từ" unit="%">{num('pass_pct', 1, 100)}</Row>
-      </Sec>
-
-      <Sec title="Cách tính %">
-        {flag('only_linked_pct', 'Chỉ tính phần liên quan O (mặc định)')}
-        {flag('show_both_pct', 'Hiện cả "% mục tiêu" và "% tổng"')}
+        <Row label="Gợi ý 'KR chọn chưa trúng O' khi % thực thi và O thực tế lệch từ" unit="điểm">{num('gap_suggest_pts', 5, 100)}</Row>
         {flag('weights_enabled', 'Dùng trọng số cho KR/KA')}
-      </Sec>
-
-      <Sec title="Mức liên quan" hint="§3">
-        <Row label="Tuần/tháng/năm: tối thiểu" unit="% mục cấp dưới liên quan">{num('link_pct', 1, 100)}</Row>
-        <Row label="Ngày: KR liên quan O tối thiểu" unit="KR">{num('day_min_linked_kr', 0, 4)}</Row>
       </Sec>
 
       <Sec title="Trang Ngày">
@@ -129,12 +122,30 @@ export default function SettingsScreen() {
         </div>
       </Sec>
 
-      <Sec title="Nhắc giờ" hint="Banner trong app + lịch trên điện thoại">
-        <Row label="Giờ làm Kaizen + OKR">{time('remind_time')}</Row>
-        <button className="btn" onClick={() => download('okrs-kaizen-nhac-hang-ngay.ics', reminderIcs(s.remind_time), 'text/calendar')}>
+      <Sec title="Nhắc giờ" hint="C20: nhắc trước giờ chốt 60–90 phút">
+        <Row label="Nhắc trước giờ chốt">
+          <select value={s.remind_lead_min} onChange={(e) => set('remind_lead_min', Number(e.target.value))}>
+            {[60, 75, 90].map((m) => (
+              <option key={m} value={m}>
+                {m} phút
+              </option>
+            ))}
+          </select>
+        </Row>
+        <p className="note">
+          Giờ chốt {s.lock_time.slice(0, 5)} → nhắc lúc <b>{remindTime(s.lock_time, s.remind_lead_min)}</b>. Sau giờ nhắc, trang Hôm nay mở sẵn tab Kaizen.
+        </p>
+        <Row label="Tab mở sẵn">
+          <select value={s.default_tab} onChange={(e) => set('default_tab', e.target.value as Settings['default_tab'])}>
+            <option value="auto">Tự theo giờ nhắc</option>
+            <option value="okr">Luôn mở OKR</option>
+            <option value="kaizen">Luôn mở Kaizen</option>
+          </select>
+        </Row>
+        <button className="btn" onClick={() => download('okrs-kaizen-nhac-hang-ngay.ics', reminderIcs(remindTime(s.lock_time, s.remind_lead_min)), 'text/calendar')}>
           Tải file nhắc vào lịch (.ics)
         </button>
-        <p className="note">Mở file vừa tải trên điện thoại hoặc máy tính, chọn thêm vào Lịch. Lịch sẽ nhắc mỗi ngày lúc {s.remind_time.slice(0, 5)}.</p>
+        <p className="note">Lưu cài đặt trước rồi tải file. Mở file trên điện thoại hoặc máy tính, chọn thêm vào Lịch.</p>
       </Sec>
 
       <Sec title="Năm">

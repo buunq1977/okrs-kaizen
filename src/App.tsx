@@ -7,7 +7,7 @@ import { addDays, today } from './lib/dates'
 import type { Settings } from './lib/types'
 import Login, { NewPassword } from './Login'
 import Goals from './screens/Goals'
-import { Upcoming, WeekPreview } from './screens/Upcoming'
+import { Upcoming } from './screens/Upcoming'
 import Day from './screens/Day'
 import SettingsScreen from './screens/SettingsScreen'
 
@@ -142,9 +142,9 @@ function Main({ session }: { session: Session }) {
           <Ctx.Provider value={ctx}>
             {screen === 'today' && <Day key={'d' + date} date={date} setDate={setDate} mode="today" />}
             {screen === 'plan' && <Day key={'p' + date} date={date} setDate={setDate} mode="plan" />}
-            {screen === 'week' && <WeekPreview date={date} setDate={setDate} />}
-            {screen === 'month' && <Upcoming title="Tháng" what="Trang Tháng (O tháng = KR năm, KR tháng = các O tuần, 5 bảng tuần, Kaizen tháng, Kiểm chứng 3 chiều) làm ở giai đoạn tiếp theo, sau khi bạn dùng thử trang Ngày." />}
-            {screen === 'year' && <Upcoming title="Năm" what="Trang Năm (O năm gắn mục tiêu ưu tiên, KR năm = 12 O tháng, quy tắc ≥ 8/12 tháng liên quan) làm ở giai đoạn tiếp theo." />}
+            {screen === 'week' && <Upcoming title="Tuần" what="Trang Tuần v3 (O tuần → 3 KR → KA, liên kết O ngày phục vụ KR/KA tuần, kiểm chứng 3 chiều, Kaizen tuần, chart tháng/năm) làm ngay sau khi bạn duyệt trang Ngày." />}
+            {screen === 'month' && <Upcoming title="Tháng" what="Trang Tháng (3 O theo 3 mảng, KR số, kế hoạch cộng dồn, Kaizen số liệu) làm sau Tầm nhìn + Năm + Quý (SPEC §17)." />}
+            {screen === 'year' && <Upcoming title="Năm" what="Tầm nhìn, Năm, Quý, Kỳ khởi động 11–12/2026 và Mô hình thu nhập làm ở giai đoạn 4 (SPEC §17)." />}
             {screen === 'goals' && <Goals />}
             {screen === 'settings' && <SettingsScreen />}
           </Ctx.Provider>
@@ -169,7 +169,7 @@ function SetupError({ msg, retry }: { msg: string; retry: () => void }) {
       {missingTable ? (
         <p>
           Supabase chưa có bảng của app. Vào Supabase → <b>SQL Editor → New query</b>, dán và chạy lần lượt <code>supabase/migrations/001_init.sql</code> rồi{' '}
-          <code>002_goal_current.sql</code>, <code>003_grants.sql</code>, <code>004_okr_kaizen_v2.sql</code> trong repo, sau đó bấm Thử lại.
+          <code>002_goal_current.sql</code>, <code>003_grants.sql</code>, <code>004_okr_kaizen_v2.sql</code>, <code>005_v3_day.sql</code> trong repo, sau đó bấm Thử lại.
         </p>
       ) : noGrant ? (
         <p>

@@ -1,12 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import {
-  colorOf, krPercent, rollup, requiredLinked, dayLinkCheck, parentLinkCheck, lockCheck, looksLikeAction,
+  colorOf, krPercent, execPercent, oActualPercent, dayScore, gapSuggest, remindTime, defaultTab, scheduleLoad,
+  focusAutoChecks, carryCandidates, lockCheck, looksLikeAction,
   highlight, keywordStats, effectiveLock, redStreak, timeSlots, kaizenStarted, average,
 } from './okr'
 
 const S = {
-  red_below: 50, pass_pct: 80, only_linked_pct: true, weights_enabled: false, link_pct: 60, day_min_linked_kr: 1,
+  red_below: 50, pass_pct: 80, weights_enabled: false,
   day_min_kr: 3, day_max_kr: 4, auto_lock: true, lock_time: '22:00', red_lock: true, red_streak: 2, rest_weekdays: [7],
+  remind_lead_min: 90, default_tab: 'auto' as const,
 }
 const ka = (done: boolean, weight: number | null = null) => ({ done, weight })
 
@@ -33,53 +35,89 @@ describe('% KR và % O', () => {
     expect(krPercent({ pct_override: null }, kas, false)).toBe(50)
     expect(krPercent({ pct_override: null }, kas, true)).toBe(75)
   })
-  it('ví dụ §14: KR 100 / 70 / 50 → O 73%', () => {
+  it('ví dụ §18: KR 100 / 70 / 50 → % thực thi O 73%', () => {
     const kr1 = krPercent({ pct_override: null }, [ka(true), ka(true), ka(true)], false)
     const kr2 = krPercent({ pct_override: 70 }, [ka(true), ka(true), ka(true), ka(false)], false)
     const kr3 = krPercent({ pct_override: null }, [ka(true), ka(true), ka(false), ka(false)], false)
-    const o = rollup([kr1, kr2, kr3].map((pct) => ({ pct, linked: true })), S)
-    expect(o.main).toBe(73)
+    expect(execPercent([kr1, kr2, kr3].map((pct) => ({ pct })), false)).toBe(73)
   })
-  it('chỉ tính phần liên quan, vẫn trả cả % tổng', () => {
-    const r = rollup([{ pct: 100, linked: true }, { pct: 0, linked: false }], S)
-    expect(r).toEqual({ main: 100, target: 100, total: 50 })
-    expect(rollup([{ pct: 100, linked: true }, { pct: 0, linked: false }], { ...S, only_linked_pct: false }).main).toBe(50)
-  })
-  it('không có KR liên quan → % mục tiêu trống', () => {
-    expect(rollup([{ pct: 100, linked: false }], S).main).toBeNull()
-  })
+  it('không có KR → null', () => expect(execPercent([], false)).toBeNull())
   it('average rỗng = null', () => expect(average([], false)).toBeNull())
 })
 
-describe('quy tắc liên quan (§3)', () => {
-  it('60%: tuần 7→5, tháng 4→3, 5→3, năm 12→8', () => {
-    expect(requiredLinked(7, 60)).toBe(5)
-    expect(requiredLinked(4, 60)).toBe(3)
-    expect(requiredLinked(5, 60)).toBe(3)
-    expect(requiredLinked(12, 60)).toBe(8)
+describe('% O thực tế (C3)', () => {
+  const o = (o_target: number | null, o_actual: number | null, o_result: 'dat' | 'mot_phan' | 'chua' | null = null) => ({ o_target, o_actual, o_result })
+  it('có đích số → thực tế / đích', () => expect(oActualPercent(o(20, 6))).toBe(30))
+  it('vượt đích chặn 100', () => expect(oActualPercent(o(20, 25))).toBe(100))
+  it('không có số → 3 mức', () => {
+    expect(oActualPercent(o(null, null, 'dat'))).toBe(100)
+    expect(oActualPercent(o(null, null, 'mot_phan'))).toBe(50)
+    expect(oActualPercent(o(null, null, null))).toBeNull()
   })
-  it('tuần chỉ 4/7 ngày liên quan → cảnh báo', () => {
-    expect(parentLinkCheck(4, 7, 'ngày', S).ok).toBe(false)
-    expect(parentLinkCheck(5, 7, 'ngày', S).ok).toBe(true)
+  it('màu/chuỗi đỏ dùng O thực tế nếu có', () => {
+    expect(dayScore(100, 30)).toBe(30)
+    expect(dayScore(73, null)).toBe(73)
   })
-  it('ngày: ≥1 KR liên quan, cảnh báo khi chỉ có 1', () => {
-    expect(dayLinkCheck([{ linked: false }, { linked: false }], S).ok).toBe(false)
-    const one = dayLinkCheck([{ linked: true }, { linked: false }, { linked: false }], S)
-    expect(one.ok).toBe(true)
-    expect(one.message).not.toBe('')
-    expect(dayLinkCheck([{ linked: true }, { linked: true }, { linked: false }], S).message).toBe('')
+  it('KR 100% mà O 30% → gợi ý KR chọn chưa trúng O', () => {
+    expect(gapSuggest(100, 30, 30)).toBe(true)
+    expect(gapSuggest(73, 60, 30)).toBe(false)
+    expect(gapSuggest(73, null, 30)).toBe(false)
+  })
+})
+
+describe('nhắc & tab (C19, C20)', () => {
+  it('chốt 22:00, nhắc trước 90 phút = 20:30; 60 phút = 21:00', () => {
+    expect(remindTime('22:00', 90)).toBe('20:30')
+    expect(remindTime('22:00:00', 60)).toBe('21:00')
+    expect(remindTime('00:30', 60)).toBe('23:30')
+  })
+  it('tab mở sẵn theo giờ nhắc', () => {
+    expect(defaultTab('2026-11-04', '2026-11-04', new Date(2026, 10, 4, 20, 29), S)).toBe('okr')
+    expect(defaultTab('2026-11-04', '2026-11-04', new Date(2026, 10, 4, 20, 30), S)).toBe('kaizen')
+    expect(defaultTab('2026-11-05', '2026-11-04', new Date(2026, 10, 4, 21), S)).toBe('okr')
+    expect(defaultTab('2026-11-03', '2026-11-04', new Date(2026, 10, 4, 9), S)).toBe('kaizen')
+    expect(defaultTab('2026-11-04', '2026-11-04', new Date(2026, 10, 4, 21), { ...S, default_tab: 'okr' })).toBe('okr')
+  })
+})
+
+describe('Kiểm tra tiêu điểm & tải lịch', () => {
+  it('lịch cố định 04:30–22:30: 9 giờ cố định = 50%', () => {
+    expect(scheduleLoad([{ time_from: '04:30', time_to: '13:30', fixed: true }, { time_from: '14:00', time_to: '18:00', fixed: false }], '04:30', '22:30')).toBe(50)
+  })
+  it('M thiếu số đo, KR chưa đủ, lịch quá kín → báo', () => {
+    const c = focusAutoChecks({ title: 'Hoàn thiện kỹ năng tuyển dụng', o_metric: '', o_target: null }, 2, 3, 85)
+    expect(c.M.ok).toBe(false)
+    expect(c.KRO.ok).toBe(false)
+    expect(c.A.ok).toBe(false)
+    expect(c.R.ok).toBeNull()
+  })
+  it('đủ điều kiện → để người dùng tự xác nhận', () => {
+    const c = focusAutoChecks({ title: 'Hoàn thiện kỹ năng tuyển dụng', o_metric: '20 data', o_target: 20 }, 3, 3, 40)
+    expect([c.S.ok, c.M.ok, c.A.ok, c.KRO.ok]).toEqual([null, true, null, null])
+  })
+})
+
+describe('mang sang quan sát (C13)', () => {
+  it('chỉ lấy ý chưa đóng, chưa mang sang', () => {
+    const prev = [
+      { id: 'a', closed: false, content: 'Tuyển dụng chưa có kênh' },
+      { id: 'b', closed: true, content: 'Đã xong' },
+      { id: 'c', closed: false, content: 'Đã mang' },
+      { id: 'd', closed: false, content: '  ' },
+    ]
+    expect(carryCandidates(prev, [{ carried_from: 'c' }, { carried_from: null }]).map((x) => x.id)).toEqual(['a'])
   })
 })
 
 describe('chặn Chốt kế hoạch (§4.4)', () => {
   const full = { S: true, M: true, A: true, R: true, T: true }
-  const O = { o_title: 'Hoàn thiện kỹ năng tuyển dụng', o_smart: { ...full, KRO: true }, o_metric: '73%' }
+  const O = { title: 'Hoàn thiện kỹ năng tuyển dụng', smart: { ...full, KRO: true }, o_metric: '73%', o_target: null }
   const kr = (title: string, smart = full, kas = 2) => ({ title, smart, metric: 'x', kas })
   it('đủ 6 tiêu chí O, 3 KR đủ SMART → cho chốt', () => {
     expect(lockCheck('day', O, [kr('A đạt 100%'), kr('B 70%'), kr('C 50%')], S).blockers).toEqual([])
   })
   it('thiếu KR→O, thiếu KR, KR thiếu T → chặn', () => {
-    const r = lockCheck('day', { ...O, o_smart: full }, [kr('A', { ...full, T: false })], S)
+    const r = lockCheck('day', { ...O, smart: full }, [kr('A', { ...full, T: false })], S)
     expect(r.blockers.join(' ')).toContain('KR→O')
     expect(r.blockers.join(' ')).toContain('Cần ít nhất 3 KR')
     expect(r.blockers.join(' ')).toContain('KR1 còn thiếu: T')
@@ -112,7 +150,8 @@ describe('Kaizen', () => {
   })
   it('nhận biết Kaizen đã bắt đầu', () => {
     expect(kaizenStarted({})).toBe(false)
-    expect(kaizenStarted({ journal: { s: '4h30 trại mentor' } })).toBe(true)
+    expect(kaizenStarted({ journal: [{ did: '4h30 trại mentor', result: '' }] })).toBe(true)
+    expect(kaizenStarted({ journal: [{ did: '', result: '' }] })).toBe(false)
   })
 })
 
