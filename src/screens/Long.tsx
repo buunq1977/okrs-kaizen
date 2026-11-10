@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Analyze, CarryOver, Observe, RootCauses } from '../components/day/Observe'
 import { ChangeDialog } from '../components/long/ChangeDialog'
+import { AffLongKrs, AffPulse } from '../components/aff/AffOkr'
 import { Events } from '../components/long/Events'
 import { KaizenLong } from '../components/long/KaizenLong'
 import { NumericKr, StatusPill } from '../components/long/NumericKr'
@@ -334,6 +335,7 @@ function LongInner({ kind, start, setDate }: { kind: LongKind; start: string; se
               <Step key={a} n={String(4 + ai)} title={`O ${AREA_NAME[a]}`} hint={a === 'cv_tc' ? `≥ ${s.kr_min_cvtc} KR bằng số, quan sát được % ở Ngày/Tuần.` : `${s.kr_min_other}–${s.kr_max_other} KR dạng thói quen đếm được.`} open done={!!o.title.trim() && ks.length >= min}>
                 <Txt className="focus-title" value={o.title} onSave={(v) => patchObj(o.id, { title: v })} disabled={locked} placeholder={`Tiêu điểm ${AREA_NAME[a]} của ${KIND_NAME[kind].toLowerCase()}`} />
                 <Criteria keys={O_CRITERIA} value={o.smart} onChange={(v) => patchObj(o.id, { smart: v })} disabled={locked} />
+                {a === 'cv_tc' && <AffLongKrs level={kind} start={start} end={end} periodId={pid} o={o} krs={krs} locked={locked} openKrs={openKrs} maxOpen={s.max_open_kr} patchObj={(x) => patchObj(o.id, x)} />}
                 {kind === 'year' && (
                   <label className="li">
                     <input type="checkbox" checked={o.passive} disabled={locked} onChange={() => patchObj(o.id, { passive: !o.passive })} /> Mục tiêu "thụ động" (bắt buộc có KR đội ngũ tự vận hành)
@@ -454,6 +456,8 @@ function LongInner({ kind, start, setDate }: { kind: LongKind; start: string; se
           </section>
         </div>
       ) : (
+        <>
+        <AffPulse level={kind} start={start} end={end} />
         <KaizenLong
           sum={sum}
           k={p.kaizen ?? {}}
@@ -472,6 +476,7 @@ function LongInner({ kind, start, setDate }: { kind: LongKind; start: string; se
                 : 'Quý là nơi duy nhất sửa kế hoạch năm. Mọi thay đổi tạo phiên bản mới, so với bản gốc.'
           }
         />
+        </>
       )}
     </>
   )

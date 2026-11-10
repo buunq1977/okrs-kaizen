@@ -16,6 +16,7 @@ import {
 } from '../lib/okr'
 import { eventEntries, mergeSchedule } from '../lib/schedule'
 import type { EventItem, KA, KR, NextAction, Observation, ScheduleItem, ScheduleSeries } from '../lib/types'
+import { AffDayWeek, AffPulse } from '../components/aff/AffOkr'
 import { PeriodNav } from './PeriodNav'
 
 
@@ -280,6 +281,7 @@ export default function Day({ date, setDate, mode }: { date: string; setDate: (d
               canAdd={canAdd}
               addBlockedMsg={streak.locked ? `Đang khoá thêm việc: viết Bài học cho ngày ${fmtDM(streak.day!)} trước.` : ''}
             />
+            <AffDayWeek level="day" start={date} end={date} periodId={pid} objectiveId={o.id} krs={krs} kas={kas} editable={editable && canAdd} maxKr={s.day_max_kr} />
           </Step>
 
           <section className="lockpanel">
@@ -328,6 +330,7 @@ export default function Day({ date, setDate, mode }: { date: string; setDate: (d
             exec={exec}
             actual={actual}
             acts={acts}
+            extraMeasure={<AffPulse level="day" start={date} end={date} />}
             prefill={() => [
               ...entries.filter((e) => e.title.trim()).map((e) => ({ time: e.time_from ?? '', did: e.title })),
               ...kas.rows.filter((a) => a.done).map((a) => ({ time: '', did: 'KA: ' + a.title })),

@@ -1,4 +1,6 @@
 /** Tải và tính số liệu kỳ dài (Tháng/Quý/Năm/Khởi động) — dùng chung cho trang kỳ dài, Ngày, Tuần, Tổng quan. */
+import { loadAffData } from './affData'
+import { metricSeries } from './affLink'
 import { errMsg, findPeriods, getPeriod, insert, listIn, objectivesOf } from './db'
 import { addDays, addMonths, monthEnd, monthStart } from './dates'
 import { krStat, quarterEnd, quarterStart, weekEndsOfMonth, yearEnd, yearStart, type KrStat, type LongKind } from './numeric'
@@ -55,6 +57,16 @@ export async function krEntries(krs: KR[]): Promise<Map<string, { date: string; 
     for (const o of withActual) {
       const wp = wps.find((p) => p.id === o.period_id)
       if (wp) push(out, o.contributes_kr_id!, { date: addDays(wp.start_date, 6), value: Number(o.weekly_actual), source: 'tuần ' + wp.start_date })
+    }
+  }
+  const affKrs = krs.filter((k) => k.aff_metric)
+  if (affKrs.length) {
+    const [data, ps] = await Promise.all([loadAffData(), listIn<Period>('periods', 'id', [...new Set(affKrs.map((k) => k.period_id))], 'start_date')])
+    for (const k of affKrs) {
+      const p = ps.find((x) => x.id === k.period_id)
+      if (!p) continue
+      const end = k.deadline ?? longEnd(p.kind as LongKind, p.start_date, p.end_date)
+      for (const x of metricSeries(k.aff_metric!, data, k.aff_model)) if (x.date >= p.start_date && x.date <= end) push(out, k.id, { date: x.date, value: x.value, source: 'Sổ dự án' })
     }
   }
   const seriesIds = krs.map((k) => k.series_id).filter(Boolean) as string[]

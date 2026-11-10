@@ -18,6 +18,7 @@ import {
 } from '../lib/okr'
 import { eventEntries, mergeSchedule, type Entry } from '../lib/schedule'
 import type { KA, KaizenData, KR, NextAction, Objective, Observation, Period, ScheduleItem, Validation } from '../lib/types'
+import { AffDayWeek, AffPulse } from '../components/aff/AffOkr'
 import { PeriodNav } from './PeriodNav'
 
 
@@ -129,7 +130,7 @@ export default function Week({ date, setDate }: { date: string; setDate: (d: str
   // KA tuần tự tick khi O ngày phục vụ đạt ngưỡng (§3.1)
   const kasReload = kas.reload
   useEffect(() => {
-    const ids = autoTickIds(kas.rows, days.map((d) => ({ serves_ka_id: d.o?.serves_ka_id ?? null, score: d.score })), s.pass_pct, s.ka_autotick)
+    const ids = autoTickIds(kas.rows.filter((k) => !k.aff_metric), days.map((d) => ({ serves_ka_id: d.o?.serves_ka_id ?? null, score: d.score })), s.pass_pct, s.ka_autotick)
     if (!ids.length) return
     Promise.all(ids.map((id) => update('key_actions', id, { done: true, auto_ticked: true })))
       .then(() => kasReload())
@@ -359,6 +360,7 @@ export default function Week({ date, setDate }: { date: string; setDate: (d: str
           </Step>
           <Step n="6–7" title="KR và KA tuần" hint="KR/KA tuần là thứ O các ngày chọn để phục vụ." open={open(5)} done={done[5] && done[6]} lockedMsg="Viết tiêu điểm tuần trước.">
             <KrBlocks periodId={pid} objectiveId={o.id} krs={krs} kas={kas} pcts={krPcts} editable={editable} canAdd={editable} addBlockedMsg="" />
+            <AffDayWeek level="week" start={ws} end={addDays(ws, 6)} periodId={pid} objectiveId={o.id} krs={krs} kas={kas} editable={editable} maxKr={s.max_open_kr} />
             {kas.rows.some((a) => a.auto_ticked && a.done) && <p className="note">KA có dấu ✓ tự động: được tick vì O ngày phục vụ nó đạt từ {s.pass_pct}%. Bỏ tick tay được.</p>}
           </Step>
           <Step n="8" title="Kiểm chứng 3 chiều" hint="Làm sau khi viết O và KR, trước khi bắt tay làm." open={!!o.title.trim()} done={vals.rows.some((r) => r.asked)} lockedMsg="Viết tiêu điểm tuần trước.">
@@ -424,6 +426,8 @@ export default function Week({ date, setDate }: { date: string; setDate: (d: str
             suggest={keywordStats(days.map((d) => d.kaizen ?? {})).filter((x) => x.count >= 1)}
             suggestLessons={[...new Set(days.flatMap((d) => (d.kaizen?.lessons ?? []).map((l) => l.text.trim())).filter(Boolean))]}
             extraMeasure={
+              <>
+              <AffPulse level="week" start={ws} end={addDays(ws, 6)} />
               <label className="fld inline">
                 <span>Thực tế đóng góp KR tháng</span>
                 <input
@@ -434,6 +438,7 @@ export default function Week({ date, setDate }: { date: string; setDate: (d: str
                 />
                 <span className="unit">{o.weekly_target !== null ? `/ chỉ tiêu ${o.weekly_target}` : 'chưa đặt chỉ tiêu tuần'}</span>
               </label>
+              </>
             }
           />
         </div>

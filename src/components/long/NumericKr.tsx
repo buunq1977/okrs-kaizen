@@ -117,6 +117,14 @@ export function NumericKr(props: {
         </div>
       )}
 
+      {kr.aff_metric ? (
+        <p className="note">
+          Tự đếm từ Sổ dự án ({entries.length} lần ghi).{' '}
+          <button className="linkbtn" onClick={() => setShowLog(!showLog)}>
+            Xem
+          </button>
+        </p>
+      ) : (
       <div className="addrow nkr-act">
         <input type="date" value={act.date} onChange={(e) => setAct({ ...act, date: e.target.value })} aria-label="Ngày" />
         <input className="num" inputMode="decimal" value={act.value} onChange={(e) => setAct({ ...act, value: e.target.value })} placeholder="+ tăng" aria-label="Phần tăng thêm" />
@@ -135,6 +143,7 @@ export function NumericKr(props: {
           {entries.length} lần ghi
         </button>
       </div>
+      )}
       {showLog && (
         <ul className="log">
           {entries.map((e, i) => (

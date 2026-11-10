@@ -1,3 +1,4 @@
+export type AffMetric = 'search' | 'chon' | 'dang_ky' | 'duyet' | 'test' | 'win' | 'profit'
 /** Ô tick: S M A R T, cộng KRO (tiêu điểm: các KR đạt thì O đạt?) và NEXT (hành động: đưa được vào OKR kỳ tới). */
 export type Smart = Record<string, boolean | undefined>
 
@@ -138,6 +139,8 @@ export interface KR {
   orig_target?: number | null
   orig_deadline?: string | null
   status?: 'active' | 'paused' | 'stopped'
+  aff_metric?: AffMetric | null
+  aff_model?: 'phys' | 'saas' | null
 }
 export interface Leading {
   id: string
@@ -210,6 +213,8 @@ export interface KA {
   weight: number | null
   from_action_id: string | null
   sort: number
+  aff_metric?: AffMetric | null
+  aff_target?: number | null
 }
 
 export interface Validation {

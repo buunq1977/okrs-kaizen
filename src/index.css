@@ -538,3 +538,9 @@ nav .more-m button.ghost { color: var(--ink-2) }
 .tally-l { font-weight: 600; flex: 1 1 100%; }
 .tally input { width: 80px; text-align: center; font-weight: 700 }
 @media (min-width: 641px) { .tally-l { flex: 0 1 auto; margin-right: 8px } }
+
+/* ---------- Affiliate trong OKR / Kaizen ---------- */
+.aff-q { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; border-radius: 8px; background: var(--paper); border: 1px dashed var(--rule-2); margin: 6px 0 }
+.aff-q-h { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: baseline }
+.aff-q-h > b { margin-right: 4px }
+.aff-q .btn { align-self: flex-start }
