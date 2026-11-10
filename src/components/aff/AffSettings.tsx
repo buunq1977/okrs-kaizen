@@ -1,6 +1,11 @@
 import { useEffect, useState } from 'react'
 import { configEditable, PHYS_FIELDS, physOf, SAAS_FIELDS, saasOf, type AffConfig } from '../../lib/affiliate'
-import { today } from '../../lib/dates'
+import { loadAffData } from '../../lib/affData'
+import { suggestCoeffs } from '../../lib/affDiag'
+import type { AffData } from '../../lib/affLink'
+import { measure } from '../../lib/affProjects'
+import { addMonths, today } from '../../lib/dates'
+import { fmtNum } from '../../lib/pace'
 import { Sec } from '../ui'
 import { useAff } from './useAff'
 
@@ -8,9 +13,13 @@ import { useAff } from './useAff'
 export default function AffSettings() {
   const aff = useAff()
   const [c, setC] = useState<AffConfig | null>(null)
+  const [data, setData] = useState<AffData | null>(null)
   useEffect(() => {
     if (aff.cfg) setC(aff.cfg)
   }, [aff.cfg])
+  useEffect(() => {
+    loadAffData().then(setData)
+  }, [])
   if (aff.err) return <Sec title="Mô hình Affiliate"><p className="flag">{aff.err}</p></Sec>
   if (!c || !aff.cfg) return null
   const ed = configEditable(today(), c.edit_days, aff.anyLocked)
@@ -21,6 +30,25 @@ export default function AffSettings() {
   )
   const phys = physOf(c.phys)
   const saas = saasOf(c.saas)
+  const t0 = today()
+  const since = addMonths(t0, -3)
+  const sugg = data
+    ? suggestCoeffs(measure(data.projects, data.entries, data.tallies, 'phys', since, t0), measure(data.projects, data.entries, data.tallies, 'saas', since, t0), { phys, saas, reg_per_test: c.reg_per_test, research_per_test: c.research_per_test })
+    : []
+  const LABEL: Record<string, string> = {
+    'phys.test_cost': 'Vật lý · tiền test 1 dự án ($)',
+    'phys.tests_per_win': 'Vật lý · số test ra 1 thắng',
+    'phys.win_profit': 'Vật lý · lợi nhuận 1 thắng / tháng ($)',
+    'saas.test_cost': 'SaaS · tiền test 1 dự án ($)',
+    'saas.tests_per_win': 'SaaS · số test ra 1 thắng',
+    reg_per_test: 'Đăng ký / 1 test',
+    research_per_test: 'Search / 1 test',
+  }
+  const apply = (key: string, v: number) => {
+    const [a, b] = key.split('.')
+    if (b) setC({ ...c, [a]: { ...(c[a as 'phys' | 'saas'] as object), [b]: v } } as AffConfig)
+    else setC({ ...c, [a]: v } as AffConfig)
+  }
 
   return (
     <Sec title="Mô hình Affiliate (Vật lý + SaaS)" hint="Chỉ sửa ở đầu kỳ">
@@ -72,6 +100,45 @@ export default function AffSettings() {
           {num('win_min_orders', 1)}
         </label>
       </div>
+
+      {sugg.length > 0 && (
+        <div className="aff-q">
+          <b>Số đo được từ Sổ dự án (3 tháng gần nhất)</b>
+          <div className="tbl">
+            <table className="ktable">
+              <thead>
+                <tr>
+                  <th>Hệ số</th>
+                  <th>Đang đặt</th>
+                  <th>Đo được</th>
+                  <th>Mẫu</th>
+                  <th />
+                </tr>
+              </thead>
+              <tbody>
+                {sugg.map((x) => (
+                  <tr key={x.key}>
+                    <td>{LABEL[x.key]}</td>
+                    <td className="n">{fmtNum(x.current)}</td>
+                    <td className={'n ' + (Math.abs(x.diffPct) >= 30 ? 'neg' : '')}>
+                      {fmtNum(x.value)} <small>({x.diffPct > 0 ? '+' : ''}{x.diffPct}%)</small>
+                    </td>
+                    <td className="n">{x.enough ? `${x.n} · đủ` : `${x.n} · ít`}</td>
+                    <td>
+                      <button className="btn mini" disabled={!ed || x.value === x.current} onClick={() => apply(x.key, x.value)}>
+                        Dùng số đo
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="note">
+            {ed ? 'Đang trong buổi rà đầu kỳ: bấm "Dùng số đo" rồi Lưu. Mẫu "ít" thì cân nhắc, số còn dao động.' : 'Chỉ áp dụng được ở buổi rà đầu kỳ. Các tháng đã chốt giữ bản chụp hệ số cũ.'}
+          </p>
+        </div>
+      )}
 
       <div className="grid2">
         {(

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Analyze, CarryOver, Observe, RootCauses } from '../components/day/Observe'
 import { ChangeDialog } from '../components/long/ChangeDialog'
-import { AffLongKrs, AffPulse } from '../components/aff/AffOkr'
+import { AffDiagnosis, AffLongKrs, AffPulse } from '../components/aff/AffOkr'
 import { Events } from '../components/long/Events'
 import { KaizenLong } from '../components/long/KaizenLong'
 import { NumericKr, StatusPill } from '../components/long/NumericKr'
@@ -458,6 +458,7 @@ function LongInner({ kind, start, setDate }: { kind: LongKind; start: string; se
       ) : (
         <>
         <AffPulse level={kind} start={start} end={end} />
+        <AffDiagnosis level={kind} start={start} end={end} k={p.kaizen ?? {}} save={patchKaizen} />
         <KaizenLong
           sum={sum}
           k={p.kaizen ?? {}}
