@@ -65,7 +65,7 @@ export default function SettingsScreen() {
   const num = (k: keyof Settings, min: number, max: number) => (
     <input type="number" min={min} max={max} value={s[k] as number} onChange={(e) => set(k, Number(e.target.value) as never)} />
   )
-  const time = (k: 'lock_time' | 'day_start' | 'day_end') => <input type="time" value={s[k].slice(0, 5)} onChange={(e) => set(k, e.target.value)} />
+  const time = (k: 'lock_time' | 'okr_lock_time' | 'day_start' | 'day_end') => <input type="time" value={(s[k] ?? '08:00').slice(0, 5)} onChange={(e) => set(k, e.target.value)} />
   const flag = (k: keyof Settings, label: string) => (
     <label className="li">
       <input type="checkbox" checked={s[k] as boolean} onChange={() => set(k, !s[k] as never)} />
@@ -123,7 +123,8 @@ export default function SettingsScreen() {
 
       <Sec title="Kỷ luật" hint="§17 D2">
         {flag('auto_lock', 'Tự khoá kế hoạch ngày D vào giờ chốt của ngày D-1')}
-        <Row label="Giờ chốt">{time('lock_time')}</Row>
+        <Row label="Chốt OKR ngày (tự khoá kế hoạch)">{time('okr_lock_time')}</Row>
+        <Row label="Chốt Kaizen ngày">{time('lock_time')}</Row>
         {flag('red_lock', 'Đỏ nhiều ngày liền mà chưa viết Bài học thì khoá thêm KR/KA mới')}
         <Row label="Số ngày đỏ liền" unit="ngày">{num('red_streak', 1, 7)}</Row>
         <div className="fld-l">Ngày nghỉ (không tính chuỗi đỏ)</div>
@@ -152,7 +153,7 @@ export default function SettingsScreen() {
           </select>
         </Row>
         <p className="note">
-          Giờ chốt {s.lock_time.slice(0, 5)} → nhắc lúc <b>{remindTime(s.lock_time, s.remind_lead_min)}</b>. Sau giờ nhắc, trang Hôm nay mở sẵn tab Kaizen.
+          Chốt Kaizen {s.lock_time.slice(0, 5)} → nhắc lúc <b>{remindTime(s.lock_time, s.remind_lead_min)}</b>. Sau giờ nhắc, trang Hôm nay mở sẵn tab Kaizen.
         </p>
         <Row label="Tab mở sẵn">
           <select value={s.default_tab} onChange={(e) => set('default_tab', e.target.value as Settings['default_tab'])}>

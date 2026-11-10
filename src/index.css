@@ -544,3 +544,23 @@ nav .more-m button.ghost { color: var(--ink-2) }
 .aff-q-h { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: baseline }
 .aff-q-h > b { margin-right: 4px }
 .aff-q .btn { align-self: flex-start }
+
+/* ---------- Trang Ngày: 3 tab có ngày, dính dưới header, xem nhanh ---------- */
+.daytabs { position: sticky; top: var(--top-h, 0px); z-index: 4; background: var(--paper); flex-wrap: wrap; overflow-x: auto }
+.daytabs .dtab { display: inline-flex; align-items: center }
+.daytabs .dtab > button[role='tab'] { padding: 10px 12px; white-space: nowrap }
+.daytabs .mk { font-style: normal; margin-left: 6px; font-size: 12px; color: var(--good) }
+.daytabs .mk.warn { color: #fff; background: var(--signal); border-radius: 50%; display: inline-grid; place-items: center; width: 16px; height: 16px; font-size: 11px }
+.peek-btn { border: 0; background: none; cursor: pointer; font-size: 13px; padding: 4px; opacity: .6; margin-right: 4px }
+.peek-btn:hover, .peek-btn[aria-pressed='true'] { opacity: 1 }
+.peek { position: fixed; z-index: 20; right: max(16px, env(safe-area-inset-right, 0px)); top: calc(var(--top-h, 0px) + 56px); width: min(380px, calc(100vw - 32px)); max-height: calc(100vh - var(--top-h, 0px) - 80px); overflow-y: auto; background: var(--sheet); border: 1px solid var(--rule-2); border-radius: 10px; box-shadow: 0 10px 30px rgb(0 0 0 / .18); padding: 12px 14px; display: flex; flex-direction: column; gap: 8px }
+.peek-h { display: flex; gap: 8px; align-items: center }
+.peek-h b { margin-right: auto }
+.peek-b { display: flex; flex-direction: column; gap: 6px; font-size: 13px }
+.peek-b small { display: block; font: 700 11px var(--f-body); text-transform: uppercase; letter-spacing: .05em; color: var(--ink-2) }
+.peek-b ul { margin: 2px 0 6px; padding-left: 18px }
+.peek-b li.done { color: var(--ink-2) }
+@media (max-width: 640px) { .daytabs .dtab > button[role='tab'] { padding: 8px 8px; font-size: 13px } .peek { left: 16px; right: 16px; width: auto } }
+.confirmbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; padding: 12px 14px; border-radius: 10px; border: 1px solid var(--rule-2); background: var(--sheet) }
+.confirmbar.ok { border-color: var(--good); background: var(--good-soft) }
+.confirmbar.late { border-color: var(--warn); background: var(--warn-soft) }

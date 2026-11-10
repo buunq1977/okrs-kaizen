@@ -29,7 +29,8 @@
 | C18 | **Kỳ khởi động 11–12/2026** theo cấu trúc Quý, vào chu kỳ năm chuẩn từ 1–5/1/2027. Lập kỳ ngoài cửa sổ rà vẫn được, ghi "lập muộn x ngày". | Không bỏ trống 2 tháng cuối năm. |
 | C19 | **OKR và Kaizen là 2 tab riêng** mỗi cấp, không chia đôi màn hình. Tab Kaizen có phần tóm tắt OKR chỉ đọc ở đầu. Tab mở sẵn: trước giờ nhắc → OKR, sau giờ nhắc → Kaizen; lập kế hoạch kỳ tới → OKR. | Dùng tốt trên điện thoại, vẫn đối chiếu được kế hoạch khi viết Kaizen. |
 | C20 | **Nhắc trước giờ chốt 60–90 phút** (mặc định 90 phút: chốt 22:00 → nhắc 20:30). Giờ nhắc tính từ giờ chốt, không đặt riêng. | Đủ thời gian làm Kaizen + OKR trước khi kế hoạch tự khoá. |
-| C16 | Lưu trữ: Supabase (đang chạy), không local-first. Giữ 2 cơ chế kỷ luật (tự khoá 22:00, khoá khi đỏ nhiều ngày) làm cài đặt. | Quyết định 03/11/2026. |
+| C16 | Lưu trữ: Supabase (đang chạy), không local-first. Giữ 2 cơ chế kỷ luật (tự khoá kế hoạch ngày, khoá khi đỏ nhiều ngày) làm cài đặt. | Quyết định 03/11/2026. |
+| C21 | **Trang Ngày có 3 tab ghi rõ ngày**: Kaizen dd/mm/yyyy (ngày hôm trước) · OKR dd/mm/yyyy · Kaizen dd/mm/yyyy. Thanh tab dính trên cùng khi cuộn; tab khác xem nhanh (chỉ đọc) không rời tab đang làm. **OKR ngày D chốt trước 08:00 ngày D** (tự khoá); **Kaizen ngày D chốt trước 22:00 ngày D**, hoàn thành bấm **Xác nhận** (cần nhật ký/đánh giá + ≥ 1 bài học; sau 22:00 ghi "trễ hạn"). Kaizen hôm trước chưa xác nhận thì trang mở sẵn tab đó. Thay C19/C20 phần giờ chốt. | Luca yêu cầu 10/11/2026. |
 
 ---
 
@@ -138,7 +139,8 @@ Mỗi mục tiêu năm phải có **Điều kiện kiểm tra** (kiểm chứng 
 Chưa đủ vẫn chốt được nếu **ghi lý do**.
 
 **Kỷ luật (cài đặt, mặc định bật):**
-- Kế hoạch ngày D tự khoá lúc 22:00 ngày D-1. Sửa sau giờ khoá phải ghi lý do.
+- Kế hoạch (OKR) ngày D tự khoá lúc 08:00 ngày D (C21; trước 10/11/2026 là 22:00 ngày D-1). Sửa sau giờ khoá phải ghi lý do.
+- Kaizen ngày D chốt trước 22:00 ngày D bằng nút Xác nhận; xác nhận sau 22:00 vẫn được nhưng ghi "trễ hạn".
 - Đỏ 2 ngày làm việc liền (% O ngày < ngưỡng đỏ hoặc không lập O) mà chưa viết Bài học → không thêm KR/KA mới cho đến khi viết.
 
 ---
@@ -400,7 +402,7 @@ Kết quả đưa vào 3 chỗ:
 
 | Kỳ | Khi nào | Thời lượng | Nội dung |
 |---|---|---|---|
-| Ngày | Trước giờ chốt 60–90 phút (mặc định 20:30, chốt 22:00) | ≤ 30 phút | Kaizen hôm nay + OKR ngày mai |
+| Ngày | Tối: trước giờ chốt Kaizen 60–90 phút (mặc định 20:30, chốt 22:00). Sáng: chốt OKR trước 08:00 | ≤ 30 phút | Kaizen hôm nay (Xác nhận) + OKR ngày mai; sáng rà lại và chốt OKR |
 | Tuần | Chủ nhật hoặc thứ Hai | 30 phút | Kaizen tuần + OKR tuần mới, đối chiếu cộng dồn tháng |
 | Tháng | Ngày cuối tháng hoặc ngày đầu tháng | 60 phút | Kaizen số liệu + OKR tháng |
 | Quý | Ngày cuối của tháng cuối quý hoặc ngày đầu của tháng đầu quý | 2–3 giờ | Rà KR, chỉnh hướng, dự án trọng tâm |
@@ -447,7 +449,8 @@ Mỗi cấp có **2 tab OKR | Kaizen**, chuyển bằng 1 chạm, không chia đ
 | Lệch % thực thi và % O thực tế để gợi ý | 30 điểm |
 | Luật kích hoạt | trễ > 20% × 2 tuần; KR quý trễ > 30% |
 | Trọng số KR/KA | Tắt |
-| Tự khoá kế hoạch ngày | Bật, 22:00 hôm trước |
+| Tự khoá kế hoạch ngày | Bật, 08:00 chính ngày đó (C21) |
+| Hạn chốt Kaizen ngày | 22:00 |
 | Khoá thêm việc khi đỏ liền | Bật, 2 ngày |
 | Ngày nghỉ trong tuần | Không |
 | Nhắc trước giờ chốt | 90 phút (cho chọn 60–90) |

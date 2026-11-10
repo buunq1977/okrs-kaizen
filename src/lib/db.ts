@@ -112,8 +112,9 @@ export async function listMetrics(): Promise<Metric[]> {
 /* ---------- settings ---------- */
 export async function getSettings(uid: string): Promise<Settings> {
   const found = must(await sb().from('settings').select('*').maybeSingle())
-  if (found) return found as Settings
-  return must(await sb().from('settings').upsert({ user_id: uid }, { onConflict: 'user_id' }).select().single())
+  const out = (found ?? must(await sb().from('settings').upsert({ user_id: uid }, { onConflict: 'user_id' }).select().single())) as Settings
+  if (out.okr_lock_time === undefined) throw new Error('Cài đặt thiếu cột okr_lock_time: chạy file supabase/migrations/012_okr_lock_morning.sql trong SQL Editor.')
+  return out
 }
 export async function saveSettings(s: Settings): Promise<Settings> {
   const { user_id, ...rest } = s

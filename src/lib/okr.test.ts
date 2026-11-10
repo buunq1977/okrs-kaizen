@@ -2,12 +2,12 @@ import { describe, expect, it } from 'vitest'
 import {
   colorOf, krPercent, execPercent, oActualPercent, dayScore, gapSuggest, remindTime, defaultTab, scheduleLoad,
   focusAutoChecks, carryCandidates, lockCheck, looksLikeAction, autoTickIds, focusLevel, weekDefaultTab, bucketOf,
-  highlight, keywordStats, effectiveLock, redStreak, timeSlots, kaizenStarted, average,
+  highlight, keywordStats, effectiveLock, redStreak, timeSlots, kaizenStarted, average, kaizenConfirm, kaizenReady,
 } from './okr'
 
 const S = {
   red_below: 50, pass_pct: 80, weights_enabled: false,
-  day_min_kr: 3, day_max_kr: 4, auto_lock: true, lock_time: '22:00', red_lock: true, red_streak: 2, rest_weekdays: [7],
+  day_min_kr: 3, day_max_kr: 4, auto_lock: true, lock_time: '22:00', okr_lock_time: '08:00', red_lock: true, red_streak: 2, rest_weekdays: [7],
   remind_lead_min: 90, default_tab: 'auto' as const,
 }
 const ka = (done: boolean, weight: number | null = null) => ({ done, weight })
@@ -77,6 +77,19 @@ describe('nhắc & tab (C19, C20)', () => {
     expect(defaultTab('2026-11-05', '2026-11-04', new Date(2026, 10, 4, 21), S)).toBe('okr')
     expect(defaultTab('2026-11-03', '2026-11-04', new Date(2026, 10, 4, 9), S)).toBe('kaizen')
     expect(defaultTab('2026-11-04', '2026-11-04', new Date(2026, 10, 4, 21), { ...S, default_tab: 'okr' })).toBe('okr')
+  })
+  it('Kaizen hôm trước chưa xác nhận: mở tab đó trước 08:00 và khi lập ngày mai', () => {
+    expect(defaultTab('2026-11-04', '2026-11-04', new Date(2026, 10, 4, 7, 30), S, false)).toBe('prev')
+    expect(defaultTab('2026-11-04', '2026-11-04', new Date(2026, 10, 4, 8, 0), S, false)).toBe('okr')
+    expect(defaultTab('2026-11-04', '2026-11-04', new Date(2026, 10, 4, 7, 30), S, true)).toBe('okr')
+    expect(defaultTab('2026-11-05', '2026-11-04', new Date(2026, 10, 4, 21), S, false)).toBe('prev')
+  })
+  it('xác nhận Kaizen: cần nhật ký + bài học; đúng hạn trước 22:00', () => {
+    expect(kaizenReady({ journal: [{ did: 'x', result: 'y' }] })).toBe(false)
+    expect(kaizenReady({ journal: [{ did: 'x', result: 'y' }], lessons: [{ text: 'Bài học' }] })).toBe(true)
+    expect(kaizenConfirm('2026-11-04', {}, S)).toBe('none')
+    expect(kaizenConfirm('2026-11-04', { confirmed_at: new Date(2026, 10, 4, 21, 59).toISOString() }, S)).toBe('ontime')
+    expect(kaizenConfirm('2026-11-04', { confirmed_at: new Date(2026, 10, 4, 22, 1).toISOString() }, S)).toBe('late')
   })
 })
 
@@ -157,21 +170,22 @@ describe('Kaizen', () => {
 
 describe('kỷ luật (§17 D2)', () => {
   const p = (status: 'draft' | 'locked', locked_at: string | null = null, unlocks: { at: string }[] = []) => ({ kind: 'day', start_date: '2026-11-05', status, locked_at, unlocks })
-  it('tự khoá 22:00 hôm trước', () => {
-    expect(effectiveLock(p('draft'), S, new Date(2026, 10, 4, 21, 59)).locked).toBe(false)
-    expect(effectiveLock(p('draft'), S, new Date(2026, 10, 4, 22, 0)).locked).toBe(true)
+  it('OKR ngày tự khoá 08:00 chính ngày đó', () => {
+    expect(effectiveLock(p('draft'), S, new Date(2026, 10, 4, 22, 30)).locked).toBe(false)
+    expect(effectiveLock(p('draft'), S, new Date(2026, 10, 5, 7, 59)).locked).toBe(false)
+    expect(effectiveLock(p('draft'), S, new Date(2026, 10, 5, 8, 0)).locked).toBe(true)
   })
   it('tắt tự khoá thì chỉ khoá khi bấm Chốt', () => {
     expect(effectiveLock(p('draft'), { ...S, auto_lock: false }, new Date(2026, 10, 5, 9)).locked).toBe(false)
     expect(effectiveLock(p('locked', new Date(2026, 10, 4, 20).toISOString()), { ...S, auto_lock: false }, new Date(2026, 10, 4, 21)).locked).toBe(true)
   })
   it('mở khoá có lý do sau giờ khoá', () => {
-    const u = [{ at: new Date(2026, 10, 4, 22, 30).toISOString() }]
-    expect(effectiveLock(p('draft', null, u), S, new Date(2026, 10, 4, 23)).locked).toBe(false)
+    const u = [{ at: new Date(2026, 10, 5, 8, 30).toISOString() }]
+    expect(effectiveLock(p('draft', null, u), S, new Date(2026, 10, 5, 9)).locked).toBe(false)
   })
   it('chốt lại sau khi đã mở khoá → khoá', () => {
-    const u = [{ at: new Date(2026, 10, 4, 22, 30).toISOString() }]
-    expect(effectiveLock(p('locked', new Date(2026, 10, 4, 22, 45).toISOString(), u), S, new Date(2026, 10, 4, 23)).locked).toBe(true)
+    const u = [{ at: new Date(2026, 10, 5, 8, 30).toISOString() }]
+    expect(effectiveLock(p('locked', new Date(2026, 10, 5, 8, 45).toISOString(), u), S, new Date(2026, 10, 5, 9)).locked).toBe(true)
   })
 
   const rec = (date: string, pct: number | null, lessons = false, hasO = true) => ({ date, pct, lessons, hasO })

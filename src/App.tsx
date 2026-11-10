@@ -137,6 +137,16 @@ function Main({ session }: { session: Session }) {
   }, [])
 
   const moreRef = useRef<HTMLDetailsElement>(null)
+  // Chiều cao header để thanh tab dính ngay dưới nó
+  useEffect(() => {
+    const el = document.querySelector('header.top') as HTMLElement | null
+    if (!el) return
+    const f = () => document.documentElement.style.setProperty('--top-h', el.offsetHeight + 'px')
+    f()
+    const ro = new ResizeObserver(f)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
   function open(s: Screen) {
     setScreen(s)
     setDate(s === 'plan' ? addDays(today(), 1) : today())
@@ -213,7 +223,7 @@ function SetupError({ msg, retry }: { msg: string; retry: () => void }) {
       {missingTable ? (
         <p>
           Supabase chưa có bảng của app. Vào Supabase → <b>SQL Editor → New query</b>, dán và chạy lần lượt <code>supabase/migrations/001_init.sql</code> rồi{' '}
-          <code>002_goal_current.sql</code>, <code>003_grants.sql</code>, <code>004_okr_kaizen_v2.sql</code>, <code>005_v3_day.sql</code>, <code>006_week.sql</code>, <code>007_long_periods.sql</code>, <code>008_affiliate_plan.sql</code>, <code>009_aff_projects.sql</code>, <code>010_aff_search_tally.sql</code>, <code>011_aff_okr_link.sql</code> trong repo, sau đó bấm Thử lại.
+          <code>002_goal_current.sql</code>, <code>003_grants.sql</code>, <code>004_okr_kaizen_v2.sql</code>, <code>005_v3_day.sql</code>, <code>006_week.sql</code>, <code>007_long_periods.sql</code>, <code>008_affiliate_plan.sql</code>, <code>009_aff_projects.sql</code>, <code>010_aff_search_tally.sql</code>, <code>011_aff_okr_link.sql</code>, <code>012_okr_lock_morning.sql</code> trong repo, sau đó bấm Thử lại.
         </p>
       ) : noGrant ? (
         <p>

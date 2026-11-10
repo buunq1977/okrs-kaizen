@@ -71,6 +71,7 @@ export interface KaizenData {
   lessons?: Lesson[]
   satisfied?: boolean
   consult_who?: string
+  confirmed_at?: string // Kaizen ngày: thời điểm bấm Xác nhận
 }
 export interface Unlock {
   at: string
@@ -303,7 +304,8 @@ export interface Settings {
   day_end: string
   slot_minutes: number
   auto_lock: boolean
-  lock_time: string
+  lock_time: string // hạn chốt Kaizen ngày (22:00)
+  okr_lock_time: string // hạn chốt OKR ngày D (08:00 ngày D)
   red_lock: boolean
   red_streak: number
   rest_weekdays: number[]

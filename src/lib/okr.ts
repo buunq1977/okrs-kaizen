@@ -71,11 +71,30 @@ const fmtHM = (n: number) => `${String(Math.floor(n / 60)).padStart(2, '0')}:${S
 export function remindTime(lockTime: string, leadMin: number) {
   return fmtHM((((toMin(lockTime) - leadMin) % 1440) + 1440) % 1440)
 }
-export function defaultTab(date: string, todayIso: string, now: Date, s: Pick<Settings, 'lock_time' | 'remind_lead_min' | 'default_tab'>): 'okr' | 'kaizen' {
+/** Tab trang Ngày: Kaizen ngày hôm trước · OKR ngày · Kaizen ngày. */
+export type DayTab = 'prev' | 'okr' | 'kaizen'
+/** Tab mở sẵn. Kaizen hôm trước chưa xác nhận thì mở nó trước (trước giờ chốt OKR, hoặc khi đang lập ngày mai). */
+export function defaultTab(date: string, todayIso: string, now: Date, s: Pick<Settings, 'lock_time' | 'okr_lock_time' | 'remind_lead_min' | 'default_tab'>, prevConfirmed = true): DayTab {
   if (s.default_tab !== 'auto') return s.default_tab
-  if (date > todayIso) return 'okr'
+  const hm = now.getHours() * 60 + now.getMinutes()
+  if (date > todayIso) return prevConfirmed ? 'okr' : 'prev'
   if (date < todayIso) return 'kaizen'
-  return now.getHours() * 60 + now.getMinutes() >= toMin(remindTime(s.lock_time, s.remind_lead_min)) ? 'kaizen' : 'okr'
+  if (hm >= toMin(remindTime(s.lock_time, s.remind_lead_min))) return 'kaizen'
+  if (!prevConfirmed && hm < toMin(s.okr_lock_time)) return 'prev'
+  return 'okr'
+}
+/** Hạn chốt Kaizen ngày D: lock_time (22:00) ngày D. */
+export function kaizenDeadline(date: string, s: Pick<Settings, 'lock_time'>): Date {
+  const [h, m] = s.lock_time.split(':').map(Number)
+  const [y, mo, d] = date.split('-').map(Number)
+  return new Date(y, mo - 1, d, h, m)
+}
+/** Kaizen ngày đủ để xác nhận: đã ghi nhật ký/đánh giá và có ít nhất 1 bài học. */
+export const kaizenReady = (k: Parameters<typeof kaizenStarted>[0] & { lessons?: { text: string }[] }) => kaizenStarted(k) && hasLessons(k)
+/** Trạng thái xác nhận: chưa / đúng hạn / trễ hạn. */
+export function kaizenConfirm(date: string, k: { confirmed_at?: string } | undefined, s: Pick<Settings, 'lock_time'>): 'none' | 'ontime' | 'late' {
+  if (!k?.confirmed_at) return 'none'
+  return new Date(k.confirmed_at) <= kaizenDeadline(date, s) ? 'ontime' : 'late'
 }
 
 /* ---------- Tải lịch cố định trong ngày (gợi ý cho chữ A) ---------- */
@@ -230,13 +249,14 @@ export function keywordStats(list: { keywords?: string[] }[]): { keyword: string
 /** Kế hoạch ngày D khoá khi bấm Chốt, hoặc tự khoá lúc lock_time ngày D-1 (nếu bật). Mở khoá có lý do sau thời điểm khoá thì mở. */
 export function effectiveLock(
   p: { kind: string; start_date: string; status: 'draft' | 'locked'; locked_at: string | null; unlocks: { at: string }[] },
-  s: Pick<Settings, 'auto_lock' | 'lock_time'>,
+  s: Pick<Settings, 'auto_lock' | 'okr_lock_time'>,
   now: Date,
 ): { locked: boolean; deadline: Date | null; auto: boolean } {
   let deadline: Date | null = null
   if (p.kind === 'day') {
-    const [h, m] = s.lock_time.split(':').map(Number)
-    const [y, mo, d] = addDays(p.start_date, -1).split('-').map(Number)
+    // OKR ngày D tự khoá lúc okr_lock_time (08:00) ngày D
+    const [h, m] = s.okr_lock_time.split(':').map(Number)
+    const [y, mo, d] = p.start_date.split('-').map(Number)
     deadline = new Date(y, mo - 1, d, h, m)
   }
   const manual = p.status === 'locked' && p.locked_at ? new Date(p.locked_at) : null

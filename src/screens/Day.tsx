@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { ConfirmBar, DayKaizenPane, DayPeek } from '../components/day/DayKaizen'
 import { Kaizen, OkrSummary } from '../components/day/Kaizen'
 import { KrBlocks, ObjectiveBlock } from '../components/day/Okr'
 import { Analyze, CarryOver, Observe, RootCauses } from '../components/day/Observe'
@@ -9,9 +10,9 @@ import { useApp, useMainObjective, usePeriod, useRows } from '../lib/ctx'
 import { errMsg, eventsBetween, findPeriods, listBy, listIn, objectivesOf, seriesActiveOn, update } from '../lib/db'
 import { AREA_NAME, loadLongSummary } from '../lib/long'
 import { ExportButtons } from '../components/ExportButtons'
-import { addDays, fmtDM, mondayOf, today } from '../lib/dates'
+import { addDays, fmtDM, fmtDMY, mondayOf, today } from '../lib/dates'
 import {
-  carryCandidates, dayScore, defaultTab, effectiveLock, execPercent, hasLessons, kaizenStarted, krPercent, lockCheck,
+  carryCandidates, dayScore, defaultTab, effectiveLock, kaizenConfirm, type DayTab, execPercent, hasLessons, kaizenStarted, krPercent, lockCheck,
   oActualPercent, redStreak, remindTime, scheduleLoad, type DayRecord,
 } from '../lib/okr'
 import { eventEntries, mergeSchedule } from '../lib/schedule'
@@ -35,7 +36,16 @@ export default function Day({ date, setDate, mode }: { date: string; setDate: (d
   const acts = useRows<NextAction>('next_actions', pid, () => (pid ? listBy('next_actions', 'period_id', pid) : none()))
 
   const [now, setNow] = useState(() => new Date())
-  const [tab, setTab] = useState<'okr' | 'kaizen'>(() => (mode === 'plan' ? 'okr' : defaultTab(date, today(), new Date(), s)))
+  const [tab, setTabRaw] = useState<DayTab>(() => defaultTab(date, today(), new Date(), s))
+  const picked = useRef(false)
+  const setTab = (t: DayTab) => {
+    picked.current = true
+    setPeek(null)
+    setTabRaw(t)
+    window.scrollTo(0, 0)
+  }
+  const [peek, setPeek] = useState<DayTab | null>(null)
+  const [prevConfirmed, setPrevConfirmed] = useState(true)
   const [prevObs, setPrevObs] = useState<Observation[]>([])
   const [upper, setUpper] = useState<Upper[]>([])
   const [events, setEvents] = useState<EventItem[]>([])
@@ -75,6 +85,7 @@ export default function Day({ date, setDate, mode }: { date: string; setDate: (d
 
         const [pp] = await findPeriods('day', addDays(date, -1), addDays(date, -1))
         const po = pp ? await listBy<Observation>('observations', 'period_id', pp.id) : []
+        const pc = kaizenConfirm(addDays(date, -1), pp?.kaizen, s) !== 'none'
 
         const t0 = today()
         let st: { locked: boolean; day?: string } = { locked: false }
@@ -103,6 +114,8 @@ export default function Day({ date, setDate, mode }: { date: string; setDate: (d
         setPrevObs(po)
         setStreak(st)
         setTodayKaizenDone(tk)
+        setPrevConfirmed(pc)
+        if (!picked.current) setTabRaw(defaultTab(date, today(), new Date(), s, pc))
       } catch (e) {
         toast(errMsg(e))
       }
@@ -115,6 +128,7 @@ export default function Day({ date, setDate, mode }: { date: string; setDate: (d
   if (!p || !o) return <p className="note">Đang mở ngày…</p>
 
   const t0 = today()
+  const prev = addDays(date, -1)
   const lock = effectiveLock(p, s, now)
   const editable = !lock.locked
   const canAdd = editable && !streak.locked
@@ -163,14 +177,30 @@ export default function Day({ date, setDate, mode }: { date: string; setDate: (d
         }
       />
 
-      <div className="tabs" role="tablist">
-        <button role="tab" aria-selected={tab === 'okr'} onClick={() => setTab('okr')}>
-          OKR ngày
-        </button>
-        <button role="tab" aria-selected={tab === 'kaizen'} onClick={() => setTab('kaizen')}>
-          Kaizen ngày
-        </button>
+      <div className="tabs daytabs" role="tablist">
+        {(
+          [
+            ['prev', `Kaizen ${fmtDMY(prev)}`, prevConfirmed ? '✓' : '!'],
+            ['okr', `OKR ${fmtDMY(date)}`, editable ? '' : '🔒'],
+            ['kaizen', `Kaizen ${fmtDMY(date)}`, kaizenConfirm(date, p.kaizen, s) !== 'none' ? '✓' : ''],
+          ] as [DayTab, string, string][]
+        ).map(([k, label, mark]) => (
+          <span key={k} className="dtab">
+            <button role="tab" aria-selected={tab === k} onClick={() => setTab(k)}>
+              {label}
+              {mark && <i className={'mk ' + (mark === '!' ? 'warn' : '')}>{mark}</i>}
+            </button>
+            {tab !== k && (
+              <button className="peek-btn" title="Xem nhanh, không rời tab đang làm" aria-label={`Xem nhanh ${label}`} aria-pressed={peek === k} onClick={() => setPeek(peek === k ? null : k)}>
+                👁
+              </button>
+            )}
+          </span>
+        ))}
       </div>
+      {peek && peek !== tab && (
+        <DayPeek date={peek === 'prev' ? prev : date} kind={peek === 'okr' ? 'okr' : 'kaizen'} onClose={() => setPeek(null)} onOpen={() => setTab(peek)} />
+      )}
 
       {streak.locked && (
         <div className="alert red">
@@ -182,15 +212,31 @@ export default function Day({ date, setDate, mode }: { date: string; setDate: (d
       )}
       {date > t0 && !todayKaizenDone && (
         <div className="alert yellow">
-          Chưa làm Kaizen hôm nay. Thứ tự đúng: Kaizen ngày {fmtDM(t0)} trước, rồi lập OKR ngày {fmtDM(date)}.{' '}
-          <button className="btn" onClick={() => go('day', t0)}>
-            Làm Kaizen hôm nay
+          Chưa làm Kaizen hôm nay. Thứ tự đúng: Kaizen ngày {fmtDMY(t0)} trước, rồi lập OKR ngày {fmtDMY(date)}.{' '}
+          <button className="btn" onClick={() => setTab('prev')}>
+            Mở Kaizen {fmtDM(t0)}
           </button>
         </div>
       )}
-      {mode === 'today' && date === t0 && nowHM >= remind && !kaizenStarted(p.kaizen) && (
+      {date === t0 && !prevConfirmed && tab !== 'prev' && (
+        <div className="alert yellow">
+          Kaizen ngày {fmtDMY(prev)} chưa xác nhận.{' '}
+          <button className="btn" onClick={() => setTab('prev')}>
+            Mở Kaizen {fmtDM(prev)}
+          </button>
+        </div>
+      )}
+      {date === t0 && editable && nowHM < s.okr_lock_time.slice(0, 5) && (
         <div className="alert blue">
-          Đã {remind}: còn ít hơn {s.remind_lead_min} phút đến giờ chốt kế hoạch ngày mai ({s.lock_time.slice(0, 5)}). Làm Kaizen hôm nay rồi lập OKR ngày mai.{' '}
+          <span>
+            Chốt OKR ngày {fmtDMY(date)} trước <b>{s.okr_lock_time.slice(0, 5)}</b>
+            {s.auto_lock ? ', sau giờ đó kế hoạch tự khoá' : ''}.
+          </span>
+        </div>
+      )}
+      {mode === 'today' && date === t0 && nowHM >= remind && kaizenConfirm(date, p.kaizen, s) === 'none' && (
+        <div className="alert blue">
+          Đã {remind}: còn ít hơn {s.remind_lead_min} phút đến giờ chốt Kaizen hôm nay ({s.lock_time.slice(0, 5)}). Làm và xác nhận Kaizen hôm nay, rồi lập OKR ngày mai (chốt trước {s.okr_lock_time.slice(0, 5)} sáng mai).{' '}
           {tab === 'okr' && (
             <button className="btn" onClick={() => setTab('kaizen')}>
               Mở Kaizen
@@ -202,7 +248,9 @@ export default function Day({ date, setDate, mode }: { date: string; setDate: (d
         </div>
       )}
 
-      {tab === 'okr' ? (
+      {tab === 'prev' ? (
+        <DayKaizenPane key={prev} date={prev} />
+      ) : tab === 'okr' ? (
         <div className="stack">
           <UpperBand items={upper} />
           <FocusBand title={o.title} exec={exec} actual={actual} />
@@ -212,7 +260,7 @@ export default function Day({ date, setDate, mode }: { date: string; setDate: (d
                 Kế hoạch đang mở
                 {s.auto_lock && lock.deadline && (
                   <>
-                    , tự khoá lúc <b>{s.lock_time.slice(0, 5)} ngày {fmtDM(addDays(date, -1))}</b>
+                    , tự khoá lúc <b>{s.okr_lock_time.slice(0, 5)} ngày {fmtDMY(date)}</b>
                   </>
                 )}
                 .
@@ -336,6 +384,7 @@ export default function Day({ date, setDate, mode }: { date: string; setDate: (d
               ...kas.rows.filter((a) => a.done).map((a) => ({ time: '', did: 'KA: ' + a.title })),
             ]}
           />
+          <ConfirmBar date={date} k={p.kaizen ?? {}} save={patchKaizen} />
         </div>
       ) : (
         <p className="empty">Kaizen ngày {fmtDM(date)} mở vào cuối ngày đó.</p>

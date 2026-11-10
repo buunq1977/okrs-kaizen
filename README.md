@@ -16,7 +16,8 @@ App: https://buunq1977.github.io/okrs-kaizen/
 | Cuối/đầu quý | Quý | KR từ mốc quý, dự án trọng tâm, điều chỉnh kế hoạch năm (có luật) |
 | Cuối/đầu tháng | Tháng | Kaizen số liệu 5 bước, lập 3 O + KR số, kế hoạch cộng dồn, dẫn trước |
 | CN hoặc T2 | Tuần | Kaizen tuần (tổng hợp từ các ngày) + OKR tuần, đóng góp KR tháng |
-| Trước giờ chốt 60–90 phút | Hôm nay → Ngày mai | Kaizen hôm nay, rồi OKR ngày mai 7 bước, Chốt trước 22:00 |
+| Tối, trước 22:00 | Hôm nay → tab Kaizen dd/mm | Kaizen hôm nay, bấm Xác nhận; rồi Ngày mai → OKR ngày mai |
+| Sáng, trước 08:00 | Hôm nay → tab OKR dd/mm | Rà lại và Chốt OKR (tự khoá lúc 08:00) |
 | Trong ngày | Hôm nay | Tick KA, Check lịch |
 | Bất cứ lúc nào | Tổng quan · Cây liên kết · Lịch sử Kaizen | Cảnh báo, tình trạng từng KR, tìm từ khoá đỏ |
 
@@ -37,6 +38,7 @@ Chạy lần lượt trong **SQL Editor** (mỗi file chạy một lần):
 9. `supabase/migrations/009_aff_projects.sql`
 10. `supabase/migrations/010_aff_search_tally.sql`
 11. `supabase/migrations/011_aff_okr_link.sql`
+12. `supabase/migrations/012_okr_lock_morning.sql`
 
 GitHub Secrets cần có: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`.
 
