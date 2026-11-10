@@ -14,6 +14,8 @@ describe('giai đoạn', () => {
     expect(p).toEqual({ stage: 'dang_ky', dates: { research: '2026-11-01', dang_ky: '2026-11-05' } })
     expect(advance(p, 'dang_ky', '2026-11-09').dates.dang_ky).toBe('2026-11-05')
     expect(nextStage('duoc_duyet')).toBe('test')
+    expect(nextStage('research')).toBe('dat_loc')
+    expect(nextStage('dat_loc')).toBe('dang_ky')
     expect(nextStage('win')).toBeNull()
   })
 })
@@ -71,18 +73,23 @@ describe('cờ nên dừng / đạt tiêu chí thắng', () => {
 
 describe('đếm và đo', () => {
   const ps = [
-    P('a', { stage: 'test', dates: { research: '2026-11-02', dang_ky: '2026-11-03', test: '2026-11-05' } }),
-    P('b', { stage: 'win', dates: { research: '2026-11-02', test: '2026-11-04', win: '2026-11-20' } }),
-    P('c', { stage: 'dang_ky', model: 'saas', dates: { research: '2026-11-10', dang_ky: '2026-11-11' } }),
-    P('d', { stage: 'research', dates: { research: '2026-10-30' } }),
+    P('a', { stage: 'test', dates: { dat_loc: '2026-11-02', dang_ky: '2026-11-03', duoc_duyet: '2026-11-04', test: '2026-11-05' } }),
+    P('b', { stage: 'win', dates: { dat_loc: '2026-11-02', dang_ky: '2026-11-02', test: '2026-11-04', win: '2026-11-20' } }),
+    P('c', { stage: 'dang_ky', model: 'saas', dates: { dat_loc: '2026-11-10', dang_ky: '2026-11-11' } }),
+    P('d', { stage: 'dat_loc', dates: { dat_loc: '2026-10-30' } }),
+  ]
+  const ts = [
+    { date: '2026-11-02', model: 'phys' as const, count: 30 },
+    { date: '2026-11-10', model: 'saas' as const, count: 12 },
+    { date: '2026-10-31', model: 'phys' as const, count: 50 },
   ]
   const es = [E('a', '2026-11-06', { cost: 12 }), E('b', '2026-11-10', { cost: 30, revenue: 40, received: 10, orders: 2 }), E('b', '2026-11-25', { cost: 50, revenue: 120, received: 90, orders: 5 })]
   it('đếm theo ngày vào giai đoạn', () => {
-    expect(countBetween(ps, '2026-11-01', '2026-11-30')).toEqual({ research: 3, dang_ky: 2, test: 2, win: 1 })
-    expect(countBetween(ps, '2026-11-01', '2026-11-30', 'saas')).toEqual({ research: 1, dang_ky: 1, test: 0, win: 0 })
+    expect(countBetween(ps, ts, '2026-11-01', '2026-11-30')).toEqual({ search: 42, chon: 3, dang_ky: 3, duyet: 1, test: 2, win: 1 })
+    expect(countBetween(ps, ts, '2026-11-01', '2026-11-30', 'saas')).toEqual({ search: 12, chon: 1, dang_ky: 1, duyet: 0, test: 0, win: 0 })
   })
   it('đo hệ số Vật lý', () => {
-    const m = measure(ps, es, 'phys', '2026-11-01', '2026-11-30')
+    const m = measure(ps, es, ts, 'phys', '2026-11-01', '2026-11-30')
     expect(m.n_tests).toBe(2)
     expect(m.n_wins).toBe(1)
     expect(m.tests_per_win).toBe(2)
@@ -90,7 +97,8 @@ describe('đếm và đo', () => {
     expect(m.order_rate).toBe(50)
     expect(m.approval).toBeCloseTo((100 / 160) * 100)
     expect(m.win_profit).toBe(40) // (90 − 50) trong 1 tháng từ ngày thắng
-    expect(m.research_per_test).toBe(1)
+    expect(m.research_per_test).toBe(15) // 30 search / 2 test
+    expect(m.reg_approved).toBe(50) // 2 đăng ký, 1 được duyệt
   })
 })
 

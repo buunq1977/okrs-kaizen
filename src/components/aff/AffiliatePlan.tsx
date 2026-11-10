@@ -1,6 +1,6 @@
 import { Fragment, useMemo } from 'react'
 import {
-  analyze, coeffsOf, monthEditable, monthOf, monthsOfLevel, nextBudget, PHYS_FIELDS, planRows, quarterNo, SAAS_FIELDS, targetsFor,
+  analyze, ceilCount, coeffsOf, dayLabel, winsLabel, monthEditable, monthOf, monthsOfLevel, nextBudget, PHYS_FIELDS, planRows, quarterNo, SAAS_FIELDS, targetsFor,
   type AffConfig, type AffMonth, type Targets,
 } from '../../lib/affiliate'
 import { receivedProfit, type AffEntry } from '../../lib/affProjects'
@@ -12,7 +12,7 @@ import { Sec, Txt, toNum } from '../ui'
 import { useAff } from './useAff'
 
 const usd = (n: number | null | undefined) => (n === null || n === undefined || !Number.isFinite(n) ? '–' : (n < 0 ? '−$' : '$') + fmtNum(Math.round(Math.abs(n))))
-const cnt = (n: number) => fmtNum(n >= 10 ? Math.round(n) : Math.round(n * 10) / 10)
+const cnt = (n: number) => fmtNum(ceilCount(n))
 const mLabel = (m: string) => `${m.slice(5, 7)}/${m.slice(0, 4)}`
 
 /** Mô hình thu nhập Affiliate Global: Vật lý + SaaS, phân bổ theo tháng, chỉ tiêu Năm → Ngày. */
@@ -35,14 +35,17 @@ export default function AffiliatePlan() {
   const mult = Math.max(1, a.xNeed ?? 1)
   const goalYear = cfg.goal_month.slice(0, 4)
 
-  const cols: { label: string; t: Targets }[] = [
+  const weekT = targetsFor([cur], a, months, cfg, 'week')
+  const cols: { label: string; t: Targets; day?: boolean }[] = [
     { label: `Năm ${goalYear}`, t: targetsFor(monthsOfLevel('year', cfg.goal_month), a, months, cfg, 'year') },
     { label: `Quý ${quarterNo(cur)}/${cur.slice(0, 4)}`, t: targetsFor(monthsOfLevel('quarter', cur), a, months, cfg, 'quarter') },
     { label: `Tháng ${mLabel(cur)}`, t: targetsFor([cur], a, months, cfg, 'month') },
     { label: `Tuần ${mondayOf(t0).slice(8, 10)}/${mondayOf(t0).slice(5, 7)}–${addDays(mondayOf(t0), 6).slice(8, 10)}/${addDays(mondayOf(t0), 6).slice(5, 7)}`, t: targetsFor([cur], a, months, cfg, 'week') },
-    { label: `Ngày (${cfg.working_days_week} ngày/tuần)`, t: targetsFor([cur], a, months, cfg, 'day') },
+    { label: `Ngày (${cfg.working_days_week} ngày/tuần)`, t: targetsFor([cur], a, months, cfg, 'day'), day: true },
   ]
-  const pair = ([lo, hi]: [number, number], f = cnt) => (Math.abs(hi - lo) < 0.05 ? f(lo) : `${f(lo)} / ${f(hi)}`)
+  const pair = ([lo, hi]: [number, number], f: (n: number) => string = cnt) => (f(lo) === f(hi) ? f(lo) : `${f(lo)} / ${f(hi)}`)
+  /** Số dự án: số nguyên làm tròn lên; cột Ngày chia từ chỉ tiêu tuần. */
+  const count = (c: { t: Targets; day?: boolean }, k: 'research' | 'reg' | 'tests') => (c.day ? pair(weekT[k], (n) => dayLabel(n, cfg.working_days_week)) : pair(c.t[k]))
 
   return (
     <div className="stack">
@@ -111,30 +114,30 @@ export default function AffiliatePlan() {
             </thead>
             <tbody>
               <tr>
-                <td>Research dự án</td>
+                <td>Search dự án</td>
                 {cols.map((c) => (
-                  <td key={c.label} className="n">{pair(c.t.research)}</td>
+                  <td key={c.label} className="n">{count(c, 'research')}</td>
                 ))}
               </tr>
               <tr>
                 <td>Đăng ký</td>
                 {cols.map((c) => (
-                  <td key={c.label} className="n">{pair(c.t.reg)}</td>
+                  <td key={c.label} className="n">{count(c, 'reg')}</td>
                 ))}
               </tr>
               <tr>
                 <td>Test (chạy camp)</td>
                 {cols.map((c) => (
                   <td key={c.label} className="n">
-                    {pair(c.t.tests)}
-                    <small className="sub">VL {cnt(c.t.testsP)} · SaaS {cnt(c.t.testsS)}</small>
+                    {count(c, 'tests')}
+                    {!c.day && <small className="sub">VL {cnt(c.t.testsP)} · SaaS {cnt(c.t.testsS)}</small>}
                   </td>
                 ))}
               </tr>
               <tr>
                 <td>Thắng</td>
                 {cols.map((c) => (
-                  <td key={c.label} className="n">{c.t.wins ? pair(c.t.wins) : <span className="note">không đặt</span>}</td>
+                  <td key={c.label} className="n">{c.t.wins ? pair(c.t.wins, winsLabel) : <span className="note">không đặt</span>}</td>
                 ))}
               </tr>
               <tr>
@@ -161,7 +164,7 @@ export default function AffiliatePlan() {
           </table>
         </div>
         <p className="note">
-          Số "mục tiêu" = số tối thiểu × {fmtNum(Math.round(mult * 10) / 10)} từ tháng {mLabel(a.scaleFrom)} (ngân sách đủ đạt mọi mục tiêu tháng còn kịp); giai đoạn đo giữ nguyên. Thắng chỉ đặt từ cấp Tháng trở lên. Research = {cfg.research_per_test} × test, đăng ký = {cfg.reg_per_test} × test (phễu minh hoạ của nguồn).
+          Số "mục tiêu" = số tối thiểu × {fmtNum(Math.round(mult * 10) / 10)} từ tháng {mLabel(a.scaleFrom)} (ngân sách đủ đạt mọi mục tiêu tháng còn kịp); giai đoạn đo giữ nguyên. Thắng chỉ đặt từ cấp Tháng trở lên. Search = {cfg.research_per_test} × test, đăng ký = {cfg.reg_per_test} × test (phễu minh hoạ của nguồn). Số dự án làm tròn lên; cột Ngày chia từ chỉ tiêu tuần (VD "1 · 4 ngày/tuần" = 4 ngày trong tuần, mỗi ngày 1).
         </p>
       </Sec>
 
@@ -310,7 +313,7 @@ function MonthRow({ m, cur, ed, sm, patch }: { m: AffMonth; cur: string; ed: boo
       <td>{n('season', 0.1, 5)}</td>
       <td>{n('profit_target', 0)}</td>
       <td className="n">{sm ? `${cnt(sm.testsP)} / ${cnt(sm.testsS)}` : '–'}</td>
-      <td className="n">{sm ? cnt(sm.winsP + sm.winsS) : '–'}</td>
+      <td className="n">{sm ? winsLabel(sm.winsP + sm.winsS) : '–'}</td>
       <td className={'n ' + (short ? 'neg' : '')}>{sm ? usd(sm.net) : '–'}</td>
       <td className="st">{m.locked_at ? '🔒 Đã chốt' : ed ? 'Đang mở' : 'Khoá'}</td>
     </tr>

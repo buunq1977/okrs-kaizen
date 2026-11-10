@@ -314,3 +314,16 @@ export function monthsOfLevel(level: 'year' | 'quarter' | 'month', month: string
 }
 /** Ngày cuối tháng (hiển thị hạn). */
 export const monthLast = (m: string) => addDays(addMonths(m, 1), -1)
+
+/* ---------- Hiển thị số dự án: số nguyên ---------- */
+/** Chỉ tiêu số dự án làm tròn lên (đủ chỉ tiêu, không có số lẻ). */
+export const ceilCount = (x: number) => Math.max(0, Math.ceil(x - 1e-9))
+/** Số thắng: 0, "< 1" hoặc số nguyên gần nhất. */
+export const winsLabel = (x: number) => (x <= 1e-9 ? '0' : x < 1 ? '< 1' : String(Math.round(x)))
+/** Chỉ tiêu ngày từ chỉ tiêu tuần (số nguyên): ≥ số ngày làm thì chia đều làm tròn lên; ít hơn thì "1 · N ngày/tuần". */
+export function dayLabel(weekValue: number, workDays: number): string {
+  const w = ceilCount(weekValue)
+  if (w === 0) return '0'
+  if (w >= workDays) return String(Math.ceil(w / workDays))
+  return `1 · ${w} ngày/tuần`
+}

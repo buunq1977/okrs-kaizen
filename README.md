@@ -20,7 +20,7 @@ App: https://buunq1977.github.io/okrs-kaizen/
 | Trong ngày | Hôm nay | Tick KA, Check lịch |
 | Bất cứ lúc nào | Tổng quan · Cây liên kết · Lịch sử Kaizen | Cảnh báo, tình trạng từng KR, tìm từ khoá đỏ |
 
-Mô hình thu nhập (Thêm → Mô hình thu nhập): tab Affiliate Global (Vật lý + SaaS, bảng phân bổ theo tháng, chỉ tiêu Năm → Ngày, gợi ý ngân sách tối thiểu; hệ số sửa ở Cài đặt, chỉ đầu kỳ) và tab Phễu tự cấu hình. Thêm → Sổ dự án: mỗi dự án một dòng (research → đạt lọc → đăng ký → được duyệt → test → thắng / dừng), nhập số theo đợt, cờ nên dừng / đạt tiêu chí thắng, tự đếm nhịp tuần/tháng, đo hệ số thật, nhập từ Excel.
+Mô hình thu nhập (Thêm → Mô hình thu nhập): tab Affiliate Global (Vật lý + SaaS, bảng phân bổ theo tháng, chỉ tiêu Năm → Ngày, gợi ý ngân sách tối thiểu; hệ số sửa ở Cài đặt, chỉ đầu kỳ) và tab Phễu tự cấu hình. Thêm → Sổ dự án: search chỉ đếm số; dự án đủ điều kiện mới ghi vào Sổ (đã chọn → đã đăng ký → đã duyệt link → lên camp test → thắng / dừng), nhập số theo đợt, cờ nên dừng / đạt tiêu chí thắng, tự đếm nhịp tuần/tháng, đo hệ số thật, nhập từ Excel.
 
 ## Cài đặt Supabase
 
@@ -35,6 +35,7 @@ Chạy lần lượt trong **SQL Editor** (mỗi file chạy một lần):
 7. `supabase/migrations/007_long_periods.sql`
 8. `supabase/migrations/008_affiliate_plan.sql`
 9. `supabase/migrations/009_aff_projects.sql`
+10. `supabase/migrations/010_aff_search_tally.sql`
 
 GitHub Secrets cần có: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`.
 

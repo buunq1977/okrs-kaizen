@@ -64,7 +64,7 @@ export default function AffSettings() {
           {num('reg_per_test', 0.1)}
         </label>
         <label className="fld">
-          <span>Research / 1 test</span>
+          <span>Search / 1 test</span>
           {num('research_per_test', 0.1)}
         </label>
         <label className="fld">

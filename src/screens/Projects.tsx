@@ -1,10 +1,10 @@
 import { Fragment, useMemo, useState } from 'react'
 import { useAff } from '../components/aff/useAff'
 import { Sec, Txt, toNum } from '../components/ui'
-import { analyze, monthOf, physOf, saasOf, targetsFor } from '../lib/affiliate'
+import { analyze, ceilCount, monthOf, physOf, saasOf, targetsFor, winsLabel } from '../lib/affiliate'
 import {
   advance, countBetween, flags, kindOf, measure, metrics, MODEL_NAME, nextStage, OP_COLOR, OP_NAME, parseImport, STAGE_NAME, STAGES, totals,
-  type AffEntry, type AffProject, type ImportRow, type Model, type OpStatus, type Stage,
+  type AffEntry, type AffProject, type ImportRow, type Model, type OpStatus, type Stage, type Tally,
 } from '../lib/affProjects'
 import { useApp, useRows } from '../lib/ctx'
 import { errMsg, insertMany, listAll } from '../lib/db'
@@ -23,6 +23,7 @@ export default function Projects() {
   const aff = useAff()
   const ps = useRows<AffProject>('aff_projects', 'all', () => listAll<AffProject>('aff_projects'))
   const es = useRows<AffEntry>('aff_entries', 'all', () => listAll<AffEntry>('aff_entries', 'date'))
+  const ts = useRows<Tally>('aff_tallies', 'all', () => listAll<Tally>('aff_tallies', 'date'))
   const t0 = today()
   const [model, setModel] = useState<'all' | Model>('all')
   const [filter, setFilter] = useState<Filter>('active')
@@ -45,20 +46,26 @@ export default function Projects() {
 
   const wk = { from: mondayOf(t0), to: addDays(mondayOf(t0), 6) }
   const mo = { from: monthOf(t0), to: monthEnd(t0) }
-  const cw = countBetween(ps.rows, wk.from, wk.to)
-  const cm = countBetween(ps.rows, mo.from, mo.to)
+  const cw = countBetween(ps.rows, ts.rows, wk.from, wk.to)
+  const cm = countBetween(ps.rows, ts.rows, mo.from, mo.to)
   const tw = targetsFor([monthOf(t0)], a, aff.months, cfg, 'week')
   const tm = targetsFor([monthOf(t0)], a, aff.months, cfg, 'month')
   const pace = (done: number, [lo, hi]: [number, number]) => (
     <span className={'pace-n ' + (done >= lo ? 'ok' : '')}>
-      <b>{done}</b> / {c1(lo)}
-      {hi - lo > 0.05 ? ` (mục tiêu ${c1(hi)})` : ''}
+      <b>{done}</b> / {ceilCount(lo)}
+      {ceilCount(hi) > ceilCount(lo) ? ` (mục tiêu ${ceilCount(hi)})` : ''}
     </span>
   )
 
   const since = addMonths(t0, -3)
-  const meas = { phys: measure(ps.rows, es.rows, 'phys', since, t0), saas: measure(ps.rows, es.rows, 'saas', since, t0) }
-  const apprAll = { phys: measure(ps.rows, es.rows, 'phys', '2000-01-01', t0).approval, saas: measure(ps.rows, es.rows, 'saas', '2000-01-01', t0).approval }
+  const meas = { phys: measure(ps.rows, es.rows, ts.rows, 'phys', since, t0), saas: measure(ps.rows, es.rows, ts.rows, 'saas', since, t0) }
+  const apprAll = { phys: measure(ps.rows, es.rows, ts.rows, 'phys', '2000-01-01', t0).approval, saas: measure(ps.rows, es.rows, ts.rows, 'saas', '2000-01-01', t0).approval }
+  const todayTally = ts.rows.find((x) => x.date === t0 && x.model === draft.model)
+  async function setSearch(n: number) {
+    const v = Math.max(0, Math.round(n))
+    if (todayTally) ts.patch(todayTally.id, { count: v })
+    else if (v > 0) await ts.add({ date: t0, kind: 'search', model: draft.model, count: v })
+  }
   const list = ps.rows
     .filter((p) => model === 'all' || p.model === model)
     .filter((p) => (filter === 'all' ? true : filter === 'active' ? p.stage !== 'dung' : p.stage === filter))
@@ -67,7 +74,7 @@ export default function Projects() {
 
   async function addProject() {
     if (!draft.name.trim()) return
-    const r = await ps.add({ name: draft.name.trim(), link: draft.link.trim(), model: draft.model, stage: 'research', dates: { research: t0 } })
+    const r = await ps.add({ name: draft.name.trim(), link: draft.link.trim(), model: draft.model, stage: 'dat_loc', dates: { dat_loc: t0 } })
     if (r) setDraft({ ...draft, name: '', link: '' })
   }
   function move(p: AffProject, to: Stage) {
@@ -93,7 +100,7 @@ export default function Projects() {
       const added = await insertMany<AffProject>(
         'aff_projects',
         imp.rows.map((r) => {
-          const dates: Partial<Record<Stage, string>> = { research: r.date, test: r.date }
+          const dates: Partial<Record<Stage, string>> = { test: r.date }
           if (r.stage === 'win') dates.win = r.date
           if (r.stage === 'dung') dates.dung = r.date
           return { name: r.name, link: r.link, model: r.model, network: r.network, stage: r.stage, op_status: r.op_status, dates, note: 'Nhập từ file' }
@@ -118,7 +125,7 @@ export default function Projects() {
     <div className="stack">
       <h1>Sổ dự án</h1>
 
-      <Sec title="Nhịp tuần này & tháng này" hint="Tự đếm theo ngày dự án vào từng giai đoạn · tối thiểu theo ngân sách">
+      <Sec title="Nhịp tuần này & tháng này" hint="Search lấy từ bộ đếm; các bước sau đếm theo ngày dự án vào giai đoạn · số / chỉ tiêu tối thiểu">
         <div className="tbl">
           <table className="ktable aff-t">
             <thead>
@@ -130,14 +137,32 @@ export default function Projects() {
             </thead>
             <tbody>
               <tr>
-                <td>Research</td>
-                <td className="n">{pace(cw.research, tw.research)}</td>
-                <td className="n">{pace(cm.research, tm.research)}</td>
+                <td>Search</td>
+                <td className="n">{pace(cw.search, tw.research)}</td>
+                <td className="n">{pace(cm.search, tm.research)}</td>
+              </tr>
+              <tr>
+                <td>Đã chọn</td>
+                <td className="n">
+                  <b>{cw.chon}</b>
+                </td>
+                <td className="n">
+                  <b>{cm.chon}</b>
+                </td>
               </tr>
               <tr>
                 <td>Đăng ký</td>
                 <td className="n">{pace(cw.dang_ky, tw.reg)}</td>
                 <td className="n">{pace(cm.dang_ky, tm.reg)}</td>
+              </tr>
+              <tr>
+                <td>Duyệt link</td>
+                <td className="n">
+                  <b>{cw.duyet}</b>
+                </td>
+                <td className="n">
+                  <b>{cm.duyet}</b>
+                </td>
               </tr>
               <tr>
                 <td>Test (lên camp)</td>
@@ -149,7 +174,15 @@ export default function Projects() {
                 <td className="n">
                   <b>{cw.win}</b> <span className="note">(không đặt)</span>
                 </td>
-                <td className="n">{tm.wins ? pace(cm.win, tm.wins) : cm.win}</td>
+                <td className="n">
+                  {tm.wins ? (
+                    <span className={'pace-n ' + (cm.win >= tm.wins[0] ? 'ok' : '')}>
+                      <b>{cm.win}</b> / {winsLabel(tm.wins[0])}
+                    </span>
+                  ) : (
+                    cm.win
+                  )}
+                </td>
               </tr>
             </tbody>
           </table>
@@ -157,7 +190,22 @@ export default function Projects() {
         {!aff.months.length && <p className="note">Chưa có bảng phân bổ: tạo ở Mô hình thu nhập → Affiliate Global để có chỉ tiêu.</p>}
       </Sec>
 
-      <Sec title="Thêm dự án" hint="Lúc research chỉ cần tên + link">
+      <Sec title="Search & chọn dự án" hint="Search chỉ cần đếm số; dự án đủ điều kiện mới ghi vào Sổ">
+        <div className="tally">
+          <span className="tally-l">
+            Đã search hôm nay ({draft.model === 'phys' ? 'Vật lý' : 'SaaS'})
+          </span>
+          <button className="btn" aria-label="Bớt 1" disabled={!todayTally?.count} onClick={() => setSearch((todayTally?.count ?? 0) - 1)}>
+            −1
+          </button>
+          <input type="number" min={0} aria-label="Số dự án đã search hôm nay" value={todayTally?.count ?? 0} onChange={(e) => setSearch(Number(e.target.value))} />
+          {[1, 5, 10].map((n) => (
+            <button key={n} className="btn" onClick={() => setSearch((todayTally?.count ?? 0) + n)}>
+              +{n}
+            </button>
+          ))}
+        </div>
+        <div className="fld-l">Chọn dự án để đăng ký (đủ điều kiện)</div>
         <div className="addrow proj-add">
           <input placeholder="Tên dự án / store" aria-label="Tên dự án" value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} onKeyDown={(e) => e.key === 'Enter' && addProject()} />
           <input placeholder="Link" aria-label="Link" value={draft.link} onChange={(e) => setDraft({ ...draft, link: e.target.value })} onKeyDown={(e) => e.key === 'Enter' && addProject()} />
@@ -166,7 +214,7 @@ export default function Projects() {
             <option value="saas">SaaS</option>
           </select>
           <button className="btn primary" disabled={!draft.name.trim()} onClick={addProject}>
-            + Research
+            + Đã chọn
           </button>
         </div>
         <div className="addrow">
@@ -255,6 +303,11 @@ export default function Projects() {
                             → {STAGE_NAME[nx]}
                           </button>
                         )}
+                        {p.stage === 'dang_ky' && (
+                          <button className="btn mini ghost" onClick={() => ps.patch(p.id, { ...advance(p, 'dung', t0), stop_reason: p.stop_reason || 'Không được duyệt' } as Partial<AffProject>)}>
+                            Không được duyệt
+                          </button>
+                        )}
                       </td>
                       <td className="n">{t.cost ? usd(t.cost) : ''}</td>
                       <td className="n">{t.revenue ? usd(t.revenue) : ''}</td>
@@ -326,9 +379,9 @@ export default function Projects() {
               <tr>
                 <td>Số test ra 1 thắng</td>
                 <td className="n">{coeffs.phys.tests_per_win}</td>
-                <td className="n">{meas.phys.tests_per_win === null ? (meas.phys.n_tests ? `chưa có thắng (${meas.phys.n_tests} test)` : '–') : c1(meas.phys.tests_per_win)}</td>
+                <td className="n">{meas.phys.tests_per_win === null ? (meas.phys.n_tests ? `chưa có thắng (${meas.phys.n_tests} test)` : '–') : Math.round(meas.phys.tests_per_win)}</td>
                 <td className="n">{coeffs.saas.tests_per_win}</td>
-                <td className="n">{meas.saas.tests_per_win === null ? (meas.saas.n_tests ? `chưa có thắng (${meas.saas.n_tests} test)` : '–') : c1(meas.saas.tests_per_win)}</td>
+                <td className="n">{meas.saas.tests_per_win === null ? (meas.saas.n_tests ? `chưa có thắng (${meas.saas.n_tests} test)` : '–') : Math.round(meas.saas.tests_per_win)}</td>
               </tr>
               <tr>
                 <td>Lợi nhuận 1 thắng / tháng</td>
@@ -336,6 +389,13 @@ export default function Projects() {
                 <td className="n">{usd(meas.phys.win_profit)}</td>
                 <td className="n">–</td>
                 <td className="n">{usd(meas.saas.win_profit)}</td>
+              </tr>
+              <tr>
+                <td>% đăng ký được duyệt link</td>
+                <td />
+                <td className="n">{pct(meas.phys.reg_approved)}</td>
+                <td />
+                <td className="n">{pct(meas.saas.reg_approved)}</td>
               </tr>
               <tr>
                 <td>% dự án test có đơn</td>
@@ -352,7 +412,7 @@ export default function Projects() {
                 <td className="n">{pct(meas.saas.approval)}</td>
               </tr>
               <tr>
-                <td>Đăng ký · Research / 1 test</td>
+                <td>Đăng ký · Search / 1 test</td>
                 <td className="n">
                   {cfg.reg_per_test} · {cfg.research_per_test}
                 </td>

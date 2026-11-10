@@ -213,7 +213,7 @@ function SetupError({ msg, retry }: { msg: string; retry: () => void }) {
       {missingTable ? (
         <p>
           Supabase chưa có bảng của app. Vào Supabase → <b>SQL Editor → New query</b>, dán và chạy lần lượt <code>supabase/migrations/001_init.sql</code> rồi{' '}
-          <code>002_goal_current.sql</code>, <code>003_grants.sql</code>, <code>004_okr_kaizen_v2.sql</code>, <code>005_v3_day.sql</code>, <code>006_week.sql</code>, <code>007_long_periods.sql</code>, <code>008_affiliate_plan.sql</code>, <code>009_aff_projects.sql</code> trong repo, sau đó bấm Thử lại.
+          <code>002_goal_current.sql</code>, <code>003_grants.sql</code>, <code>004_okr_kaizen_v2.sql</code>, <code>005_v3_day.sql</code>, <code>006_week.sql</code>, <code>007_long_periods.sql</code>, <code>008_affiliate_plan.sql</code>, <code>009_aff_projects.sql</code>, <code>010_aff_search_tally.sql</code> trong repo, sau đó bấm Thử lại.
         </p>
       ) : noGrant ? (
         <p>

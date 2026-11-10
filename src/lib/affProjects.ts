@@ -33,13 +33,15 @@ export interface AffEntry {
   note: string
 }
 
-export const STAGES: Stage[] = ['research', 'dat_loc', 'dang_ky', 'duoc_duyet', 'test', 'win']
+/** Quy trình: search (chỉ đếm số) → chọn dự án → đăng ký → duyệt link affiliate → lên camp test → thắng / dừng.
+ *  Dự án vào Sổ từ bước "Đã chọn"; 'research' chỉ còn cho dữ liệu cũ. */
+export const STAGES: Stage[] = ['dat_loc', 'dang_ky', 'duoc_duyet', 'test', 'win']
 export const STAGE_NAME: Record<Stage, string> = {
-  research: 'Research',
-  dat_loc: 'Đạt lọc',
-  dang_ky: 'Đăng ký',
-  duoc_duyet: 'Được duyệt',
-  test: 'Đang test',
+  research: 'Search (cũ)',
+  dat_loc: 'Đã chọn',
+  dang_ky: 'Đã đăng ký',
+  duoc_duyet: 'Đã duyệt link',
+  test: 'Lên camp test',
   win: 'Thắng',
   dung: 'Dừng',
 }
@@ -53,6 +55,7 @@ export function advance(p: Pick<AffProject, 'stage' | 'dates'>, to: Stage, date:
   return { stage: to, dates: { ...p.dates, [to]: p.dates[to] ?? date } }
 }
 export const nextStage = (s: Stage): Stage | null => {
+  if (s === 'research') return 'dat_loc'
   const i = STAGES.indexOf(s)
   return i >= 0 && i < STAGES.length - 1 ? STAGES[i + 1] : null
 }
@@ -122,19 +125,34 @@ export function flags(p: Pick<AffProject, 'stage' | 'model' | 'ext_reason'>, t: 
   }
 }
 
+/* ---------- Đếm search theo ngày ---------- */
+export interface Tally {
+  id: string
+  date: string
+  kind: 'search'
+  model: Model
+  count: number
+}
+export const searchSum = (ts: Pick<Tally, 'date' | 'model' | 'count'>[], from: string, to: string, model?: Model) =>
+  ts.filter((t) => t.date >= from && t.date <= to && (!model || t.model === model)).reduce((s, t) => s + Number(t.count), 0)
+
 /* ---------- Đếm theo kỳ (dùng cho KR tự đếm) ---------- */
 export interface Counts {
-  research: number
+  search: number // từ bộ đếm search
+  chon: number
   dang_ky: number
+  duyet: number
   test: number
   win: number
 }
-export function countBetween(ps: Pick<AffProject, 'dates' | 'model'>[], from: string, to: string, model?: Model): Counts {
+export function countBetween(ps: Pick<AffProject, 'dates' | 'model'>[], ts: Pick<Tally, 'date' | 'model' | 'count'>[], from: string, to: string, model?: Model): Counts {
   const inR = (d?: string) => !!d && d >= from && d <= to
   const xs = model ? ps.filter((p) => p.model === model) : ps
   return {
-    research: xs.filter((p) => inR(p.dates.research)).length,
+    search: searchSum(ts, from, to, model),
+    chon: xs.filter((p) => inR(p.dates.dat_loc)).length,
     dang_ky: xs.filter((p) => inR(p.dates.dang_ky)).length,
+    duyet: xs.filter((p) => inR(p.dates.duoc_duyet)).length,
     test: xs.filter((p) => inR(p.dates.test)).length,
     win: xs.filter((p) => inR(p.dates.win)).length,
   }
@@ -150,10 +168,11 @@ export interface Measured {
   approval: number | null // % duyệt = thực nhận / doanh số
   win_profit: number | null // lợi nhuận TB / thắng / tháng (từ ngày thắng)
   reg_per_test: number | null
-  research_per_test: number | null
+  research_per_test: number | null // số search / 1 test
+  reg_approved: number | null // % đăng ký được duyệt link
 }
 /** Đo trên các dự án của 1 mô hình có ngày vào giai đoạn trong [from, to]. */
-export function measure(ps: AffProject[], es: AffEntry[], model: Model, from: string, to: string): Measured {
+export function measure(ps: AffProject[], es: AffEntry[], ts: Pick<Tally, 'date' | 'model' | 'count'>[], model: Model, from: string, to: string): Measured {
   const byP = new Map<string, AffEntry[]>()
   for (const e of es) byP.set(e.project_id, [...(byP.get(e.project_id) ?? []), e])
   const inR = (d?: string) => !!d && d >= from && d <= to
@@ -170,7 +189,8 @@ export function measure(ps: AffProject[], es: AffEntry[], model: Model, from: st
       return (t.received - t.cost) / months
     })
   const regs = xs.filter((p) => inR(p.dates.dang_ky)).length
-  const research = xs.filter((p) => inR(p.dates.research)).length
+  const research = searchSum(ts, from, to, model)
+  const approvedRegs = xs.filter((p) => inR(p.dates.dang_ky) && p.dates.duoc_duyet).length
   return {
     n_tests: tested.length,
     n_wins: wins.length,
@@ -181,6 +201,7 @@ export function measure(ps: AffProject[], es: AffEntry[], model: Model, from: st
     win_profit: winMonthly.length ? winMonthly.reduce((a, b) => a + b, 0) / winMonthly.length : null,
     reg_per_test: tested.length ? regs / tested.length : null,
     research_per_test: tested.length ? research / tested.length : null,
+    reg_approved: regs ? (approvedRegs / regs) * 100 : null,
   }
 }
 const prevDay = (d: string) => {

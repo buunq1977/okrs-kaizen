@@ -534,3 +534,7 @@ nav .more-m button.ghost { color: var(--ink-2) }
 .pace-n { white-space: nowrap; color: var(--signal) }
 .pace-n.ok { color: var(--good) }
 .flag.ok { color: var(--good); display: flex; gap: 8px; align-items: center }
+.tally { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 8px 10px; border-radius: 8px; background: var(--mark-soft) }
+.tally-l { font-weight: 600; flex: 1 1 100%; }
+.tally input { width: 80px; text-align: center; font-weight: 700 }
+@media (min-width: 641px) { .tally-l { flex: 0 1 auto; margin-right: 8px } }

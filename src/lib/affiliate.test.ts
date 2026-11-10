@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  ceilCount, dayLabel, winsLabel,
   analyze, configEditable, defaultProfit, defaultShare, monthEditable, monthsOfLevel, needsAutoLock, nextBudget, planRows, simulate, targetsFor,
   type AffConfig, type AffMonth,
 } from './affiliate'
@@ -144,5 +145,20 @@ describe('chỉ tiêu phân tầng', () => {
   it('quy tắc ngân sách: nền + 50% lợi nhuận đã nhận', () => {
     expect(nextBudget(200, 50, 600)).toBe(500)
     expect(nextBudget(200, 50, -100)).toBe(200)
+  })
+})
+
+describe('số dự án là số nguyên', () => {
+  it('làm tròn lên, thắng hiện < 1, ngày chia từ tuần', () => {
+    expect(ceilCount(3.8)).toBe(4)
+    expect(ceilCount(17)).toBe(17)
+    expect(ceilCount(16.0000000001)).toBe(16)
+    expect(winsLabel(0)).toBe('0')
+    expect(winsLabel(0.2)).toBe('< 1')
+    expect(winsLabel(1.4)).toBe('1')
+    expect(dayLabel(19.2, 7)).toBe('3')
+    expect(dayLabel(3.8, 7)).toBe('1 · 4 ngày/tuần')
+    expect(dayLabel(0, 7)).toBe('0')
+    expect(dayLabel(14, 7)).toBe('2')
   })
 })
