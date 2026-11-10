@@ -67,6 +67,10 @@ export default function AffSettings() {
           <span>Research / 1 test</span>
           {num('research_per_test', 0.1)}
         </label>
+        <label className="fld">
+          <span>Gợi ý thắng khi ≥ N đơn và ROAS theo thực nhận dự kiến ≥ ngưỡng scale; N =</span>
+          {num('win_min_orders', 1)}
+        </label>
       </div>
 
       <div className="grid2">

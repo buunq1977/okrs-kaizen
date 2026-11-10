@@ -34,6 +34,7 @@ export interface AffConfig {
   working_days_week: number
   reg_per_test: number
   research_per_test: number
+  win_min_orders: number
   phys: Partial<PhysCoeffs>
   saas: Partial<SaasCoeffs>
 }

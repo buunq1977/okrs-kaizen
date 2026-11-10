@@ -10,13 +10,14 @@ import Week from './screens/Week'
 import Long from './screens/Long'
 import Vision from './screens/Vision'
 import Income from './screens/Income'
+import Projects from './screens/Projects'
 import Dashboard from './screens/Dashboard'
 import Tree from './screens/Tree'
 import History from './screens/History'
 import Day from './screens/Day'
 import SettingsScreen from './screens/SettingsScreen'
 
-type Screen = 'dash' | 'today' | 'plan' | 'week' | 'month' | 'quarter' | 'year' | 'kickoff' | 'vision' | 'income' | 'tree' | 'history' | 'settings'
+type Screen = 'dash' | 'today' | 'plan' | 'week' | 'month' | 'quarter' | 'year' | 'kickoff' | 'vision' | 'income' | 'projects' | 'tree' | 'history' | 'settings'
 const SCREENS: { id: Screen; label: string }[] = [
   { id: 'dash', label: 'Tổng quan' },
   { id: 'today', label: 'Hôm nay' },
@@ -29,6 +30,7 @@ const SCREENS: { id: Screen; label: string }[] = [
 const MORE: { id: Screen; label: string }[] = [
   { id: 'vision', label: 'Tầm nhìn' },
   { id: 'kickoff', label: 'Kỳ khởi động' },
+  { id: 'projects', label: 'Sổ dự án' },
   { id: 'income', label: 'Mô hình thu nhập' },
   { id: 'tree', label: 'Cây liên kết' },
   { id: 'history', label: 'Lịch sử Kaizen' },
@@ -185,6 +187,7 @@ function Main({ session }: { session: Session }) {
             {screen === 'kickoff' && <Long kind="kickoff" date={date} setDate={setDate} />}
             {screen === 'vision' && <Vision />}
             {screen === 'income' && <Income />}
+            {screen === 'projects' && <Projects />}
             {screen === 'tree' && <Tree />}
             {screen === 'history' && <History />}
             {screen === 'settings' && <SettingsScreen />}
@@ -210,7 +213,7 @@ function SetupError({ msg, retry }: { msg: string; retry: () => void }) {
       {missingTable ? (
         <p>
           Supabase chưa có bảng của app. Vào Supabase → <b>SQL Editor → New query</b>, dán và chạy lần lượt <code>supabase/migrations/001_init.sql</code> rồi{' '}
-          <code>002_goal_current.sql</code>, <code>003_grants.sql</code>, <code>004_okr_kaizen_v2.sql</code>, <code>005_v3_day.sql</code>, <code>006_week.sql</code>, <code>007_long_periods.sql</code>, <code>008_affiliate_plan.sql</code> trong repo, sau đó bấm Thử lại.
+          <code>002_goal_current.sql</code>, <code>003_grants.sql</code>, <code>004_okr_kaizen_v2.sql</code>, <code>005_v3_day.sql</code>, <code>006_week.sql</code>, <code>007_long_periods.sql</code>, <code>008_affiliate_plan.sql</code>, <code>009_aff_projects.sql</code> trong repo, sau đó bấm Thử lại.
         </p>
       ) : noGrant ? (
         <p>

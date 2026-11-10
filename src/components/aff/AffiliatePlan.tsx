@@ -3,8 +3,10 @@ import {
   analyze, coeffsOf, monthEditable, monthOf, monthsOfLevel, nextBudget, PHYS_FIELDS, planRows, quarterNo, SAAS_FIELDS, targetsFor,
   type AffConfig, type AffMonth, type Targets,
 } from '../../lib/affiliate'
-import { useApp } from '../../lib/ctx'
-import { addDays, addMonths, mondayOf, today } from '../../lib/dates'
+import { receivedProfit, type AffEntry } from '../../lib/affProjects'
+import { useApp, useRows } from '../../lib/ctx'
+import { listAll } from '../../lib/db'
+import { addDays, addMonths, monthEnd, mondayOf, today } from '../../lib/dates'
 import { fmtNum } from '../../lib/pace'
 import { Sec, Txt, toNum } from '../ui'
 import { useAff } from './useAff'
@@ -17,6 +19,7 @@ const mLabel = (m: string) => `${m.slice(5, 7)}/${m.slice(0, 4)}`
 export default function AffiliatePlan() {
   const { go } = useApp()
   const aff = useAff()
+  const ents = useRows<AffEntry>('aff_entries', 'all', () => listAll<AffEntry>('aff_entries', 'date'))
   const t0 = today()
   const cur = monthOf(t0)
   const { cfg, months, anyLocked } = aff
@@ -26,6 +29,7 @@ export default function AffiliatePlan() {
   if (!cfg || !a) return <p className="note">Đang tải…</p>
 
   const curRow = months.find((m) => m.month === cur)
+  const recv = receivedProfit(ents.rows, cur, monthEnd(cur))
   const missing = planRows(cfg, t0).filter((r) => !months.some((m) => m.month === r.month))
   const goalOk = a.goalNet !== null && a.goalNet >= cfg.year_goal
   const mult = Math.max(1, a.xNeed ?? 1)
@@ -89,7 +93,7 @@ export default function AffiliatePlan() {
             </li>
           )}
           <li>
-            Ngân sách test tháng sau = {usd(cfg.base_budget)} + {cfg.reinvest_pct}% lợi nhuận đã nhận tháng này (ví dụ nhận $600 → {usd(nextBudget(cfg.base_budget, cfg.reinvest_pct, 600))}). Ngân sách scale cho dự án đạt ROAS ≥ {fmtNum(coeffsOf(curRow ?? { coeffs: null }, cfg).phys.roas)} không giới hạn theo kỳ. Mở rộng test 1 dự án tối đa ×{cfg.test_cap_mult} tiền test mặc định, phải ghi lý do (ở Sổ dự án).
+            Ngân sách test tháng sau đề xuất: <b>{usd(nextBudget(cfg.base_budget, cfg.reinvest_pct, recv))}</b> = {usd(cfg.base_budget)} + {cfg.reinvest_pct}% lợi nhuận đã nhận tháng này ({usd(recv)}, Thực nhận − Chi phí ở Sổ dự án). Ngân sách scale cho dự án đạt ROAS ≥ {fmtNum(coeffsOf(curRow ?? { coeffs: null }, cfg).phys.roas)} không giới hạn theo kỳ. Mở rộng test 1 dự án tối đa ×{cfg.test_cap_mult} tiền test mặc định, phải ghi lý do (ở Sổ dự án).
           </li>
         </ul>
       </Sec>
