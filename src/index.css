@@ -546,7 +546,7 @@ nav .more-m button.ghost { color: var(--ink-2) }
 .aff-q .btn { align-self: flex-start }
 
 /* ---------- Trang Ngày: 3 tab có ngày, dính dưới header, xem nhanh ---------- */
-.daytabs { position: sticky; top: var(--top-h, 0px); z-index: 4; background: var(--paper); flex-wrap: wrap; overflow-x: auto }
+.daytabs { position: sticky; top: var(--top-h, 0px); z-index: 4; background: var(--paper); flex-wrap: wrap; overflow: visible; max-width: 100% }
 .daytabs .dtab { display: inline-flex; align-items: center }
 .daytabs .dtab > button[role='tab'] { padding: 10px 12px; white-space: nowrap }
 .daytabs .mk { font-style: normal; margin-left: 6px; font-size: 12px; color: var(--good) }
