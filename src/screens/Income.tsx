@@ -1,3 +1,5 @@
+import { useState } from 'react'
+import AffiliatePlan from '../components/aff/AffiliatePlan'
 import { Sec, Txt, toNum } from '../components/ui'
 import { useRows } from '../lib/ctx'
 import { listAll } from '../lib/db'
@@ -10,10 +12,27 @@ const r1 = (n: number) => fmtNum(Math.round(n * 10) / 10)
 
 /** Mô hình thu nhập (§9): phễu tự cấu hình, app tự tính nhịp độ chia ngược. */
 export default function Income() {
+  const [tab, setTab] = useState<'aff' | 'funnel'>('aff')
+  return (
+    <div className="stack">
+      <h1>Mô hình thu nhập</h1>
+      <div className="tabs" role="tablist">
+        <button role="tab" aria-selected={tab === 'aff'} onClick={() => setTab('aff')}>
+          Affiliate Global
+        </button>
+        <button role="tab" aria-selected={tab === 'funnel'} onClick={() => setTab('funnel')}>
+          Phễu tự cấu hình
+        </button>
+      </div>
+      {tab === 'aff' ? <AffiliatePlan /> : <Funnels />}
+    </div>
+  )
+}
+
+function Funnels() {
   const models = useRows<IncomeModel>('income_models', 'all', () => listAll<IncomeModel>('income_models'))
   return (
     <div className="stack narrow">
-      <h1>Mô hình thu nhập</h1>
       <p className="note">
         Mỗi nguồn thu nhập một mô hình. Nhập hệ số bạn biết; hệ số chưa chắc thì tick "chưa đo": nhịp độ sẽ hiện "ước lượng" và nên có KR "đo hệ số" trong 2 tháng đầu. Số trong ví dụ chỉ minh hoạ.
       </p>

@@ -1,3 +1,4 @@
+import type { AffConfig } from './affiliate'
 import { supabase } from './supabase'
 import type { Goal, Metric, Objective, Period, PeriodKind, ScheduleSeries, Settings, Vision } from './types'
 
@@ -5,6 +6,7 @@ export type Table =
   | 'visions' | 'goals' | 'metrics'
   | 'periods' | 'objectives' | 'schedule_series' | 'key_results' | 'key_actions' | 'schedule_items' | 'observations' | 'next_actions' | 'validations'
   | 'kr_actuals' | 'plan_changes' | 'income_models' | 'vision_items' | 'events'
+  | 'aff_months'
   | 'settings'
 
 function sb() {
@@ -118,10 +120,26 @@ export async function saveSettings(s: Settings): Promise<Settings> {
   return must(await sb().from('settings').update({ ...rest, updated_at: new Date().toISOString() }).eq('user_id', user_id).select().single())
 }
 
+/* ---------- mô hình Affiliate ---------- */
+export async function getAffConfig(uid: string): Promise<AffConfig> {
+  const found = must(await sb().from('aff_config').select('*').maybeSingle())
+  if (found) return found as AffConfig
+  return must(await sb().from('aff_config').upsert({ user_id: uid }, { onConflict: 'user_id' }).select().single())
+}
+export async function saveAffConfig(c: AffConfig): Promise<AffConfig> {
+  const { user_id, ...rest } = c
+  return must(await sb().from('aff_config').update({ ...rest, updated_at: new Date().toISOString() }).eq('user_id', user_id).select().single())
+}
+export async function insertMany<T>(table: Table, rows: Record<string, unknown>[]): Promise<T[]> {
+  if (!rows.length) return []
+  return must(await sb().from(table).insert(rows).select())
+}
+
 /* ---------- xuất toàn bộ ---------- */
 export async function exportAll() {
-  const tables: Table[] = ['visions', 'goals', 'metrics', 'vision_items', 'income_models', 'periods', 'objectives', 'schedule_series', 'key_results', 'key_actions', 'kr_actuals', 'plan_changes', 'events', 'schedule_items', 'observations', 'next_actions', 'validations', 'settings']
-  const out: Record<string, unknown> = { exported_at: new Date().toISOString(), version: 4 }
+  const tables: Table[] = ['visions', 'goals', 'metrics', 'vision_items', 'income_models', 'periods', 'objectives', 'schedule_series', 'key_results', 'key_actions', 'kr_actuals', 'plan_changes', 'events', 'schedule_items', 'observations', 'next_actions', 'validations', 'settings', 'aff_months']
+  const out: Record<string, unknown> = { exported_at: new Date().toISOString(), version: 5 }
   for (const t of tables) out[t] = must(await sb().from(t).select('*'))
+  out.aff_config = must(await sb().from('aff_config').select('*'))
   return out
 }

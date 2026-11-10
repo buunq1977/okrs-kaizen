@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from 'react'
+import AffSettings from '../components/aff/AffSettings'
 import { Sec } from '../components/ui'
 import { useApp } from '../lib/ctx'
 import { errMsg, exportAll, saveSettings } from '../lib/db'
@@ -103,6 +104,8 @@ export default function SettingsScreen() {
         <Row label="Thời gian chờ đề xuất điều chỉnh" unit="giờ">{num('change_cooldown_h', 0, 168)}</Row>
         {flag('ka_autotick', 'KA tuần tự tick khi O ngày phục vụ nó đạt ngưỡng đạt')}
       </Sec>
+
+      <AffSettings />
 
       <Sec title="Trang Ngày">
         <Row label="Số KR tối thiểu" unit="KR">{num('day_min_kr', 1, 6)}</Row>
