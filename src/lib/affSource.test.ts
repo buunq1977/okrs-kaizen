@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { ahTotals, approvalStat, buildLedger, campModels, firstTestDay, modelOfType, sharedThresholds, stopCheck, vnDate, winCheck, wsCounts, type AhData, type WsData } from './affSource'
+import { ahTotals, approvalStat, buildLedger, campModels, firstTestDay, modelOfType, monthlyMoney, sharedThresholds, stopCheck, vnDate, winCheck, wsCounts, type AhData, type WsData } from './affSource'
 
 const ws: WsData = {
   settings: {
@@ -322,5 +322,19 @@ describe('Sổ dự án GĐ3: Research + Ads-Hub', () => {
     const all = { qs7: true, is40: true, lostis30: true, cap3: true }
     expect(winCheck(r, a2, null, th, all, '2026-11-18').ready).toBe(true)
     expect(winCheck(r, a2, null, th, { ...all, cap3: false }, '2026-11-18').ready).toBe(false)
+  })
+})
+
+describe('tiền theo tháng từ Ads-Hub (cho cổng)', () => {
+  it('chi phí + hoa hồng đã duyệt / đã trả theo tháng; bỏ đơn chờ và bị huỷ', () => {
+    const r = monthlyMoney(ah)
+    expect(r.map((x) => x.month)).toEqual(['2026-11-01', '2026-12-01'])
+    expect(r[0].cost).toBe(15.75) // 3,5 + 2,25 + 9 + 1 (dòng chưa có tỷ giá tính 0)
+    expect(r[0].received).toBe(21) // 15 đã duyệt + 6 đã trả (đơn chưa ghép camp vẫn là tiền thật)
+    expect(r[1].cost).toBe(100)
+  })
+  it('lọc theo mô hình', () => {
+    const p = monthlyMoney(ah, ws, 'saas')
+    expect(p[0]).toEqual({ month: '2026-11-01', cost: 9, received: 15 })
   })
 })

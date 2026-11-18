@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   ceilCount, dayLabel, winsLabel,
   analyze, configEditable, defaultProfit, defaultShare, monthEditable, monthsOfLevel, needsAutoLock, nextBudget, planRows, simulate, targetsFor,
-  adCharges, anyLocked, deseason, profitAfterFees, realRoas, rowEditable, seasonWarn, selfFundProfit, snapshotV2,
+  adCharges, anyLocked, deseason, gateOf, kickoffBudget, profitAfterFees, sampleNeeds, suggestDouble, realRoas, rowEditable, seasonWarn, selfFundProfit, snapshotV2,
   type AffConfig, type AffMonth,
 } from './affiliate'
 
@@ -35,11 +35,62 @@ describe('kế hoạch mặc định', () => {
     expect(defaultShare('2027-08-01')).toBe(50)
     expect(defaultShare('2027-11-01')).toBe(80)
   })
-  it('tạo dòng từ tháng hiện tại đến tháng mục tiêu, ngân sách = mức tối thiểu', () => {
+  it('kế hoạch mới (GĐ4): 100% Vật lý, Tools AI 0, lợi nhuận mục tiêu 0 (theo cổng), ngân sách = mức tối thiểu', () => {
     const rs = planRows(cfg, '2026-11-10')
     expect(rs.length).toBe(14)
-    expect(rs[0]).toMatchObject({ month: '2026-11-01', share_phys: 100, budget_test: 200, profit_target: 0 })
-    expect(rs[13]).toMatchObject({ month: '2027-12-01', share_phys: 80, profit_target: 16000 })
+    expect(rs[0]).toMatchObject({ month: '2026-11-01', share_phys: 100, share_tools: 0, budget_test: 200, profit_target: 0 })
+    expect(rs[13]).toMatchObject({ month: '2027-12-01', share_phys: 100, share_tools: 0, profit_target: 0 })
+  })
+})
+
+describe('cổng bằng chứng (GĐ4)', () => {
+  const m = (month: string, received: number, cost: number) => ({ month, received, cost })
+  const c = { ...cfg, fee_pct: 0, tax_pct: 0 }
+  it('không có dự án đủ điều kiện scale → Cổng 0, ngân sách scale khoá, SaaS khoá', () => {
+    const g = gateOf(0, [m('2026-10-01', 24, 312)], c)
+    expect(g.gate).toBe(0)
+    expect(g.scaleOpen).toBe(false)
+    expect(g.saasOpen).toBe(false)
+    expect(g.next!.missing).toContain('chưa có dự án')
+  })
+  it('có 1 dự án đủ điều kiện scale → Cổng 1, mở ngân sách scale, còn thiếu tới $1.000', () => {
+    const g = gateOf(1, [m('2026-12-01', 900, 500)], c)
+    expect(g.gate).toBe(1)
+    expect(g.scaleOpen).toBe(true)
+    expect(g.saasOpen).toBe(false)
+    expect(g.next!.missing).toBe('còn thiếu $600')
+  })
+  it('1 tháng lợi nhuận sau phí ≥ $1.000 → Cổng 2, mở SaaS + Tools AI (đạt 1 tháng là đủ)', () => {
+    const g = gateOf(0, [m('2027-02-01', 2500, 1400), m('2027-03-01', 300, 600)], c)
+    expect(g.gate).toBe(2)
+    expect(g.best).toEqual({ month: '2027-02-01', net: 1100 })
+    expect(g.saasOpen).toBe(true)
+  })
+  it('phí + thuế làm tụt cổng: thực nhận 2.500, ads 1.400 → sau phí 5%, thuế 8% chỉ còn $912', () => {
+    const g = gateOf(1, [m('2027-02-01', 2500, 1400)], cfg)
+    expect(g.best!.net).toBeCloseTo(2500 - 1400 * 1.134)
+    expect(g.gate).toBe(1)
+  })
+  it('≥ $2.000 → Cổng 3', () => {
+    expect(gateOf(1, [m('2027-06-01', 5000, 2500)], c).gate).toBe(3)
+    expect(gateOf(1, [m('2027-06-01', 5000, 2500)], c).next).toBeNull()
+  })
+})
+
+describe('nhịp khối lượng giai đoạn tìm winner', () => {
+  it('60 test × maxtest $10 = $600 chi tiêu, phải nạp $680,4 (×1,134)', () => {
+    const k = kickoffBudget(60, 10, cfg)
+    expect(k.spend).toBe(600)
+    expect(k.topup).toBeCloseTo(680.4)
+  })
+  it('tháng trước đạt ≥ 60 test thì gợi ý gấp đôi', () => {
+    expect(suggestDouble(60, 60)).toBe(true)
+    expect(suggestDouble(59, 60)).toBe(false)
+  })
+  it('cỡ mẫu: 3 thắng ≈ 300 test ≈ $3.000 với maxtest $10', () => {
+    const s = sampleNeeds(100, 10)
+    expect(s.find((x) => x.key === 'wins')!.note).toContain('300 test')
+    expect(s.find((x) => x.key === 'wins')!.note).toContain('$3.000')
   })
 })
 

@@ -491,3 +491,19 @@ export function winCheck(
     low_volume: conv30 < 20,
   }
 }
+
+/* ---------- Tiền theo tháng (cho cổng bằng chứng) ---------- */
+/** Chi phí ads và hoa hồng đã nhận (đã duyệt + đã trả) theo tháng, từ Ads-Hub. Hoa hồng tính vào tháng của đơn. */
+export function monthlyMoney(ah: AhData, ws: Pick<WsData, 'projects' | 'regs'> | null = null, model?: Model3): { month: string; cost: number; received: number }[] {
+  const cm = model ? campModels(ah, ws) : null
+  const ok = (camp: string | null) => !model || (!!camp && cm!.get(camp) === model)
+  const by = new Map<string, { cost: number; received: number }>()
+  const get = (d: string) => {
+    const k = d.slice(0, 8) + '01'
+    if (!by.has(k)) by.set(k, { cost: 0, received: 0 })
+    return by.get(k)!
+  }
+  for (const s of ah.spend) if (ok(s.camp)) get(s.d).cost += Number(s.cost ?? 0)
+  for (const o of ah.orders) if ((o.status === 'approved' || o.status === 'paid') && ok(o.camp)) get(o.d).received += Number(o.comm)
+  return [...by.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([month, v]) => ({ month, cost: Math.round(v.cost * 100) / 100, received: Math.round(v.received * 100) / 100 }))
+}

@@ -1,16 +1,17 @@
 import { Fragment, useMemo } from 'react'
 import {
   analyze, ceilCount, coeffsOf, dayLabel, winsLabel, monthOf, monthsOfLevel, nextBudget, PHYS_FIELDS, planRows, quarterNo, SAAS_FIELDS, TOOLS_FIELDS, targetsFor,
-  profitAfterFees, rowEditable, selfFundProfit, v2Of,
+  defaultProfit, gateOf, kickoffBudget, profitAfterFees, rowEditable, sampleNeeds, selfFundProfit, suggestDouble, v2Of,
   type AffConfig, type AffMonth, type Live, type SimMonth, type Targets,
 } from '../../lib/affiliate'
-import { totals, type AffEntry } from '../../lib/affProjects'
+import { totals, type AffEntry, type AffProject } from '../../lib/affProjects'
+import { MODEL3, monthlyMoney, wsCounts } from '../../lib/affSource'
 import { useApp, useRows } from '../../lib/ctx'
 import { listAll } from '../../lib/db'
 import { addDays, addMonths, monthEnd, mondayOf, today } from '../../lib/dates'
 import { fmtNum } from '../../lib/pace'
 import { Sec, Txt, toNum } from '../ui'
-import { useAff } from './useAff'
+import { useAff, useLedger } from './useAff'
 
 const usd = (n: number | null | undefined) => (n === null || n === undefined || !Number.isFinite(n) ? '–' : (n < 0 ? '−$' : '$') + fmtNum(Math.round(Math.abs(n))))
 const cnt = (n: number) => fmtNum(ceilCount(n))
@@ -21,6 +22,8 @@ export default function AffiliatePlan() {
   const { go } = useApp()
   const aff = useAff()
   const ents = useRows<AffEntry>('aff_entries', 'all', () => listAll<AffEntry>('aff_entries', 'date'))
+  const ps = useRows<AffProject>('aff_projects', 'all', () => listAll<AffProject>('aff_projects'))
+  const led = useLedger(ps)
   const t0 = today()
   const cur = monthOf(t0)
   const { cfg, months, anyLocked, live } = aff
@@ -33,7 +36,11 @@ export default function AffiliatePlan() {
   const v2 = v2Of(cfg)
   const curRow = months.find((m) => m.month === cur)
   const nextRow = months.find((m) => m.month === addMonths(cur, 1))
-  const tm = totals(ents.rows, cur, monthEnd(cur))
+  // Lợi nhuận đã nhận tháng này: Ads-Hub nếu đọc được, không thì Sổ nhập tay cũ
+  const ahD = led.ah?.data ?? null
+  const wsD = led.ws?.data ?? null
+  const money = ahD ? monthlyMoney(ahD) : []
+  const tm = ahD ? (money.find((x) => x.month === cur) ?? { month: cur, cost: 0, received: 0 }) : totals(ents.rows, cur, monthEnd(cur))
   const recvGross = tm.received - tm.cost
   const recv = profitAfterFees(tm, cfg)
   const extraNext = nextRow?.extra_capital ?? 0
@@ -43,6 +50,19 @@ export default function AffiliatePlan() {
   const goalYear = cfg.goal_month.slice(0, 4)
   const g = a.goal
   const mc = a.maxCapital
+  // GĐ4: cổng bằng chứng, nhịp khối lượng, khoá SaaS / Tools AI
+  const ready = led.items.filter((x) => x.win.ready).length
+  const gate = gateOf(ready, money, cfg)
+  const testCost = maxTest ?? coeffsOf({ coeffs: null }, cfg).phys.test_cost
+  const kick = kickoffBudget(v2.kickoff_tests_month, testCost, cfg)
+  const baseTests = Math.floor(cfg.base_budget / testCost)
+  const prevM = addMonths(cur, -1)
+  const prevTests = wsD ? wsCounts(wsD, prevM, monthEnd(prevM)).test : null
+  const totalTests = led.items.filter((x) => x.r.first_test).length
+  const resolved = led.appr ? MODEL3.reduce((s, m) => s + led.appr![m].resolved, 0) : 0
+  const openRows = months.filter((m) => !m.locked_at && rowEditable(m, t0, cfg.edit_days, anyLocked))
+  const subRows = openRows.filter((m) => m.share_phys < 100)
+  const lowBudget = openRows.filter((m) => m.budget_test < kick.spend - 0.5)
 
   const weekT = targetsFor([cur], a, months, cfg, 'week')
   const cols: { label: string; t: Targets; day?: boolean }[] = [
@@ -88,6 +108,78 @@ export default function AffiliatePlan() {
         )}
       </p>
 
+      <Sec title={`Anh đang ở Cổng ${gate.gate}`} hint="Cổng tính từ số thật (Research + Ads-Hub), không nhập tay">
+        <ul className="alerts">
+          <li className={gate.gate === 0 ? 'yellow' : 'green'}>
+            {
+              [
+                'Cổng 0 · Tìm winner đầu tiên: mục tiêu là khối lượng test, chưa phải lợi nhuận. Ngân sách scale khoá.',
+                'Cổng 1 · Đã có dự án đủ điều kiện scale: mở ngân sách scale cho dự án đó.',
+                `Cổng 2 · Đã có tháng lợi nhuận đã nhận sau phí ≥ ${usd(v2.gate1_profit)}: ${gate.saasOpen ? 'mở SaaS + Tools AI' : 'SaaS + Tools AI mở từ cổng ' + v2.saas_unlock_gate}.`,
+                `Cổng 3 · Đã có tháng ≥ ${usd(v2.gate2_profit)}: đủ điều kiện cân nhắc team hoặc AI (viết SOP và thử 1 kèm 1 trước khi giao).`,
+              ][gate.gate]
+            }
+          </li>
+          {gate.next && (
+            <li>
+              Mốc tiếp theo: <b>{gate.next.label}</b> · {gate.next.missing}.
+              {gate.best && ` Tháng tốt nhất đến nay: ${mLabel(gate.best.month)} lãi ${usd(gate.best.net)} sau phí, thuế.`}
+            </li>
+          )}
+          {(!wsD || !ahD) && <li className="yellow">🟡 Chưa đọc đủ Research và Ads-Hub: cổng đang tính thiếu dữ liệu. Đăng nhập ở Cài đặt → Kết nối nguồn số.</li>}
+          {gate.gate === 0 && (
+            <>
+              <li>
+                Nhịp tìm winner: <b>{v2.kickoff_tests_month} test/tháng</b> ≈ {usd(kick.spend)} chi tiêu (phải nạp {usd(kick.topup)} gồm phí, thuế) với tiền test {usd(testCost)}. Ngân sách tối thiểu {usd(cfg.base_budget)} chỉ đủ ~{baseTests} test.
+                {lowBudget.length > 0 && (
+                  <>
+                    {' '}
+                    <button className="btn mini" onClick={() => lowBudget.forEach((m) => aff.patchMonth(m.id, { budget_test: Math.round(kick.spend) }))}>
+                      Đặt ngân sách {usd(kick.spend)} cho {lowBudget.length} tháng đang mở
+                    </button>
+                  </>
+                )}
+              </li>
+              {prevTests !== null && (
+                <li className={suggestDouble(prevTests, v2.kickoff_tests_month) ? 'green' : ''}>
+                  Tháng {mLabel(prevM)} lên camp {prevTests} test.
+                  {suggestDouble(prevTests, v2.kickoff_tests_month)
+                    ? ` Đạt nhịp: có thể tăng gấp đôi lên ${v2.kickoff_tests_month * 2} test/tháng (anh quyết, sửa ở Cài đặt).`
+                    : ` Chưa đạt nhịp ${v2.kickoff_tests_month}: giữ nhịp, chưa tăng.`}
+                </li>
+              )}
+            </>
+          )}
+        </ul>
+        {gate.gate === 0 && (
+          <div className="tbl">
+            <table className="ktable">
+              <thead>
+                <tr>
+                  <th>Muốn đo được</th>
+                  <th>Cần tối thiểu</th>
+                  <th style={{ textAlign: 'right' }}>Đang có</th>
+                </tr>
+              </thead>
+              <tbody>
+                {sampleNeeds(coeffsOf({ coeffs: null }, cfg).phys.tests_per_win, testCost).map((s) => {
+                  const have = s.key === 'test_cost' ? totalTests : s.key === 'approval' ? resolved : ready
+                  return (
+                    <tr key={s.key}>
+                      <td>{s.label}</td>
+                      <td>{s.note}</td>
+                      <td className={'n ' + (have >= s.need ? '' : 'neg')}>
+                        {have} / {s.need} {s.unit}
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Sec>
+
       <Sec title="Nguồn lực & cảnh báo" hint="Tính lại mỗi khi sửa bảng phân bổ">
         <ul className="alerts">
           {maxTest == null && <li className="yellow">🟡 Chưa đọc được maxtest ở Research: tiền test đang dùng số lưu ở OKR. Đăng nhập Research ở Cài đặt → Kết nối nguồn số.</li>}
@@ -101,7 +193,7 @@ export default function AffiliatePlan() {
           )}
           {a.scaleFrom > cur && (
             <li>
-              Giai đoạn đo đến hết {mLabel(addMonths(a.scaleFrom, -1))} (LN mục tiêu = 0): giữ ngân sách test tối thiểu {usd(curRow?.budget_test ?? cfg.base_budget)}/tháng, mục tiêu là đo hệ số thật.
+              Giai đoạn tìm winner đến hết {mLabel(addMonths(a.scaleFrom, -1))} (lợi nhuận mục tiêu = 0): mục tiêu là khối lượng test để có winner đầu tiên. Ngân sách nhỏ chưa đủ mẫu để đo tỷ lệ thắng (xem bảng cỡ mẫu ở thẻ Cổng).
             </li>
           )}
           {a.xNeed !== null && a.xNeed > 1.01 ? (
@@ -116,7 +208,7 @@ export default function AffiliatePlan() {
           )}
           {a.overCapacity.length > 0 && (
             <li className="yellow">
-              🟡 Từ tháng {mLabel(a.overCapacity[0].month)} cần ~{cnt(a.overCapacity[0].perWeek)} test/tuần, vượt công suất {cfg.cap_tests_week}/tuần: cần KR đội ngũ hoặc workflow AI.
+              🟡 Từ tháng {mLabel(a.overCapacity[0].month)} cần ~{cnt(a.overCapacity[0].perWeek)} test/tuần, vượt công suất {cfg.cap_tests_week}/tuần. Thứ tự xử lý: (1) giảm khối lượng hoặc lùi mốc; (2) viết SOP từng bước và thử kèm 1 người trước khi giao; (3) mới tính tới team; (4) AI chỉ khi đã qua Cổng 3 (lãi ≥ {usd(v2.gate2_profit)}/tháng){gate.gate >= 3 ? ', anh đã qua Cổng 3' : ''}.
             </li>
           )}
           {mc && (
@@ -132,7 +224,7 @@ export default function AffiliatePlan() {
           )}
           <li>
             Ngân sách test tháng sau đề xuất: <b>{usd(nextBudget(cfg.base_budget, cfg.reinvest_pct, recv.net, extraNext))}</b> = {usd(cfg.base_budget)} + {cfg.reinvest_pct}% lợi nhuận đã nhận tháng này sau phí ({usd(recv.net)} = {usd(recvGross)} − phí {usd(recv.fee)} − cố định {usd(recv.fixed)} − thuế {usd(recv.tax)})
-            {extraNext > 0 && ` + vốn ngoài ${usd(extraNext)}`}. Số lấy từ Sổ dự án.
+            {extraNext > 0 && ` + vốn ngoài ${usd(extraNext)}`}. Số lấy từ {ahD ? "Ads-Hub (hoa hồng đã duyệt + đã trả)" : "Sổ dự án nhập tay"}.
             {a.suggestBudget !== null && a.suggestBudget > cfg.base_budget && (
               <>
                 {' '}
@@ -140,6 +232,7 @@ export default function AffiliatePlan() {
               </>
             )}
           </li>
+          {!gate.scaleOpen && <li>Ngân sách scale: <b>khoá</b> (Cổng 0, chưa có dự án đủ điều kiện scale ở Sổ dự án).</li>}
           <li>
             Ngân sách scale chỉ cho dự án đạt ROAS <b>thực nhận</b> ≥ {fmtNum(aff.th?.roa?.[0] ?? coeffsOf(curRow ?? { coeffs: null }, cfg).phys.roas)} (thực nhận ÷ chi phí, không phải doanh số màn hình). Mở rộng test 1 dự án tối đa ×{cfg.test_cap_mult} maxtest, phải ghi lý do (ở Sổ dự án).
           </li>
@@ -223,7 +316,7 @@ export default function AffiliatePlan() {
             <button className="btn primary" onClick={() => aff.addMonths(planRows(cfg, t0))}>
               Tạo kế hoạch từ tháng {mLabel(cur)} đến {mLabel(cfg.goal_month)}
             </button>
-            <p className="note">Mặc định: T11–T12/2026 chỉ Vật lý, đo hệ số; 2027 tỷ trọng VL Q1 60% · Q2 30% · Q3 50% · Q4 80%; thang lợi nhuận theo đề xuất wiki. Sửa được sau khi tạo.</p>
+            <p className="note">Mặc định: 100% Vật lý (SaaS, Tools AI mở theo cổng), lợi nhuận mục tiêu 0 = theo cổng bằng chứng. Muốn thang theo lịch quý thì bấm "Điền thang lợi nhuận" sau khi tạo, hoặc gõ tay. Sửa được sau khi tạo.</p>
           </div>
         ) : (
           <>
@@ -267,7 +360,20 @@ export default function AffiliatePlan() {
                 </tbody>
               </table>
             </div>
+            {!gate.saasOpen && subRows.length > 0 && (
+              <p className="flag">
+                SaaS + Tools AI mở từ Cổng {v2.saas_unlock_gate}, anh đang ở Cổng {gate.gate} mà {subRows.length} tháng đang mở vẫn chia ngân sách cho SaaS / Tools AI. Ví dụ tháng {mLabel(subRows[0].month)}:{' '}
+                {100 - subRows[0].share_phys}% × {usd(subRows[0].budget_test)} = {usd(((100 - subRows[0].share_phys) / 100) * subRows[0].budget_test)} ÷ {usd(testCost)} ≈{' '}
+                {Math.floor((((100 - subRows[0].share_phys) / 100) * subRows[0].budget_test) / testCost)} test/tháng: quá ít để đo, lại kéo chậm Vật lý.{' '}
+                <button className="btn mini" onClick={() => subRows.forEach((m) => aff.patchMonth(m.id, { share_phys: 100, share_tools: 0 }))}>
+                  Đưa {subRows.length} tháng về 100% Vật lý
+                </button>
+              </p>
+            )}
             <div className="addrow">
+              <button className="add" onClick={() => openRows.forEach((m) => aff.patchMonth(m.id, { profit_target: defaultProfit(m.month, cfg.year_goal, cfg.goal_month) }))}>
+                Điền thang lợi nhuận theo lịch quý (đề xuất wiki, tuỳ chọn)
+              </button>
               {curRow && !curRow.locked_at && (
                 <button className="btn primary" disabled={a.physLoss || a.saasLoss || a.toolsLoss} onClick={() => aff.lockMonth(curRow)}>
                   Chốt kế hoạch tháng {mLabel(cur)}

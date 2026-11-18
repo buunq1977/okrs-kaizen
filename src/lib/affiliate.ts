@@ -237,7 +237,8 @@ export function rowEditable(m: Pick<AffMonth, 'month' | 'locked_at'>, today: str
 }
 
 /* ---------- Kế hoạch mặc định ---------- */
-/** Tỷ trọng Vật lý mặc định (anh đã duyệt 10/11/2026): T11–12/2026 100%, Q1 60%, Q2 30%, Q3 50%, Q4 80%. */
+/** (Tuỳ chọn) Tỷ trọng Vật lý theo bảng cũ duyệt 10/11/2026; từ GĐ4 kế hoạch mới mặc định 100% Vật lý. */
+/** Tỷ trọng Vật lý mặc định cũ (anh đã duyệt 10/11/2026): T11–12/2026 100%, Q1 60%, Q2 30%, Q3 50%, Q4 80%. */
 export function defaultShare(month: string): number {
   if (month < '2027-01-01') return 100
   return [60, 30, 50, 80][quarterNo(month) - 1]
@@ -268,7 +269,8 @@ export function defaultProfit(month: string, goal: number, goalMonth: string): n
 export function planRows(cfg: Pick<AffConfig, 'year_goal' | 'goal_month' | 'base_budget'>, from: string) {
   const out: Omit<AffMonth, 'id' | 'coeffs' | 'locked_at' | 'note'>[] = []
   for (let m = monthOf(from); m <= cfg.goal_month; m = addMonths(m, 1)) {
-    out.push({ month: m, share_phys: defaultShare(m), budget_test: cfg.base_budget, season: 1, profit_target: defaultProfit(m, cfg.year_goal, cfg.goal_month) })
+    // GĐ4 (D3, D4): mặc định 100% Vật lý (SaaS, Tools AI mở theo cổng), lợi nhuận mục tiêu 0 = theo cổng bằng chứng
+    out.push({ month: m, share_phys: 100, share_tools: 0, budget_test: cfg.base_budget, season: 1, profit_target: 0 })
   }
   return out
 }
@@ -502,6 +504,57 @@ export function profitAfterFees(t: { received: number; cost: number }, cfg: Part
   const v = v2Of(cfg)
   const { fee, tax } = adCharges(t.cost, v.fee_pct, v.tax_pct)
   return { fee, fixed: v.fixed_cost_month, tax, net: t.received - t.cost - fee - tax - v.fixed_cost_month }
+}
+
+/* ---------- Cổng bằng chứng (GĐ4, A5) ---------- */
+/** Cổng tính từ dữ liệu thật, không lưu tay:
+ *  0 = chưa có dự án đủ điều kiện scale (mục tiêu = khối lượng test)
+ *  1 = có ≥ 1 dự án đủ điều kiện scale (mục tiêu: lợi nhuận đã nhận sau phí chạm gate1_profit/tháng; mở ngân sách scale)
+ *  2 = đã có 1 tháng lợi nhuận đã nhận sau phí ≥ gate1_profit (mở SaaS + Tools AI nếu saas_unlock_gate = 2; mục tiêu gate2_profit)
+ *  3 = đã có 1 tháng ≥ gate2_profit (mở gợi ý team / AI) */
+export type Gate = 0 | 1 | 2 | 3
+export interface GateInfo {
+  gate: Gate
+  best: { month: string; net: number } | null // tháng lợi nhuận đã nhận sau phí cao nhất
+  next: { label: string; need: string; missing: string } | null
+  saasOpen: boolean // SaaS + Tools AI đã mở theo cổng
+  scaleOpen: boolean // ngân sách scale đã mở
+}
+export function gateOf(readyCount: number, months: { month: string; received: number; cost: number }[], cfg: Partial<AffConfig>): GateInfo {
+  const v = v2Of(cfg)
+  const nets = months.map((m) => ({ month: m.month, net: profitAfterFees(m, cfg).net }))
+  const best = nets.length ? nets.reduce((a, b) => (b.net > a.net ? b : a)) : null
+  const bestNet = best?.net ?? -Infinity
+  const gate: Gate = bestNet >= v.gate2_profit ? 3 : bestNet >= v.gate1_profit ? 2 : readyCount > 0 ? 1 : 0
+  const usd = (n: number) => '$' + Math.round(n).toLocaleString('vi-VN')
+  const next =
+    gate === 0
+      ? { label: 'Cổng 1: có dự án đủ điều kiện scale', need: '1 dự án qua đủ checklist scale', missing: 'chưa có dự án nào đủ điều kiện scale' }
+      : gate === 1
+        ? { label: `Cổng 2: lợi nhuận đã nhận sau phí ≥ ${usd(v.gate1_profit)} trong 1 tháng`, need: usd(v.gate1_profit), missing: `còn thiếu ${usd(v.gate1_profit - Math.max(0, bestNet))}` }
+        : gate === 2
+          ? { label: `Cổng 3: lợi nhuận đã nhận sau phí ≥ ${usd(v.gate2_profit)} trong 1 tháng`, need: usd(v.gate2_profit), missing: `còn thiếu ${usd(v.gate2_profit - Math.max(0, bestNet))}` }
+          : null
+  return { gate, best, next, saasOpen: gate >= v.saas_unlock_gate, scaleOpen: gate >= 1 }
+}
+
+/* ---------- Nhịp khối lượng giai đoạn tìm winner (A1, A2) ---------- */
+/** Ngân sách test (đã gồm phí + thuế nạp) để đủ N test/tháng với tiền test hiện tại. */
+export const kickoffBudget = (tests: number, testCost: number, cfg: Partial<AffConfig>) => {
+  const v = v2Of(cfg)
+  const spend = tests * testCost
+  return { spend, topup: adCharges(spend, v.fee_pct, v.tax_pct).total }
+}
+/** Tháng trước đạt ≥ nhịp thì gợi ý tháng này gấp đôi (nguồn: "tháng trước 60 thì tháng này 120"); anh quyết. */
+export const suggestDouble = (lastMonthTests: number, pace: number) => pace > 0 && lastMonthTests >= pace
+
+/** Cỡ mẫu tối thiểu để đo được từng hệ số (giai đoạn tìm winner). */
+export function sampleNeeds(testsPerWin: number, testCost: number) {
+  return [
+    { key: 'test_cost', label: 'Tiền test 1 dự án', need: 5, unit: 'test', note: '≥ 5 dự án đã test' },
+    { key: 'approval', label: '% duyệt hoa hồng', need: 5, unit: 'đơn', note: '≥ 5 đơn đã quá hạn payout (đã duyệt hoặc bị huỷ)' },
+    { key: 'wins', label: 'Tỷ lệ thắng, lợi nhuận 1 thắng', need: 3, unit: 'thắng', note: `≥ 3 thắng ≈ ${3 * testsPerWin} test ≈ $${Math.round(3 * testsPerWin * testCost).toLocaleString('vi-VN')} tiền test` },
+  ]
 }
 
 /* ---------- Mùa vụ ---------- */
