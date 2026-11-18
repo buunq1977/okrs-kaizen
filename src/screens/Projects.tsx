@@ -1,7 +1,7 @@
 import { Fragment, useMemo, useState } from 'react'
 import { useAff } from '../components/aff/useAff'
 import { Sec, Txt, toNum } from '../components/ui'
-import { analyze, ceilCount, monthOf, physOf, saasOf, targetsFor, winsLabel } from '../lib/affiliate'
+import { analyze, ceilCount, coeffsOf, monthOf, targetsFor, winsLabel } from '../lib/affiliate'
 import {
   advance, countBetween, flags, kindOf, measure, metrics, MODEL_NAME, nextStage, OP_COLOR, OP_NAME, parseImport, STAGE_NAME, STAGES, totals,
   type AffEntry, type AffProject, type ImportRow, type Model, type OpStatus, type Stage, type Tally,
@@ -38,8 +38,9 @@ export default function Projects() {
     return m
   }, [es.rows])
   const cfg = aff.cfg
-  const coeffs = cfg ? { phys: physOf(cfg.phys), saas: saasOf(cfg.saas) } : null
-  const a = useMemo(() => (cfg ? analyze(aff.months, cfg, t0) : null), [cfg, aff.months, t0])
+  const maxTest = aff.live.max_test_usd
+  const coeffs = cfg ? coeffsOf({ coeffs: null }, cfg, { max_test_usd: maxTest }) : null
+  const a = useMemo(() => (cfg ? analyze(aff.months, cfg, t0, { max_test_usd: maxTest }) : null), [cfg, aff.months, t0, maxTest])
 
   if (aff.err) return <p className="flag">{aff.err}</p>
   if (!cfg || !coeffs || !a) return <p className="note">Đang tải…</p>
@@ -281,7 +282,7 @@ export default function Projects() {
               {list.map((p) => {
                 const t = totals(byP.get(p.id) ?? [])
                 const m = metrics(t)
-                const f = flags(p, t, coeffs, cfg.test_cap_mult, cfg.win_min_orders ?? 3, (p.model === 'phys' ? apprAll.phys : apprAll.saas))
+                const f = flags(p, t, coeffs, cfg.test_cap_mult, aff.th?.winner_orders ?? cfg.win_min_orders ?? 3, p.model === 'phys' ? apprAll.phys : apprAll.saas, aff.th?.roa?.[0])
                 const k = kindOf(p, t)
                 const nx = nextStage(p.stage)
                 return (

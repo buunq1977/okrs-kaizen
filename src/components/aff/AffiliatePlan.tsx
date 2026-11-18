@@ -1,9 +1,10 @@
 import { Fragment, useMemo } from 'react'
 import {
-  analyze, ceilCount, coeffsOf, dayLabel, winsLabel, monthEditable, monthOf, monthsOfLevel, nextBudget, PHYS_FIELDS, planRows, quarterNo, SAAS_FIELDS, targetsFor,
-  type AffConfig, type AffMonth, type Targets,
+  analyze, ceilCount, coeffsOf, dayLabel, winsLabel, monthOf, monthsOfLevel, nextBudget, PHYS_FIELDS, planRows, quarterNo, SAAS_FIELDS, TOOLS_FIELDS, targetsFor,
+  isV1, profitAfterFees, rowEditable, selfFundProfit, v2Of,
+  type AffConfig, type AffMonth, type Live, type SimMonth, type Targets,
 } from '../../lib/affiliate'
-import { receivedProfit, type AffEntry } from '../../lib/affProjects'
+import { totals, type AffEntry } from '../../lib/affProjects'
 import { useApp, useRows } from '../../lib/ctx'
 import { listAll } from '../../lib/db'
 import { addDays, addMonths, monthEnd, mondayOf, today } from '../../lib/dates'
@@ -22,18 +23,26 @@ export default function AffiliatePlan() {
   const ents = useRows<AffEntry>('aff_entries', 'all', () => listAll<AffEntry>('aff_entries', 'date'))
   const t0 = today()
   const cur = monthOf(t0)
-  const { cfg, months, anyLocked } = aff
-  const a = useMemo(() => (cfg ? analyze(months, cfg, t0) : null), [cfg, months, t0])
+  const { cfg, months, anyLocked, live } = aff
+  const maxTest = live.max_test_usd
+  const a = useMemo(() => (cfg ? analyze(months, cfg, t0, { max_test_usd: maxTest }) : null), [cfg, months, t0, maxTest])
 
   if (aff.err) return <p className="flag">{aff.err}</p>
   if (!cfg || !a) return <p className="note">Đang tải…</p>
 
+  const v2 = v2Of(cfg)
   const curRow = months.find((m) => m.month === cur)
-  const recv = receivedProfit(ents.rows, cur, monthEnd(cur))
+  const nextRow = months.find((m) => m.month === addMonths(cur, 1))
+  const tm = totals(ents.rows, cur, monthEnd(cur))
+  const recvGross = tm.received - tm.cost
+  const recv = profitAfterFees(tm, cfg)
+  const extraNext = nextRow?.extra_capital ?? 0
   const missing = planRows(cfg, t0).filter((r) => !months.some((m) => m.month === r.month))
   const goalOk = a.goalNet !== null && a.goalNet >= cfg.year_goal
   const mult = Math.max(1, a.xNeed ?? 1)
   const goalYear = cfg.goal_month.slice(0, 4)
+  const g = a.goal
+  const mc = a.maxCapital
 
   const weekT = targetsFor([cur], a, months, cfg, 'week')
   const cols: { label: string; t: Targets; day?: boolean }[] = [
@@ -51,24 +60,44 @@ export default function AffiliatePlan() {
     <div className="stack">
       <div className={'band ' + (goalOk ? 'green' : 'red')}>
         <div className="band-t">
-          <small>O năm · lợi nhuận ròng sau ads</small>
+          <small>O năm · lợi nhuận ròng sau ads, phí, thuế · 3 mức</small>
           <b>
-            {usd(cfg.year_goal)}/tháng vào tháng {mLabel(cfg.goal_month)}
+            {v2.goal_levels.map((x) => usd(x)).join(' / ')}/tháng vào tháng {mLabel(cfg.goal_month)}
           </b>
         </div>
         <div className="band-p">
-          <small>Dự kiến theo kế hoạch</small>
+          <small>Dự kiến theo kế hoạch (mức 1)</small>
           <b>{usd(a.goalNet)}</b>
-          <span>{goalOk ? 'Đủ mục tiêu' : 'Chưa đủ: xem gợi ý ngân sách bên dưới'}</span>
+          <span>{goalOk ? 'Đủ mục tiêu mức 1' : 'Chưa đủ: xem gợi ý ngân sách bên dưới'}</span>
         </div>
       </div>
+      <p className="note">
+        Kịch bản theo số test ra 1 thắng (nguồn nói "&gt;100" là mức sàn):{' '}
+        {a.scenarios.map((s, i) => (
+          <span key={s.tpw}>
+            {i > 0 && ' · '}
+            {s.tpw} test → <b>{usd(s.goalNet)}</b>
+          </span>
+        ))}
+        . <span className="flag">Độ tin cậy thấp</span> cho tới khi đo được ≥ 3 thắng thật.
+        {g && g.v === 2 && (
+          <>
+            {' '}
+            Tháng {mLabel(cfg.goal_month)}: lợi nhuận trước phí {usd(g.gross)} − phí {usd(g.fee)} − chi phí cố định {usd(g.fixed)} − thuế {usd(g.tax)} = {usd(g.net)}. Trong đó SaaS + Tools AI {usd(g.profitS + g.profitT)} (chưa chắc).
+          </>
+        )}
+      </p>
 
       <Sec title="Nguồn lực & cảnh báo" hint="Tính lại mỗi khi sửa bảng phân bổ">
         <ul className="alerts">
-          {(a.physLoss || a.saasLoss) && (
+          {maxTest == null && <li className="yellow">🟡 Chưa đọc được maxtest ở Research: tiền test đang dùng số lưu ở OKR. Đăng nhập Research ở Cài đặt → Kết nối nguồn số.</li>}
+          {(a.physLoss || a.saasLoss || a.toolsLoss) && (
             <li className="red">
-              🔴 Mô hình lỗ: {a.physLoss && 'Vật lý (tiền tìm 1 thắng ≥ lợi nhuận trọn đời của thắng)'} {a.saasLoss && 'SaaS (LTV ≤ CAC hoặc tiền tìm thắng ≥ lợi nhuận thắng mang lại)'}. Không chốt kế hoạch tháng cho tới khi sửa hệ số hoặc chiến lược.
+              🔴 Mô hình lỗ: {a.physLoss && 'Vật lý (tiền tìm 1 thắng ≥ lợi nhuận trọn đời của thắng)'} {a.toolsLoss && 'Tools AI'} {a.saasLoss && 'SaaS (LTV ≤ CAC hoặc tiền tìm thắng ≥ lợi nhuận thắng mang lại)'}. Không chốt kế hoạch tháng cho tới khi sửa hệ số hoặc chiến lược.
             </li>
+          )}
+          {a.seasonWarn && (
+            <li className="yellow">🟡 Tháng 11, 12, 1 phía trước vẫn để hệ số mùa vụ = 1. Số đo trong mùa cao điểm có thể cao hơn thực tế tháng 2–3: anh nên đặt hệ số mùa vụ ở bảng phân bổ.</li>
           )}
           {a.scaleFrom > cur && (
             <li>
@@ -90,13 +119,29 @@ export default function AffiliatePlan() {
               🟡 Từ tháng {mLabel(a.overCapacity[0].month)} cần ~{cnt(a.overCapacity[0].perWeek)} test/tuần, vượt công suất {cfg.cap_tests_week}/tuần: cần KR đội ngũ hoặc workflow AI.
             </li>
           )}
-          {a.maxCapital && (
+          {mc && (
             <li>
-              Vốn cần cao nhất: <b>{usd(a.maxCapital.capital)}</b> (tháng {mLabel(a.maxCapital.month)}): tiền test + tiền ads chờ hoa hồng về (Vật lý {cfgDays(cfg, 'phys')} ngày, SaaS {cfgDays(cfg, 'saas')} ngày + thời gian hoàn vốn mỗi khách).
+              Vốn cần cao nhất: <b>{usd(mc.capital)}</b> (tháng {mLabel(mc.month)}) = vận hành {usd(mc.capitalOps)} (tiền test + ads chờ hoa hồng về: Vật lý {cfgDays(cfg, 'phys')} ngày, SaaS {cfgDays(cfg, 'saas')} ngày) + quỹ cầu nối {usd(mc.bridge)} ({v2.bridge_pct}%) + dự phòng {usd(mc.reserve)} ({v2.reserve_pct}%).
+            </li>
+          )}
+          {a.capitalShort.length > 0 && (
+            <li className="yellow">
+              🟡 Vốn khả dụng (ngân sách tối thiểu {usd(cfg.base_budget)} + vốn ngoài) thấp hơn vốn cần ở {a.capitalShort.length} tháng, sớm nhất {mLabel(a.capitalShort[0].month)}: thiếu{' '}
+              {usd(a.capitalShort[0].need - a.capitalShort[0].avail)}. Nhập vốn ngoài theo tháng ở bảng phân bổ, hoặc giảm khối lượng / lùi mốc.
             </li>
           )}
           <li>
-            Ngân sách test tháng sau đề xuất: <b>{usd(nextBudget(cfg.base_budget, cfg.reinvest_pct, recv))}</b> = {usd(cfg.base_budget)} + {cfg.reinvest_pct}% lợi nhuận đã nhận tháng này ({usd(recv)}, Thực nhận − Chi phí ở Sổ dự án). Ngân sách scale cho dự án đạt ROAS ≥ {fmtNum(coeffsOf(curRow ?? { coeffs: null }, cfg).phys.roas)} không giới hạn theo kỳ. Mở rộng test 1 dự án tối đa ×{cfg.test_cap_mult} tiền test mặc định, phải ghi lý do (ở Sổ dự án).
+            Ngân sách test tháng sau đề xuất: <b>{usd(nextBudget(cfg.base_budget, cfg.reinvest_pct, recv.net, extraNext))}</b> = {usd(cfg.base_budget)} + {cfg.reinvest_pct}% lợi nhuận đã nhận tháng này sau phí ({usd(recv.net)} = {usd(recvGross)} − phí {usd(recv.fee)} − cố định {usd(recv.fixed)} − thuế {usd(recv.tax)})
+            {extraNext > 0 && ` + vốn ngoài ${usd(extraNext)}`}. Số lấy từ Sổ dự án.
+            {a.suggestBudget !== null && a.suggestBudget > cfg.base_budget && (
+              <>
+                {' '}
+                Muốn ngân sách test tự nuôi tới {usd(a.suggestBudget)}/tháng mà không cần vốn ngoài, cần lợi nhuận đã nhận sau phí {usd(selfFundProfit(a.suggestBudget, cfg.base_budget, cfg.reinvest_pct))}/tháng.
+              </>
+            )}
+          </li>
+          <li>
+            Ngân sách scale chỉ cho dự án đạt ROAS <b>thực nhận</b> ≥ {fmtNum(aff.th?.roa?.[0] ?? coeffsOf(curRow ?? { coeffs: null }, cfg).phys.roas)} (thực nhận ÷ chi phí, không phải doanh số màn hình). Mở rộng test 1 dự án tối đa ×{cfg.test_cap_mult} maxtest, phải ghi lý do (ở Sổ dự án).
           </li>
         </ul>
       </Sec>
@@ -130,7 +175,11 @@ export default function AffiliatePlan() {
                 {cols.map((c) => (
                   <td key={c.label} className="n">
                     {count(c, 'tests')}
-                    {!c.day && <small className="sub">VL {cnt(c.t.testsP)} · SaaS {cnt(c.t.testsS)}</small>}
+                    {!c.day && (
+                      <small className="sub">
+                        VL {cnt(c.t.testsP)} · Tools {cnt(c.t.testsT)} · SaaS {cnt(c.t.testsS)}
+                      </small>
+                    )}
                   </td>
                 ))}
               </tr>
@@ -184,27 +233,29 @@ export default function AffiliatePlan() {
                   <tr>
                     <th>Tháng</th>
                     <th>% Vật lý</th>
+                    <th>% Tools AI</th>
                     <th>% SaaS</th>
                     <th>Ngân sách test</th>
+                    <th>Vốn ngoài</th>
                     <th>Mùa vụ VL</th>
                     <th>LN mục tiêu</th>
-                    <th>Test VL / SaaS</th>
+                    <th>Test VL / Tools / SaaS</th>
                     <th>Thắng mới</th>
-                    <th>LN dự kiến</th>
+                    <th>LN dự kiến (sau phí, thuế)</th>
                     <th />
                   </tr>
                 </thead>
                 <tbody>
                   {months.map((m, i) => {
                     const sm = a.sim.find((x) => x.month === m.month)
-                    const ed = monthEditable(m.month, t0, cfg.edit_days, anyLocked)
+                    const ed = rowEditable(m, t0, cfg.edit_days, anyLocked)
                     const q = quarterNo(m.month)
                     const newQ = i === 0 || quarterNo(months[i - 1].month) !== q || months[i - 1].month.slice(0, 4) !== m.month.slice(0, 4)
                     return (
                       <Fragment key={m.id}>
                         {newQ && (
                           <tr className="qsep">
-                            <td colSpan={10}>
+                            <td colSpan={13}>
                               Quý {q}/{m.month.slice(0, 4)}
                             </td>
                           </tr>
@@ -218,7 +269,7 @@ export default function AffiliatePlan() {
             </div>
             <div className="addrow">
               {curRow && !curRow.locked_at && (
-                <button className="btn primary" disabled={a.physLoss || a.saasLoss} onClick={() => aff.lockMonth(curRow)}>
+                <button className="btn primary" disabled={a.physLoss || a.saasLoss || a.toolsLoss} onClick={() => aff.lockMonth(curRow)}>
                   Chốt kế hoạch tháng {mLabel(cur)}
                 </button>
               )}
@@ -234,14 +285,15 @@ export default function AffiliatePlan() {
               )}
             </div>
             <p className="note">
-              Tỷ trọng = phần ngân sách test và công sức dồn cho Vật lý; app tự tính mỗi mô hình đóng góp lợi nhuận vào tháng nào (SaaS ra tiền sau {coeffsOf(curRow ?? { coeffs: null }, cfg).saas.lag_months} tháng). Chốt tháng thì lưu bản chụp hệ số; quá {cfg.edit_days} ngày đầu tháng mà chưa chốt, app tự chốt.
+              Tỷ trọng = phần ngân sách test và công sức dồn cho từng mô hình; % SaaS = 100 − Vật lý − Tools AI. App tự tính mỗi mô hình đóng góp lợi nhuận vào tháng nào: SaaS và Tools AI trả CAC khi có khách, hoa hồng về sau{' '}
+              {coeffsOf(curRow ?? { coeffs: null }, cfg).saas.lag_months} tháng. Chốt tháng thì lưu bản chụp hệ số, phí, thuế và ngưỡng của Research; quá {cfg.edit_days} ngày đầu tháng mà chưa chốt, app tự chốt. Tháng đã chốt theo mô hình cũ giữ nguyên cách tính cũ.
             </p>
           </>
         )}
       </Sec>
 
       <Sec title={`Hệ số đang dùng tháng ${mLabel(cur)}`} hint={curRow?.locked_at ? 'Bản chụp lúc chốt' : 'Mặc định hiện tại'}>
-        <Coeffs m={curRow} cfg={cfg} />
+        <Coeffs m={curRow} cfg={cfg} live={live} />
         <button className="btn" onClick={() => go('settings')}>
           Sửa hệ số mặc định trong Cài đặt
         </button>
@@ -251,13 +303,14 @@ export default function AffiliatePlan() {
 
 }
 
-function Coeffs({ m, cfg }: { m: AffMonth | undefined; cfg: AffConfig }) {
-  const c = coeffsOf(m ?? { coeffs: null }, cfg)
+function Coeffs({ m, cfg, live }: { m: AffMonth | undefined; cfg: AffConfig; live: Live }) {
+  const c = coeffsOf(m ?? { coeffs: null }, cfg, live)
   return (
-    <div className="grid2">
+    <div className="grid3 coef3">
       {(
         [
           ['Vật lý', PHYS_FIELDS, c.phys],
+          ['Tools AI', TOOLS_FIELDS, c.tools],
           ['SaaS', SAAS_FIELDS, c.saas],
         ] as const
       ).map(([name, fields, vals]) => (
@@ -286,17 +339,21 @@ function Coeffs({ m, cfg }: { m: AffMonth | undefined; cfg: AffConfig }) {
 
 const cfgDays = (cfg: { phys: { payout_days?: number }; saas: { payout_days?: number } }, k: 'phys' | 'saas') => cfg[k].payout_days ?? (k === 'phys' ? 30 : 45)
 
-function MonthRow({ m, cur, ed, sm, patch }: { m: AffMonth; cur: string; ed: boolean; sm: { testsP: number; testsS: number; winsP: number; winsS: number; net: number } | undefined; patch: (p: Partial<AffMonth>) => void }) {
-  const n = (k: 'share_phys' | 'budget_test' | 'season' | 'profit_target', min: number, max?: number) => (
+function MonthRow({ m, cur, ed, sm, patch }: { m: AffMonth; cur: string; ed: boolean; sm: SimMonth | undefined; patch: (p: Partial<AffMonth>) => void }) {
+  const tools = m.share_tools ?? 0
+  const n = (k: 'share_phys' | 'share_tools' | 'budget_test' | 'extra_capital' | 'season' | 'profit_target', min: number, max?: number) => (
     <Txt
       className="num"
       type="number"
-      value={String(m[k])}
-      disabled={!ed}
+      value={String(m[k] ?? 0)}
+      disabled={!ed || (k === 'share_tools' && isV1(m))}
       label={k}
       onSave={(v) => {
         const x = toNum(v)
         if (x === null || x < min || (max !== undefined && x > max)) return
+        // Vật lý + Tools AI không vượt 100%
+        if (k === 'share_phys' && x + tools > 100) return
+        if (k === 'share_tools' && x + m.share_phys > 100) return
         patch({ [k]: x } as Partial<AffMonth>)
       }}
     />
@@ -308,14 +365,16 @@ function MonthRow({ m, cur, ed, sm, patch }: { m: AffMonth; cur: string; ed: boo
         <b>{mLabel(m.month)}</b>
       </td>
       <td>{n('share_phys', 0, 100)}</td>
-      <td className="n">{100 - m.share_phys}%</td>
+      <td>{n('share_tools', 0, 100)}</td>
+      <td className="n">{Math.max(0, 100 - m.share_phys - tools)}%</td>
       <td>{n('budget_test', 0)}</td>
+      <td>{n('extra_capital', 0)}</td>
       <td>{n('season', 0.1, 5)}</td>
       <td>{n('profit_target', 0)}</td>
-      <td className="n">{sm ? `${cnt(sm.testsP)} / ${cnt(sm.testsS)}` : '–'}</td>
-      <td className="n">{sm ? winsLabel(sm.winsP + sm.winsS) : '–'}</td>
+      <td className="n">{sm ? `${cnt(sm.testsP)} / ${cnt(sm.testsT)} / ${cnt(sm.testsS)}` : '–'}</td>
+      <td className="n">{sm ? winsLabel(sm.winsP + sm.winsT + sm.winsS) : '–'}</td>
       <td className={'n ' + (short ? 'neg' : '')}>{sm ? usd(sm.net) : '–'}</td>
-      <td className="st">{m.locked_at ? '🔒 Đã chốt' : ed ? 'Đang mở' : 'Khoá'}</td>
+      <td className="st">{m.locked_at ? (isV1(m) ? '🔒 Đã chốt (mô hình cũ)' : '🔒 Đã chốt') : ed ? 'Đang mở' : 'Khoá'}</td>
     </tr>
   )
 }

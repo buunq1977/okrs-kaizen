@@ -111,6 +111,7 @@
 | D10 | Được sửa repo `workspace` và `ads-hub`: mỗi repo 1 file SQL nhỏ, không đổi giao diện |
 | D11 | **3 mô hình riêng: Vật lý, Tools AI, SaaS** (OKR thêm mô hình `tools_ai` ở Sổ, bộ đếm, KR, hệ số, phân bổ) |
 | — | Một email đăng nhập chung cho cả 3 app |
+| — | **Mở khoá một lần** cho mô hình v2 (duyệt 18/11): chỉ tháng chốt theo v2 mới tính là "đã chốt"; tháng đã chốt theo mô hình cũ giữ bản chụp và cách tính cũ |
 
 Bảng dưới là đề xuất ban đầu, giữ để tra cứu.
 

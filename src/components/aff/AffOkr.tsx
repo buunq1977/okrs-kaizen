@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { monthOf, nextBudget, physOf, saasOf, winsLabel } from '../../lib/affiliate'
+import { coeffsOf, monthOf, nextBudget, profitAfterFees, winsLabel } from '../../lib/affiliate'
 import { loadAffData } from '../../lib/affData'
 import { affTickChanges, kpiTargets, metricSum, METRIC_NAME, METRIC_UNIT, type AffData, type Level } from '../../lib/affLink'
 import { BENCH, diagnose } from '../../lib/affDiag'
@@ -39,7 +39,7 @@ export function AffDayWeek(props: { level: 'day' | 'week'; start: string; end: s
   const kaKey = kas.rows.map((k) => k.id + (k.done ? 1 : 0)).join(',')
   const data = useAffData(start + kaKey)
   const affKas = kas.rows.filter((k) => k.aff_metric)
-  const t = useMemo(() => (aff.cfg && aff.months.length ? kpiTargets(level, start, end, aff.months, aff.cfg, start) : null), [aff.cfg, aff.months, level, start, end])
+  const t = useMemo(() => (aff.cfg && aff.months.length ? kpiTargets(level, start, end, aff.months, aff.cfg, start, aff.live) : null), [aff.cfg, aff.months, level, start, end, aff.live])
   const count = useCallback((m: AffMetric) => (data ? metricSum(m, data, start, end) : 0), [data, start, end])
 
   // Tự tick KA Affiliate theo số đếm thật
@@ -101,7 +101,7 @@ export function AffLongKrs(props: { level: Level; start: string; end: string; pe
   const { toast } = useApp()
   const aff = useAff()
   if (!aff.cfg || !aff.months.length) return <p className="note">Chưa có bảng phân bổ Affiliate (Mô hình thu nhập → Affiliate Global) nên chưa lấy được chỉ tiêu.</p>
-  const t = kpiTargets(level, start, end, aff.months, aff.cfg, start)
+  const t = kpiTargets(level, start, end, aff.months, aff.cfg, start, aff.live)
   const plan: [AffMetric, number | null][] = [
     ['test', t.test],
     ['search', t.search],
@@ -163,13 +163,13 @@ export function AffPulse({ level, start, end }: { level: 'day' | 'week' | 'month
   const data = useAffData(start + end)
   if (!aff.cfg || !data) return null
   const cfg = aff.cfg
-  const t = aff.months.length ? kpiTargets(level, start, end, aff.months, cfg, start) : null
-  const c = { phys: physOf(cfg.phys), saas: saasOf(cfg.saas) }
+  const t = aff.months.length ? kpiTargets(level, start, end, aff.months, cfg, start, aff.live) : null
+  const c = coeffsOf({ coeffs: null }, cfg, aff.live)
   const byP = new Map<string, typeof data.entries>()
   for (const e of data.entries) byP.set(e.project_id, [...(byP.get(e.project_id) ?? []), e])
   const testing = data.projects.filter((p) => p.stage === 'test')
   const appr = measure(data.projects, data.entries, data.tallies, 'phys', '2000-01-01', end).approval
-  const fl = testing.map((p) => flags(p, totals(byP.get(p.id) ?? []), c, cfg.test_cap_mult, cfg.win_min_orders ?? 3, appr))
+  const fl = testing.map((p) => flags(p, totals(byP.get(p.id) ?? []), c, cfg.test_cap_mult, aff.th?.winner_orders ?? cfg.win_min_orders ?? 3, appr, aff.th?.roa?.[0]))
   const kill = fl.filter((f) => f.kill).length
   const ready = fl.filter((f) => f.winReady).length
   const noCost = level === 'day' ? testing.filter((p) => !(byP.get(p.id) ?? []).some((e) => e.date === start)).length : 0
@@ -185,6 +185,7 @@ export function AffPulse({ level, start, end }: { level: 'day' | 'week' | 'month
   ]
   const curMonth = monthOf(end)
   const recvMonth = metricSum('profit', data, curMonth, monthEnd(curMonth))
+  const recvTotals = totals(data.entries, curMonth, monthEnd(curMonth))
   return (
     <div className="aff-q">
       <div className="aff-q-h">
@@ -214,7 +215,7 @@ export function AffPulse({ level, start, end }: { level: 'day' | 'week' | 'month
         {level === 'week' && <li>Cuối tuần: nhập Doanh số + Thực nhận từ network cho các dự án đang chạy.</li>}
         {isLong && (
           <li>
-            Ngân sách test tháng sau đề xuất: <b>{usd(nextBudget(cfg.base_budget, cfg.reinvest_pct, recvMonth))}</b> = {usd(cfg.base_budget)} + {cfg.reinvest_pct}% lợi nhuận đã nhận tháng {curMonth.slice(5, 7)} ({usd(recvMonth)}).
+            Ngân sách test tháng sau đề xuất: <b>{usd(nextBudget(cfg.base_budget, cfg.reinvest_pct, profitAfterFees(recvTotals, cfg).net))}</b> = {usd(cfg.base_budget)} + {cfg.reinvest_pct}% lợi nhuận đã nhận tháng {curMonth.slice(5, 7)} sau phí, thuế ({usd(profitAfterFees(recvTotals, cfg).net)}; trước phí {usd(recvMonth)}).
           </li>
         )}
       </ul>
@@ -228,13 +229,13 @@ export function AffDiagnosis({ level, start, end, k, save }: { level: Level; sta
   const data = useAffData('diag' + start + end)
   if (!aff.cfg || !data) return null
   const cfg = aff.cfg
-  const t = aff.months.length ? kpiTargets(level, start, end, aff.months, cfg, start) : null
+  const t = aff.months.length ? kpiTargets(level, start, end, aff.months, cfg, start, aff.live) : null
   const c = countBetween(data.projects, data.tallies, start, end)
   const to = end < today() ? end : today()
   const since = addMonths(to, -3)
   const mp = measure(data.projects, data.entries, data.tallies, 'phys', since, to)
   const ms = measure(data.projects, data.entries, data.tallies, 'saas', since, to)
-  const set = { phys: physOf(cfg.phys), saas: saasOf(cfg.saas) }
+  const set = coeffsOf({ coeffs: null }, cfg, aff.live)
   const waiting = data.projects.filter((p) => p.stage === 'duoc_duyet').length
   const fs = diagnose(c, t, mp, set, waiting)
   const lessons = k.num_lessons ?? []

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { configEditable, PHYS_FIELDS, physOf, SAAS_FIELDS, saasOf, type AffConfig } from '../../lib/affiliate'
+import { coeffsOf, configEditable, deseason, PHYS_FIELDS, SAAS_FIELDS, TOOLS_FIELDS, v2Of, type AffConfig } from '../../lib/affiliate'
 import { loadAffData, loadAh, loadWs, SRC, srcEmail, srcSignIn, srcSignOut, type SrcKey, type SrcResult } from '../../lib/affData'
 import { ahTotals, MODEL3, MODEL3_NAME, sharedThresholds, wsCounts, type AhData, type AhTotals, type Model3, type WsData } from '../../lib/affSource'
 import { supabase } from '../../lib/supabase'
@@ -11,7 +11,8 @@ import { fmtNum } from '../../lib/pace'
 import { Sec } from '../ui'
 import { useAff } from './useAff'
 
-/** Cài đặt mô hình Affiliate: mục tiêu năm, quy tắc ngân sách, hệ số mặc định. Chỉ sửa ở đầu kỳ. */
+/** Cài đặt mô hình Affiliate v2: mục tiêu, ngân sách & vốn, cổng, nhịp, hệ số 3 mô hình. Chỉ sửa ở đầu kỳ.
+ *  Tiền test (= maxtest) và Winner ≥ N đơn không nhập ở đây: đọc từ Research / Ads-Hub (một nguồn duy nhất). */
 export default function AffSettings() {
   const aff = useAff()
   const [c, setC] = useState<AffConfig | null>(null)
@@ -26,22 +27,44 @@ export default function AffSettings() {
   if (!c || !aff.cfg) return null
   const ed = configEditable(today(), c.edit_days, aff.anyLocked)
   const dirty = JSON.stringify(c) !== JSON.stringify(aff.cfg)
+  const v2 = v2Of(c)
+  const th = aff.th
   const set = <K extends keyof AffConfig>(k: K, v: AffConfig[K]) => setC({ ...c, [k]: v })
+  const val = (k: keyof AffConfig) => (c[k] ?? (v2 as Record<string, unknown>)[k as string]) as number
   const num = (k: keyof AffConfig, min: number, max?: number) => (
-    <input type="number" min={min} max={max} disabled={!ed} value={c[k] as number} onChange={(e) => set(k, Number(e.target.value) as never)} />
+    <input type="number" min={min} max={max} step="any" disabled={!ed} value={val(k)} onChange={(e) => set(k, Number(e.target.value) as never)} />
   )
-  const phys = physOf(c.phys)
-  const saas = saasOf(c.saas)
+  const fld = (label: string, k: keyof AffConfig, min: number, max?: number) => (
+    <label className="fld">
+      <span>{label}</span>
+      {num(k, min, max)}
+    </label>
+  )
+  const levels = v2.goal_levels
+  const setLevel = (i: number, x: number) => {
+    const next = [...levels]
+    next[i] = x
+    setC({ ...c, goal_levels: next, year_goal: i === 0 ? x : c.year_goal })
+  }
+  const live = { max_test_usd: th?.max_test_usd ?? null }
+  const co = coeffsOf({ coeffs: null }, c, live)
   const t0 = today()
   const since = addMonths(t0, -3)
+  // Số đo từ Sổ dự án: bỏ tiền test (đã lấy theo maxtest); lợi nhuận 1 thắng quy về mùa thường theo mùa vụ các tháng đo
+  const seasons = aff.months.filter((m) => m.month >= since.slice(0, 8) + '01' && m.month <= t0).map((m) => Number(m.season))
   const sugg = data
-    ? suggestCoeffs(measure(data.projects, data.entries, data.tallies, 'phys', since, t0), measure(data.projects, data.entries, data.tallies, 'saas', since, t0), { phys, saas, reg_per_test: c.reg_per_test, research_per_test: c.research_per_test })
+    ? suggestCoeffs(measure(data.projects, data.entries, data.tallies, 'phys', since, t0), measure(data.projects, data.entries, data.tallies, 'saas', since, t0), {
+        phys: co.phys,
+        saas: co.saas,
+        reg_per_test: c.reg_per_test,
+        research_per_test: c.research_per_test,
+      })
+        .filter((x) => !x.key.endsWith('.test_cost'))
+        .map((x) => (x.key === 'phys.win_profit' ? { ...x, value: Math.round(deseason(x.value, seasons)) } : x))
     : []
   const LABEL: Record<string, string> = {
-    'phys.test_cost': 'Vật lý · tiền test 1 dự án ($)',
     'phys.tests_per_win': 'Vật lý · số test ra 1 thắng',
-    'phys.win_profit': 'Vật lý · lợi nhuận 1 thắng / tháng ($)',
-    'saas.test_cost': 'SaaS · tiền test 1 dự án ($)',
+    'phys.win_profit': 'Vật lý · lợi nhuận 1 thắng / tháng ($, đã quy về mùa thường)',
     'saas.tests_per_win': 'SaaS · số test ra 1 thắng',
     reg_per_test: 'Đăng ký / 1 test',
     research_per_test: 'Search / 1 test',
@@ -51,56 +74,85 @@ export default function AffSettings() {
     if (b) setC({ ...c, [a]: { ...(c[a as 'phys' | 'saas'] as object), [b]: v } } as AffConfig)
     else setC({ ...c, [a]: v } as AffConfig)
   }
+  const usdN = (n: number | null | undefined) => (n == null ? '—' : '$' + fmtNum(n))
 
   return (
-    <Sec title="Mô hình Affiliate (Vật lý + SaaS)" hint="Chỉ sửa ở đầu kỳ">
+    <Sec title="Mô hình Affiliate (Vật lý · Tools AI · SaaS)" hint="Chỉ sửa ở đầu kỳ">
       {!ed && <p className="flag">🔒 Đang khoá. Mở lại vào {c.edit_days} ngày đầu tháng tới. Kế hoạch các tháng đã chốt giữ nguyên bản chụp hệ số.</p>}
-      {ed && !aff.anyLocked && <p className="note">Lần thiết lập đầu: sửa tự do cho tới khi chốt tháng đầu tiên ở Mô hình thu nhập → Affiliate.</p>}
+      {ed && !aff.anyLocked && (
+        <p className="note">
+          Mở khoá một lần cho mô hình mới (v2): sửa tự do cho tới khi chốt tháng đầu tiên theo mô hình mới ở Mô hình thu nhập → Affiliate. Tháng đã chốt theo mô hình cũ giữ nguyên bản chụp.
+        </p>
+      )}
+
+      <b>Mục tiêu</b>
       <div className="grid3">
-        <label className="fld">
-          <span>O năm: lợi nhuận ròng sau ads ($/tháng)</span>
-          {num('year_goal', 0)}
-        </label>
+        {['Mức 1', 'Mức 2', 'Mức 3'].map((l, i) => (
+          <label className="fld" key={l}>
+            <span>O năm {l.toLowerCase()} · lợi nhuận ròng ($/tháng){i === 0 ? ' · dùng để tính kế hoạch' : ''}</span>
+            <input type="number" min={0} disabled={!ed} value={levels[i] ?? 0} onChange={(e) => setLevel(i, Number(e.target.value))} />
+          </label>
+        ))}
         <label className="fld">
           <span>Đạt vào tháng</span>
           <input type="month" disabled={!ed} value={c.goal_month.slice(0, 7)} onChange={(e) => e.target.value && set('goal_month', e.target.value + '-01')} />
         </label>
+      </div>
+
+      <b>Ngân sách, phí và vốn</b>
+      <div className="grid3">
+        {fld('Ngân sách test tối thiểu ($/tháng)', 'base_budget', 0)}
+        {fld('% lợi nhuận đã nhận (sau phí) cộng vào ngân sách tháng sau', 'reinvest_pct', 0, 100)}
+        {fld('Trần mở rộng test 1 dự án (× maxtest, phải ghi lý do)', 'test_cap_mult', 1, 10)}
+        {fld('Phí tài khoản Invoice (% chi tiêu ads)', 'fee_pct', 0, 100)}
+        {fld('Thuế (%)', 'tax_pct', 0, 100)}
         <label className="fld">
-          <span>Ngân sách test tối thiểu ($/tháng)</span>
-          {num('base_budget', 0)}
+          <span>Thuế tính trên</span>
+          <select disabled={!ed} value={v2.tax_base} onChange={(e) => set('tax_base', e.target.value as 'profit' | 'received')}>
+            <option value="profit">Lợi nhuận (sau ads, phí)</option>
+            <option value="received">Thực nhận (hoa hồng về)</option>
+          </select>
         </label>
-        <label className="fld">
-          <span>% lợi nhuận đã nhận cộng vào ngân sách tháng sau</span>
-          {num('reinvest_pct', 0, 100)}
-        </label>
-        <label className="fld">
-          <span>Trần mở rộng test 1 dự án (× tiền test)</span>
-          {num('test_cap_mult', 1, 10)}
-        </label>
-        <label className="fld">
-          <span>Số ngày đầu tháng được sửa kế hoạch</span>
-          {num('edit_days', 1, 10)}
-        </label>
-        <label className="fld">
-          <span>Công suất test / tuần (một người)</span>
-          {num('cap_tests_week', 1)}
-        </label>
-        <label className="fld">
-          <span>Ngày làm / tuần</span>
-          {num('working_days_week', 1, 7)}
-        </label>
-        <label className="fld">
-          <span>Đăng ký / 1 test</span>
-          {num('reg_per_test', 0.1)}
-        </label>
-        <label className="fld">
-          <span>Search / 1 test</span>
-          {num('research_per_test', 0.1)}
-        </label>
-        <label className="fld">
-          <span>Gợi ý thắng khi ≥ N đơn và ROAS theo thực nhận dự kiến ≥ ngưỡng scale; N =</span>
-          {num('win_min_orders', 1)}
-        </label>
+        {fld('Chi phí cố định ($/tháng: công cụ, người…)', 'fixed_cost_month', 0)}
+        {fld('Quỹ cầu nối chờ payout (% vốn vận hành)', 'bridge_pct', 0, 100)}
+        {fld('Quỹ dự phòng (% vốn vận hành)', 'reserve_pct', 0, 100)}
+      </div>
+
+      <b>Cổng bằng chứng và nhịp</b>
+      <div className="grid3">
+        {fld('Nhịp test / tháng khi chưa có winner', 'kickoff_tests_month', 0)}
+        {fld('Cổng 1 → 2: lợi nhuận đã nhận sau phí ($/tháng)', 'gate1_profit', 0)}
+        {fld('Cổng 2 → 3: lợi nhuận đã nhận sau phí ($/tháng)', 'gate2_profit', 0)}
+        {fld('Mở SaaS + Tools AI từ cổng', 'saas_unlock_gate', 0, 3)}
+        {fld('% duyệt hoa hồng dưới mức này thì cảnh báo', 'approval_warn_pct', 0, 100)}
+        {fld('Số ngày đầu tháng được sửa kế hoạch', 'edit_days', 1, 10)}
+        {fld('Công suất test / tuần (một người)', 'cap_tests_week', 1)}
+        {fld('Ngày làm / tuần', 'working_days_week', 1, 7)}
+        {fld('Đăng ký / 1 test (phễu minh hoạ)', 'reg_per_test', 0.1)}
+        {fld('Search / 1 test (phễu minh hoạ)', 'research_per_test', 0.1)}
+      </div>
+
+      <b>Lấy từ app khác (sửa ở app đó)</b>
+      <div className="tbl">
+        <table className="ktable">
+          <tbody>
+            <tr>
+              <td>Tiền test 1 dự án (cả 3 mô hình) = maxtest</td>
+              <td className="n">{th?.max_test_usd != null ? usdN(th.max_test_usd) : `${usdN(co.phys.test_cost)} (đang lưu ở OKR)`}</td>
+              <td>{th?.max_test_usd != null ? 'Research · Cài đặt tính toán' : <span className="flag">Chưa đọc được Research: đăng nhập ở khối Kết nối nguồn số bên dưới</span>}</td>
+            </tr>
+            <tr>
+              <td>Ứng viên thắng khi ≥ N đơn</td>
+              <td className="n">{th?.winner_orders ?? `${c.win_min_orders ?? 3} (đang lưu ở OKR)`}</td>
+              <td>{th?.winner_orders != null ? 'Ads-Hub · Cài đặt' : <span className="flag">Chưa đọc được Ads-Hub</span>}</td>
+            </tr>
+            <tr>
+              <td>Ngưỡng ROAS thực nhận để là ứng viên thắng (ROA Hòa)</td>
+              <td className="n">{th?.roa ? fmtNum(th.roa[0]) : `${fmtNum(co.phys.roas)} (ROAS scale Vật lý)`}</td>
+              <td>{th?.roa ? 'Research · Cài đặt tính toán' : <span className="flag">Chưa đọc được Research</span>}</td>
+            </tr>
+          </tbody>
+        </table>
       </div>
 
       {sugg.length > 0 && (
@@ -120,7 +172,7 @@ export default function AffSettings() {
               <tbody>
                 {sugg.map((x) => (
                   <tr key={x.key}>
-                    <td>{LABEL[x.key]}</td>
+                    <td>{LABEL[x.key] ?? x.key}</td>
                     <td className="n">{fmtNum(x.current)}</td>
                     <td className={'n ' + (Math.abs(x.diffPct) >= 30 ? 'neg' : '')}>
                       {fmtNum(x.value)} <small>({x.diffPct > 0 ? '+' : ''}{x.diffPct}%)</small>
@@ -142,11 +194,12 @@ export default function AffSettings() {
         </div>
       )}
 
-      <div className="grid2">
+      <div className="stack">
         {(
           [
-            ['Hệ số Vật lý', 'phys', PHYS_FIELDS, phys],
-            ['Hệ số SaaS', 'saas', SAAS_FIELDS, saas],
+            ['Hệ số Vật lý', 'phys', PHYS_FIELDS, co.phys],
+            ['Hệ số Tools AI', 'tools', TOOLS_FIELDS, co.tools],
+            ['Hệ số SaaS', 'saas', SAAS_FIELDS, co.saas],
           ] as const
         ).map(([name, key, fields, vals]) => (
           <div key={key}>
@@ -160,15 +213,19 @@ export default function AffSettings() {
                       <small className="sub">{f.note}</small>
                     </td>
                     <td>
-                      <input
-                        type="number"
-                        min={0}
-                        step="any"
-                        disabled={!ed}
-                        aria-label={f.label}
-                        value={(vals as unknown as Record<string, number>)[f.k]}
-                        onChange={(e) => set(key, { ...(c[key] as object), [f.k]: Number(e.target.value) } as never)}
-                      />
+                      {f.derived ? (
+                        <span className="n">{fmtNum((vals as unknown as Record<string, number>)[f.k])}</span>
+                      ) : (
+                        <input
+                          type="number"
+                          min={0}
+                          step="any"
+                          disabled={!ed}
+                          aria-label={`${name} · ${f.label}`}
+                          value={(vals as unknown as Record<string, number>)[f.k]}
+                          onChange={(e) => set(key, { ...((c[key] ?? {}) as object), [f.k]: Number(e.target.value) } as never)}
+                        />
+                      )}
                     </td>
                     <td>
                       {f.unit} <span className={'src ' + (f.src === 'giả định' ? 'as' : '')}>{f.src}</span>
@@ -180,7 +237,9 @@ export default function AffSettings() {
           </div>
         ))}
       </div>
-      <p className="note">Nhãn: nguồn = có trong tài liệu khoá học; tính = suy ra từ số của nguồn; giả định = nguồn không có, thay bằng số thật của anh khi đo được (Sổ dự án, bước 2).</p>
+      <p className="note">
+        Nhãn: nguồn = có trong tài liệu khoá học; nguồn (mức sàn) = nguồn nói "hơn …", app chạy thêm kịch bản xấu hơn; tính = suy ra từ số của nguồn; giả định = nguồn không có, thay bằng số thật khi đo được; Research = đọc từ app Research.
+      </p>
       <div className="savebar">
         <button className="btn primary" disabled={!dirty || !ed} onClick={() => aff.saveCfg(c)}>
           Lưu mô hình Affiliate

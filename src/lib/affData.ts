@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { AffData } from './affLink'
 import type { AffEntry, AffProject, Tally } from './affProjects'
-import type { AhData, WsData, WsProject, WsReg, WsRun, WsSettings, WsType } from './affSource'
+import { sharedThresholds, type AhData, type SharedThresholds, type WsData, type WsProject, type WsReg, type WsRun, type WsSettings, type WsType } from './affSource'
 import { listAll } from './db'
 import { ahClient, wsClient } from './supabase'
 
@@ -87,6 +87,34 @@ export async function loadWs(): Promise<SrcResult<WsData>> {
   } catch (e) {
     return { data: null, error: 'Research: ' + msgOf(e), needSql: false }
   }
+}
+
+/** Đọc nhanh ngưỡng dùng chung (tỷ giá, maxtest, ROA, Click/Sale ở Research; Winner ≥ N đơn ở Ads-Hub).
+ *  Chưa kết nối hoặc lỗi → trường tương ứng null (mô hình dùng số đang lưu ở OKR). */
+export async function loadThresholds(): Promise<SharedThresholds> {
+  let ws: Pick<WsData, 'settings' | 'types'> | null = null
+  let ah: Pick<AhData, 'settings'> | null = null
+  try {
+    if (wsClient && (await srcEmail('ws'))) {
+      const [s, t] = await Promise.all([
+        wsClient.from('settings').select('max_test_usd, usd_vnd, roa_hoa, roa_lai, roa_lai_tot, updated_at').eq('id', 1).maybeSingle(),
+        wsClient.from('project_types').select('code, name, tier_low_vnd, tier_high_vnd, clicks_low, clicks_mid, clicks_high, active').order('sort'),
+      ])
+      if (!s.error && !t.error) ws = { settings: (s.data as WsSettings | null) ?? null, types: (t.data ?? []) as WsType[] }
+    }
+  } catch {
+    ws = null
+  }
+  try {
+    if (ahClient && (await srcEmail('ah'))) {
+      const d = new Date().toISOString().slice(0, 10)
+      const { data, error } = await ahClient.rpc('okr_daily', { p_from: d, p_to: d })
+      if (!error && data) ah = { settings: (data as AhData).settings }
+    }
+  } catch {
+    ah = null
+  }
+  return sharedThresholds(ws, ah)
 }
 
 /** Đọc Ads-Hub qua hàm chỉ đọc okr_daily(từ, đến). */

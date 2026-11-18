@@ -69,6 +69,17 @@ describe('cờ nên dừng / đạt tiêu chí thắng', () => {
     expect(flags({ stage: 'test', model: 'phys', ext_reason: '' }, t, C, 2, 3, 38).winReady).toBe(false)
     expect(flags({ stage: 'test', model: 'phys', ext_reason: '' }, t, C, 2, 3, 80).winReady).toBe(true)
   })
+  it('ngưỡng ROAS chung (Research "ROA Hòa") áp cho mọi mô hình, kể cả SaaS và Tools AI', () => {
+    const t = { ...z, cost: 100, revenue: 180, orders: 3 }
+    const C2 = { ...C, phys: { ...C.phys, roas: 2 } }
+    expect(flags({ stage: 'test', model: 'saas', ext_reason: '' }, t, C2, 2, 3).winReady).toBe(false) // không truyền ngưỡng chung → 2
+    expect(flags({ stage: 'test', model: 'saas', ext_reason: '' }, t, C2, 2, 3, null, 1.5).winReady).toBe(true)
+    expect(flags({ stage: 'test', model: 'tools_ai', ext_reason: '' }, t, C2, 2, 3, null, 1.5).winReady).toBe(true)
+  })
+  it('Tools AI dùng tiền test của Tools AI', () => {
+    const C3 = { ...C, tools: { ...C.saas, test_cost: 10 } }
+    expect(flags({ stage: 'test', model: 'tools_ai', ext_reason: '' }, { ...z, cost: 10 }, C3, 2, 3).kill).toBe(true)
+  })
 })
 
 describe('đếm và đo', () => {

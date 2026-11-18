@@ -1,5 +1,5 @@
 /* Nối OKR với Sổ dự án Affiliate: chỉ tiêu theo cấp, chuỗi số liệu theo ngày cho KR/KA tự đếm. Logic thuần. */
-import { analyze, ceilCount, monthOf, targetsFor, type AffConfig, type AffMonth } from './affiliate'
+import { analyze, ceilCount, monthOf, targetsFor, type AffConfig, type AffMonth, type Live } from './affiliate'
 import type { AffEntry, AffProject, Model, Stage, Tally } from './affProjects'
 import { addMonths, isoDow } from './dates'
 import type { AffMetric } from './types'
@@ -60,8 +60,8 @@ export function monthsIn(start: string, end: string): string[] {
   return out
 }
 /** Chỉ tiêu tối thiểu (theo ngân sách) của 1 kỳ, số nguyên. `start`: ngày đầu kỳ (Ngày: chính ngày đó; Tuần: thứ Hai). */
-export function kpiTargets(level: Level, start: string, end: string, rows: AffMonth[], cfg: AffConfig, today: string): KpiTargets {
-  const a = analyze(rows, cfg, today)
+export function kpiTargets(level: Level, start: string, end: string, rows: AffMonth[], cfg: AffConfig, today: string, live: Live = {}): KpiTargets {
+  const a = analyze(rows, cfg, today, live)
   if (level === 'day' || level === 'week') {
     const monday = level === 'week' ? start : start // tuần lấy theo tháng chứa ngày đầu
     const w = targetsFor([monthOf(monday)], a, rows, cfg, 'week')

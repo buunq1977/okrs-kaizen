@@ -111,17 +111,28 @@ export interface Flags {
   overCap: boolean // tiêu vượt trần (kể cả khi có đơn) mà chưa thắng
   winReady: boolean // đạt tiêu chí thắng: ≥ N đơn và ROAS theo thực nhận dự kiến ≥ ngưỡng
 }
-/** approvalPct = % duyệt lịch sử của mô hình (null = chưa có, coi như 100%). Thực nhận dự kiến = max(đã nhận, doanh số × % duyệt). */
-export function flags(p: Pick<AffProject, 'stage' | 'model' | 'ext_reason'>, t: Totals, c: { phys: PhysCoeffs; saas: SaasCoeffs }, capMult: number, winMinOrders: number, approvalPct: number | null = null): Flags {
-  const testCost = p.model === 'phys' ? c.phys.test_cost : c.saas.test_cost
+/** approvalPct = % duyệt lịch sử của mô hình (null = chưa có, coi như 100%). Thực nhận dự kiến = max(đã nhận, doanh số × % duyệt).
+ *  roaMin = ngưỡng ROAS thực nhận để là ứng viên thắng, dùng chung mọi mô hình (Research "ROA Hòa"); không có thì lấy ROAS scale của Vật lý.
+ *  (Sửa lỗi cũ: dự án SaaS trước đây so với ngưỡng của Vật lý dù không truyền ngưỡng chung.) */
+export function flags(
+  p: Pick<AffProject, 'stage' | 'ext_reason'> & { model: string },
+  t: Totals,
+  c: { phys: PhysCoeffs; saas: SaasCoeffs; tools?: SaasCoeffs },
+  capMult: number,
+  winMinOrders: number,
+  approvalPct: number | null = null,
+  roaMin?: number | null,
+): Flags {
+  const testCost = p.model === 'phys' ? c.phys.test_cost : p.model === 'tools_ai' ? (c.tools ?? c.saas).test_cost : c.saas.test_cost
   const cap = testCost * (p.ext_reason.trim() ? capMult : 1)
   const testing = p.stage === 'test'
   const expected = Math.max(t.received, t.revenue * ((approvalPct ?? 100) / 100))
+  const roa = roaMin && roaMin > 0 ? roaMin : c.phys.roas
   return {
     cap,
     kill: testing && t.orders === 0 && t.cost >= cap,
     overCap: testing && t.cost > cap,
-    winReady: testing && t.orders >= winMinOrders && t.cost > 0 && expected / t.cost >= c.phys.roas,
+    winReady: testing && t.orders >= winMinOrders && t.cost > 0 && expected / t.cost >= roa,
   }
 }
 

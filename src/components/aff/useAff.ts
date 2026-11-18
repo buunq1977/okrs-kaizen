@@ -1,30 +1,35 @@
 import { useCallback, useEffect, useState } from 'react'
-import { type AffConfig, type AffMonth, needsAutoLock, physOf, saasOf } from '../../lib/affiliate'
+import { anyLockedV2, type AffConfig, type AffMonth, type Live, needsAutoLock, snapshotV2 } from '../../lib/affiliate'
+import { loadThresholds } from '../../lib/affData'
+import type { SharedThresholds } from '../../lib/affSource'
 import { useApp } from '../../lib/ctx'
 import { errMsg, getAffConfig, insertMany, listAll, saveAffConfig, update } from '../../lib/db'
 import { today } from '../../lib/dates'
 
-/** Tải cấu hình + bảng phân bổ Affiliate; tự chốt tháng đã qua cửa sổ sửa. */
+/** Tải cấu hình + bảng phân bổ Affiliate + ngưỡng dùng chung (Research/Ads-Hub); tự chốt tháng đã qua cửa sổ sửa.
+ *  Khoá đầu kỳ chỉ tính các tháng chốt theo mô hình v2 (mở khoá một lần, Luca duyệt 18/11/2026). */
 export function useAff() {
   const { uid, toast } = useApp()
   const [cfg, setCfg] = useState<AffConfig | null>(null)
   const [months, setMonths] = useState<AffMonth[]>([])
   const [err, setErr] = useState('')
+  const [th, setTh] = useState<SharedThresholds | null>(null)
   const t0 = today()
 
   const load = useCallback(async () => {
     try {
-      const [c, ms] = await Promise.all([getAffConfig(uid), listAll<AffMonth>('aff_months', 'month')])
-      const anyLocked = ms.some((m) => m.locked_at)
-      const auto = ms.filter((m) => needsAutoLock(m, t0, c.edit_days, anyLocked))
+      const [c, ms, t] = await Promise.all([getAffConfig(uid), listAll<AffMonth>('aff_months', 'month'), loadThresholds().catch(() => null)])
+      const lockedV2 = anyLockedV2(ms)
+      const auto = ms.filter((m) => needsAutoLock(m, t0, c.edit_days, lockedV2))
       for (const m of auto) {
-        const coeffs = { phys: physOf(c.phys), saas: saasOf(c.saas) }
+        const coeffs = snapshotV2(c, t ?? {})
         const locked_at = new Date().toISOString()
         await update('aff_months', m.id, { coeffs, locked_at })
         Object.assign(m, { coeffs, locked_at })
       }
       setCfg(c)
       setMonths(ms)
+      setTh(t)
       setErr('')
     } catch (e) {
       setErr(errMsg(e))
@@ -59,10 +64,10 @@ export function useAff() {
   const lockMonth = useCallback(
     async (m: AffMonth) => {
       if (!cfg) return
-      await patchMonth(m.id, { coeffs: { phys: physOf(cfg.phys), saas: saasOf(cfg.saas) }, locked_at: new Date().toISOString() })
+      await patchMonth(m.id, { coeffs: snapshotV2(cfg, th ?? {}), locked_at: new Date().toISOString() })
       toast(`Đã chốt kế hoạch Affiliate tháng ${m.month.slice(5, 7)}/${m.month.slice(0, 4)}`)
     },
-    [cfg, patchMonth, toast],
+    [cfg, th, patchMonth, toast],
   )
   const saveCfg = useCallback(
     async (c: AffConfig) => {
@@ -76,5 +81,6 @@ export function useAff() {
     },
     [toast],
   )
-  return { cfg, months, err, reload: load, patchMonth, addMonths, lockMonth, saveCfg, anyLocked: months.some((m) => m.locked_at) }
+  const live: Live = { max_test_usd: th?.max_test_usd ?? null }
+  return { cfg, months, err, reload: load, patchMonth, addMonths, lockMonth, saveCfg, th, live, anyLocked: anyLockedV2(months) }
 }

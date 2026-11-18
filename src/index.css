@@ -77,6 +77,7 @@ main h1 { font: 700 26px var(--f-display); color: var(--brand); margin: 0; line-
 .grid2, .grid3 { display: grid; gap: 10px; grid-template-columns: repeat(2, minmax(0, 1fr)) }
 .grid3 { grid-template-columns: repeat(3, minmax(0, 1fr)) }
 @media (max-width: 640px) { .grid2, .grid3 { grid-template-columns: minmax(0, 1fr) } }
+.coef3 { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)) }
 .fld { display: flex; flex-direction: column; gap: 4px; min-width: 0 }
 .fld > span, .fld-l { font: 600 11px var(--f-body); text-transform: uppercase; letter-spacing: .06em; color: var(--ink-2) }
 .fld.inline { flex-direction: row; align-items: center; gap: 10px; flex-wrap: wrap }
