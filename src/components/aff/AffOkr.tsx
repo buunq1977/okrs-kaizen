@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { coeffsOf, monthOf, nextBudget, profitAfterFees, winsLabel } from '../../lib/affiliate'
+import { analyze, coeffsOf, monthOf, nextBudget, profitAfterFees, seasonWarn, v2Of, winsLabel, type AffConfig } from '../../lib/affiliate'
 import { loadAffData } from '../../lib/affData'
-import { affTickChanges, kpiTargets, metricSum, METRIC_NAME, METRIC_UNIT, type AffData, type Level } from '../../lib/affLink'
-import { BENCH, diagnose } from '../../lib/affDiag'
+import { affTickChanges, gateFromData, kpiTargets, metricSum, METRIC_NAME, METRIC_UNIT, type AffData, type Level, type MonthActuals } from '../../lib/affLink'
+import { BENCH, diagnose, extraFindings } from '../../lib/affDiag'
 import { countBetween, flags, measure, totals } from '../../lib/affProjects'
+import { MODEL3 } from '../../lib/affSource'
 import { useApp } from '../../lib/ctx'
 import { errMsg, update } from '../../lib/db'
 import { addMonths, fmtDM, monthEnd, today } from '../../lib/dates'
@@ -31,6 +32,14 @@ function useAffData(key: string) {
   return data
 }
 
+/** Đang ở Cổng 0 (chưa có dự án đủ điều kiện scale) → chỉ tiêu test theo nhịp khối lượng; chưa có số Research → null (theo mô hình). */
+function paceOf(data: AffData | null, cfg: AffConfig | null): number | null {
+  if (!cfg) return null
+  const g = gateFromData(data, cfg)
+  return g && g.gate === 0 ? v2Of(cfg).kickoff_tests_month : null
+}
+const srcLabel = (d: AffData | null) => (d?.source === 'research' ? 'Research + Ads-Hub' : 'Sổ dự án')
+
 /* ---------- Ngày / Tuần: KR "Nhịp phễu Affiliate" + KA tự tick ---------- */
 export function AffDayWeek(props: { level: 'day' | 'week'; start: string; end: string; periodId: string; objectiveId: string; krs: Rows<KR>; kas: Rows<KA> & { rows: KA[] }; editable: boolean; maxKr: number }) {
   const { level, start, end, periodId, objectiveId, krs, kas, editable, maxKr } = props
@@ -39,7 +48,8 @@ export function AffDayWeek(props: { level: 'day' | 'week'; start: string; end: s
   const kaKey = kas.rows.map((k) => k.id + (k.done ? 1 : 0)).join(',')
   const data = useAffData(start + kaKey)
   const affKas = kas.rows.filter((k) => k.aff_metric)
-  const t = useMemo(() => (aff.cfg && aff.months.length ? kpiTargets(level, start, end, aff.months, aff.cfg, start, aff.live) : null), [aff.cfg, aff.months, level, start, end, aff.live])
+  const pace = paceOf(data, aff.cfg)
+  const t = useMemo(() => (aff.cfg && (aff.months.length || pace) ? kpiTargets(level, start, end, aff.months, aff.cfg, start, aff.live, pace) : null), [aff.cfg, aff.months, level, start, end, aff.live, pace])
   const count = useCallback((m: AffMetric) => (data ? metricSum(m, data, start, end) : 0), [data, start, end])
 
   // Tự tick KA Affiliate theo số đếm thật
@@ -83,7 +93,9 @@ export function AffDayWeek(props: { level: 'day' | 'week'; start: string; end: s
       {!aff.months.length ? (
         <p className="note">Chưa có bảng phân bổ Affiliate: tạo ở Mô hình thu nhập → Affiliate Global để có chỉ tiêu.</p>
       ) : hasAff ? (
-        <p className="note">KA Affiliate tự tick khi số đếm ở Sổ dự án đạt chỉ tiêu.</p>
+        <p className="note">
+          KA Affiliate tự tick khi số đếm ở {srcLabel(data)} đạt chỉ tiêu.{pace ? ` Cổng 0: chỉ tiêu theo nhịp ${pace} test/tháng.` : ''}
+        </p>
       ) : editable ? (
         <button className="btn" onClick={create} disabled={!t}>
           Lấy chỉ tiêu từ mô hình Affiliate
@@ -100,14 +112,19 @@ export function AffLongKrs(props: { level: Level; start: string; end: string; pe
   const { level, start, end, periodId, o, krs, locked, openKrs, maxOpen, patchObj } = props
   const { toast } = useApp()
   const aff = useAff()
-  if (!aff.cfg || !aff.months.length) return <p className="note">Chưa có bảng phân bổ Affiliate (Mô hình thu nhập → Affiliate Global) nên chưa lấy được chỉ tiêu.</p>
-  const t = kpiTargets(level, start, end, aff.months, aff.cfg, start, aff.live)
+  const data = useAffData('long' + start + end)
+  const pace = paceOf(data, aff.cfg)
+  if (!aff.cfg || (!aff.months.length && !pace)) return <p className="note">Chưa có bảng phân bổ Affiliate (Mô hình thu nhập → Affiliate Global) nên chưa lấy được chỉ tiêu.</p>
+  const t = kpiTargets(level, start, end, aff.months, aff.cfg, start, aff.live, pace)
+  const gate = gateFromData(data, aff.cfg)
   const plan: [AffMetric, number | null][] = [
     ['test', t.test],
     ['search', t.search],
     ['dang_ky', t.dang_ky],
     ['win', t.win],
     ['profit', t.profit],
+    // Cổng 0–1: KR kết quả là có dự án đủ điều kiện scale (winner đầu tiên)
+    ['scale_ready', gate && gate.gate <= 1 ? Math.max(1, (data?.flags?.ready ?? 0) + (gate.gate === 1 ? 1 : 0)) : null],
   ]
   const have = new Set(krs.rows.filter((k) => k.objective_id === o.id && k.aff_metric).map((k) => k.aff_metric))
   const todo = plan.filter(([m, v]) => v !== null && v > 0 && !have.has(m)) as [AffMetric, number][]
@@ -126,7 +143,7 @@ export function AffLongKrs(props: { level: Level; start: string; end: string; pe
         target: v,
         unit: METRIC_UNIT[m],
         deadline: end,
-        source: 'Sổ dự án (tự đếm)',
+        source: `${srcLabel(data)} (tự đếm)`,
         aff_metric: m,
         sort: krs.rows.length,
       })
@@ -147,10 +164,12 @@ export function AffLongKrs(props: { level: Level; start: string; end: string; pe
         <p className="note">Kế hoạch đã chốt: thêm KR theo luật điều chỉnh (ô lý do bên dưới).</p>
       ) : todo.length ? (
         <button className="btn" onClick={create}>
-          Tạo {todo.length} KR tự đếm từ Sổ dự án
+          Tạo {todo.length} KR tự đếm từ {srcLabel(data)}
         </button>
       ) : (
-        <p className="note">Đã có đủ KR Affiliate. Thực tế tự đếm từ bộ đếm search và Sổ dự án.</p>
+        <p className="note">
+          Đã có đủ KR Affiliate. Thực tế tự đếm từ bộ đếm search và {srcLabel(data)}.{pace ? ` Cổng 0: chỉ tiêu theo nhịp ${pace} test/tháng.` : ''}
+        </p>
       )}
     </div>
   )
@@ -163,17 +182,22 @@ export function AffPulse({ level, start, end }: { level: 'day' | 'week' | 'month
   const data = useAffData(start + end)
   if (!aff.cfg || !data) return null
   const cfg = aff.cfg
-  const t = aff.months.length ? kpiTargets(level, start, end, aff.months, cfg, start, aff.live) : null
+  const pace = paceOf(data, cfg)
+  const t = aff.months.length || pace ? kpiTargets(level, start, end, aff.months, cfg, start, aff.live, pace) : null
   const c = coeffsOf({ coeffs: null }, cfg, aff.live)
   const byP = new Map<string, typeof data.entries>()
   for (const e of data.entries) byP.set(e.project_id, [...(byP.get(e.project_id) ?? []), e])
   const testing = data.projects.filter((p) => p.stage === 'test')
   const appr = measure(data.projects, data.entries, data.tallies, 'phys', '2000-01-01', end).approval
   const fl = testing.map((p) => flags(p, totals(byP.get(p.id) ?? []), c, cfg.test_cap_mult, aff.th?.winner_orders ?? cfg.win_min_orders ?? 3, appr, aff.th?.roa?.[0]))
-  const kill = fl.filter((f) => f.kill).length
-  const ready = fl.filter((f) => f.winReady).length
-  const noCost = level === 'day' ? testing.filter((p) => !(byP.get(p.id) ?? []).some((e) => e.date === start)).length : 0
-  const profit = metricSum('profit', data, start, end)
+  const fromRs = data.source === 'research'
+  const kill = fromRs ? (data.flags?.stop ?? 0) : fl.filter((f) => f.kill).length
+  const ready = fromRs ? (data.flags?.candidate ?? 0) + (data.flags?.ready ?? 0) : fl.filter((f) => f.winReady).length
+  const noCost = level === 'day' && !fromRs ? testing.filter((p) => !(byP.get(p.id) ?? []).some((e) => e.date === start)).length : 0
+  // Kaizen tháng đã chốt sổ: đọc bản chụp số thực tế (không đổi theo dữ liệu Ads-Hub về sau)
+  const snap = level === 'month' ? (aff.months.find((x) => x.month === start && x.actuals)?.actuals as MonthActuals | undefined) : undefined
+  const sum = (m: AffMetric) => (snap && m in snap.counts ? snap.counts[m as keyof MonthActuals['counts']] : metricSum(m, data, start, end))
+  const profit = sum('profit')
   const isLong = level !== 'day' && level !== 'week'
   const rows: [AffMetric, number | null][] = [
     ['search', t?.search ?? null],
@@ -189,14 +213,14 @@ export function AffPulse({ level, start, end }: { level: 'day' | 'week' | 'month
   return (
     <div className="aff-q">
       <div className="aff-q-h">
-        <b>Sổ dự án Affiliate · đo lường</b>
+        <b>Affiliate · đo lường ({snap ? `bản chụp lúc chốt sổ ${fmtDM(snap.at.slice(0, 10))}` : srcLabel(data)})</b>
         <button className="linkbtn" onClick={() => go('projects')}>
           Mở Sổ dự án để cập nhật
         </button>
       </div>
       <div className="aff-q-h">
         {rows.map(([m, v]) => {
-          const n = metricSum(m, data, start, end)
+          const n = sum(m)
           return (
             <span key={m} className={'pace-n ' + (v === null || n >= v ? 'ok' : '')}>
               {METRIC_NAME[m]} <b>{n}</b>
@@ -210,9 +234,10 @@ export function AffPulse({ level, start, end }: { level: 'day' | 'week' | 'month
       </div>
       <ul className="alerts">
         {noCost > 0 && <li className="yellow">🟡 {noCost} camp đang test chưa nhập chi phí hôm nay (lấy số từ Google Ads).</li>}
-        {kill > 0 && <li className="red">🔴 {kill} dự án nên dừng: đã tiêu hết tiền test mà 0 đơn.</li>}
-        {ready > 0 && <li className="green">🟢 {ready} dự án đạt tiêu chí thắng: xem để đánh dấu Thắng và scale.</li>}
-        {level === 'week' && <li>Cuối tuần: nhập Doanh số + Thực nhận từ network cho các dự án đang chạy.</li>}
+        {kill > 0 && <li className="red">🔴 {kill} dự án nên dừng: {fromRs ? 'chạm trần tiền test (maxtest) mà 0 đơn' : 'đã tiêu hết tiền test mà 0 đơn'}.</li>}
+        {fromRs && (data.flags?.consider ?? 0) > 0 && <li className="yellow">🟡 {data.flags!.consider} dự án cân nhắc dừng: đủ click/sale mà 0 đơn.</li>}
+        {ready > 0 && <li className="green">🟢 {ready} dự án {fromRs ? 'ứng viên thắng / đủ điều kiện scale' : 'đạt tiêu chí thắng'}: xem checklist scale ở Sổ dự án.</li>}
+        {level === 'week' && !fromRs && <li>Cuối tuần: nhập Doanh số + Thực nhận từ network cho các dự án đang chạy.</li>}
         {isLong && (
           <li>
             Ngân sách test tháng sau đề xuất: <b>{usd(nextBudget(cfg.base_budget, cfg.reinvest_pct, profitAfterFees(recvTotals, cfg).net))}</b> = {usd(cfg.base_budget)} + {cfg.reinvest_pct}% lợi nhuận đã nhận tháng {curMonth.slice(5, 7)} sau phí, thuế ({usd(profitAfterFees(recvTotals, cfg).net)}; trước phí {usd(recvMonth)}).
@@ -229,7 +254,8 @@ export function AffDiagnosis({ level, start, end, k, save }: { level: Level; sta
   const data = useAffData('diag' + start + end)
   if (!aff.cfg || !data) return null
   const cfg = aff.cfg
-  const t = aff.months.length ? kpiTargets(level, start, end, aff.months, cfg, start, aff.live) : null
+  const pace = paceOf(data, cfg)
+  const t = aff.months.length || pace ? kpiTargets(level, start, end, aff.months, cfg, start, aff.live, pace) : null
   const c = countBetween(data.projects, data.tallies, start, end)
   const to = end < today() ? end : today()
   const since = addMonths(to, -3)
@@ -237,7 +263,25 @@ export function AffDiagnosis({ level, start, end, k, save }: { level: Level; sta
   const ms = measure(data.projects, data.entries, data.tallies, 'saas', since, to)
   const set = coeffsOf({ coeffs: null }, cfg, aff.live)
   const waiting = data.projects.filter((p) => p.stage === 'duoc_duyet').length
-  const fs = diagnose(c, t, mp, set, waiting)
+  const fromRs = data.source === 'research'
+  // % duyệt: Ads-Hub tính trên đơn đã quá hạn payout (không lẫn đơn chờ); Sổ nhập tay thì như cũ
+  const apprR = fromRs && data.appr ? data.appr.phys : null
+  const fs = [
+    ...diagnose(c, t, fromRs ? { ...mp, approval: null } : mp, set, waiting),
+    ...(fromRs
+      ? extraFindings({
+          testCost: mp.test_cost,
+          nTests: mp.n_tests,
+          maxTest: aff.th?.max_test_usd ?? null,
+          approval: data.appr ? { pct: data.appr.phys.pct, resolved: MODEL3.reduce((s, m) => s + data.appr![m].resolved, 0) } : null,
+          warnPct: v2Of(cfg).approval_warn_pct,
+          pendingComm: (data.ah?.orders ?? []).filter((o) => o.status === 'pending' && o.d >= start && o.d <= end).reduce((s, o) => s + Number(o.comm), 0),
+          deniedComm: (data.ah?.orders ?? []).filter((o) => o.status === 'denied' && o.d >= start && o.d <= end).reduce((s, o) => s + Number(o.comm), 0),
+          seasonWarn: seasonWarn(aff.months, today()),
+          capitalShort: aff.months.length ? (analyze(aff.months, cfg, today(), aff.live).capitalShort[0] ?? null) : null,
+        })
+      : []),
+  ]
   const lessons = k.num_lessons ?? []
   const saved = new Set(lessons.map((l) => l.text))
   const icon = { red: '🔴', yellow: '🟡', green: '🟢', info: 'ℹ️' } as const
@@ -250,7 +294,9 @@ export function AffDiagnosis({ level, start, end, k, save }: { level: Level; sta
     ['Lợi nhuận 1 thắng / tháng', usd(set.phys.win_profit), money(mp.win_profit), '–', money(ms.win_profit)],
     ['% đăng ký được duyệt link', `${BENCH.reg_approved}% (minh hoạ)`, pct(mp.reg_approved), '', pct(ms.reg_approved)],
     ['% dự án test có đơn', `${BENCH.order_rate}% (minh hoạ)`, pct(mp.order_rate), '', pct(ms.order_rate)],
-    ['% duyệt hoa hồng', `${BENCH.commission_approval}% (giả định)`, pct(mp.approval), '', pct(ms.approval)],
+    fromRs
+      ? ['% duyệt hoa hồng (đơn quá hạn payout)', `cảnh báo < ${v2Of(cfg).approval_warn_pct}%`, apprR ? pct(apprR.pct) : '–', '', data.appr ? pct(data.appr.saas.pct) : '–']
+      : ['% duyệt hoa hồng', `${BENCH.commission_approval}% (giả định)`, pct(mp.approval), '', pct(ms.approval)],
   ]
   return (
     <div className="aff-q">

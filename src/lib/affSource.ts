@@ -507,3 +507,168 @@ export function monthlyMoney(ah: AhData, ws: Pick<WsData, 'projects' | 'regs'> |
   for (const o of ah.orders) if ((o.status === 'approved' || o.status === 'paid') && ok(o.camp)) get(o.d).received += Number(o.comm)
   return [...by.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([month, v]) => ({ month, cost: Math.round(v.cost * 100) / 100, received: Math.round(v.received * 100) / 100 }))
 }
+
+/* ---------- GĐ5: dữ liệu cho OKR / Kaizen dựng từ Research + Ads-Hub ---------- */
+/** Một "dự án" theo khuôn Sổ dự án cũ, dựng từ 1 đăng ký Research (để KR tự đếm, Kaizen, chẩn đoán dùng chung một logic). */
+export interface VProject {
+  id: string
+  name: string
+  link: string
+  model: Model3
+  network: string
+  niche: string
+  geo: string
+  stage: 'research' | 'dat_loc' | 'dang_ky' | 'duoc_duyet' | 'test' | 'win' | 'dung'
+  dates: Partial<Record<'dat_loc' | 'dang_ky' | 'duoc_duyet' | 'test' | 'win' | 'dung', string>>
+  op_status: null
+  ext_reason: string
+  stop_reason: string
+  note: string
+  created_at: string
+}
+export interface VEntry {
+  id: string
+  project_id: string
+  date: string
+  cost: number
+  revenue: number // hoa hồng chưa huỷ (chờ + duyệt + trả)
+  received: number // hoa hồng đã duyệt + đã trả
+  orders: number
+  refs: number
+  customers: number
+  note: string
+}
+export interface FlagSum {
+  stop: number
+  consider: number
+  trial: number
+  candidate: number // ứng viên thắng chưa đủ điều kiện scale
+  ready: number // đủ điều kiện scale
+}
+/** Giai đoạn theo trạng thái Research: Rejected / đã test xong → Dừng; Lãi → Thắng; đang test → test… */
+function stageOf(r: Pick<WsReg, 'reg_status' | 'test_status' | 'test_result'>, tested: boolean): VProject['stage'] {
+  if (r.test_result === 'Lãi') return 'win'
+  if (r.reg_status === 'Rejected') return 'dung'
+  if (r.test_status === 'Đang Testing') return 'test'
+  if (['Đã Test', 'Dừng chờ Paid', 'Closed Program'].includes(r.test_status)) return 'dung'
+  if (tested) return 'test'
+  if (r.reg_status === 'Active') return 'duoc_duyet'
+  if (r.reg_status === 'Pending approval') return 'dang_ky'
+  return 'dat_loc'
+}
+/** Dựng projects + entries theo khuôn cũ:
+ *  - mỗi đăng ký = 1 dự án; ngày "chọn" = ngày tạo dự án ở Research (chỉ gán cho đăng ký đầu tiên của dự án, tránh đếm trùng);
+ *    dự án Research chưa có đăng ký vẫn tính 1 lần "chọn"
+ *  - đăng ký / duyệt link / dừng = ngày ghi ở Research (09_reg_dates); test = ngày test đầu tiên; thắng (kết quả "Lãi") = ngày có đơn gần nhất
+ *  - entries theo ngày từ Ads-Hub: chi phí, hoa hồng chưa huỷ, hoa hồng đã nhận, số đơn */
+export function researchProjects(ws: WsData, ah: AhData | null, ledger: LedgerRow[], extReason: (regId: number) => string = () => ''): { projects: VProject[]; entries: VEntry[] } {
+  const first = firstTestDay(ws.runs)
+  const lr = new Map(ledger.map((r) => [r.reg_id, r]))
+  const firstReg = new Map<number, number>()
+  for (const r of [...ws.regs].sort((a, b) => a.id - b.id)) if (!firstReg.has(r.project_id)) firstReg.set(r.project_id, r.id)
+  const projects: VProject[] = []
+  const entries: VEntry[] = []
+  const pById = new Map(ws.projects.map((p) => [p.id, p]))
+  for (const r of ws.regs) {
+    const p = pById.get(r.project_id)
+    const model = modelOfType(p?.type_code) ?? 'phys'
+    const row = lr.get(r.id)
+    const t = first.get(r.id)
+    const dates: VProject['dates'] = {}
+    if (firstReg.get(r.project_id) === r.id && p) dates.dat_loc = vnDate(p.created_at)
+    if (r.registered_on) dates.dang_ky = r.registered_on
+    if (r.approved_on) dates.duoc_duyet = r.approved_on
+    if (t) dates.test = t
+    if (r.rejected_on) dates.dung = r.rejected_on
+    if (r.test_result === 'Lãi') dates.win = row?.order_days[row.order_days.length - 1] ?? t ?? r.approved_on ?? vnDate(r.created_at)
+    const id = `ws-${r.id}`
+    projects.push({
+      id,
+      name: p?.name ?? `Dự án #${r.project_id}`,
+      link: '',
+      model,
+      network: '',
+      niche: '',
+      geo: '',
+      stage: stageOf(r, !!t),
+      dates,
+      op_status: null,
+      ext_reason: extReason(r.id),
+      stop_reason: '',
+      note: '',
+      created_at: r.created_at,
+    })
+    if (row && row.source === 'ads-hub' && ah) {
+      const set = new Set(row.camps)
+      const by = new Map<string, VEntry>()
+      const get = (d: string) => {
+        if (!by.has(d)) by.set(d, { id: `${id}-${d}`, project_id: id, date: d, cost: 0, revenue: 0, received: 0, orders: 0, refs: 0, customers: 0, note: 'Ads-Hub' })
+        return by.get(d)!
+      }
+      for (const s of ah.spend) if (set.has(s.camp)) get(s.d).cost += Number(s.cost ?? 0)
+      for (const o of ah.orders) {
+        if (!o.camp || !set.has(o.camp) || o.status === 'denied') continue
+        const e = get(o.d)
+        e.revenue += Number(o.comm)
+        e.orders += Number(o.n)
+        if (o.status !== 'pending') e.received += Number(o.comm)
+      }
+      entries.push(...by.values())
+    } else if (row && t && row.cost > 0) {
+      entries.push({ id: `${id}-r`, project_id: id, date: t, cost: row.cost, revenue: 0, received: 0, orders: 0, refs: 0, customers: 0, note: 'Research' })
+    }
+  }
+  for (const p of ws.projects)
+    if (!firstReg.has(p.id))
+      projects.push({ id: `wsp-${p.id}`, name: p.name, link: '', model: modelOfType(p.type_code) ?? 'phys', network: '', niche: '', geo: '', stage: 'dat_loc', dates: { dat_loc: vnDate(p.created_at) }, op_status: null, ext_reason: '', stop_reason: '', note: '', created_at: p.created_at })
+  return { projects, entries }
+}
+/** Đếm cờ của Sổ dự án (đang test: dừng / cân nhắc / chờ dùng thử; mọi dự án: ứng viên / đủ scale). */
+export function flagSum(items: { r: Pick<LedgerRow, 'test_status'>; stop: Pick<StopCheck, 'level'>; win: Pick<WinCheck, 'candidate' | 'ready'> }[]): FlagSum {
+  const t = items.filter((x) => x.r.test_status === 'Đang Testing')
+  return {
+    stop: t.filter((x) => x.stop.level === 'stop').length,
+    consider: t.filter((x) => x.stop.level === 'consider').length,
+    trial: t.filter((x) => x.stop.level === 'trial').length,
+    candidate: items.filter((x) => x.win.candidate && !x.win.ready).length,
+    ready: items.filter((x) => x.win.ready).length,
+  }
+}
+
+/* ---------- Cờ của Sổ dự án, dùng chung cho màn Sổ dự án và OKR / Kaizen ---------- */
+export interface LinkRow {
+  id?: string
+  ws_reg_id?: number | null
+  ext_reason?: string
+  scale_check?: Record<string, boolean>
+}
+export interface LedgerItem<L extends LinkRow = LinkRow> {
+  r: LedgerRow
+  link: L | undefined
+  stop: StopCheck
+  win: WinCheck
+}
+/** % duyệt theo mô hình (đơn đã quá hạn payout của từng mô hình). */
+export function approvalByModel(ah: AhData, ws: Pick<WsData, 'projects' | 'regs'>, today: string, payout: Record<Model3, number>): Record<Model3, ApprovalStat> {
+  return Object.fromEntries(MODEL3.map((m) => [m, approvalStat(ah, ws, today, payout[m], m)])) as Record<Model3, ApprovalStat>
+}
+/** Gắn cờ dừng + cờ thắng cho từng dòng Sổ dự án. opts: trần mở rộng, tiền test dự phòng, ngưỡng dự phòng khi chưa đọc được Research / Ads-Hub. */
+export function ledgerItems<L extends LinkRow>(
+  rows: LedgerRow[],
+  links: L[],
+  th: Pick<SharedThresholds, 'usd_vnd' | 'max_test_usd' | 'click_rules' | 'roa' | 'winner_orders'>,
+  opts: { capMult: number; testCost: number; roa: number; winner: number },
+  ah: AhData | null,
+  appr: Record<Model3, ApprovalStat> | null,
+  today: string,
+): LedgerItem<L>[] {
+  return rows.map((r) => {
+    const link = links.find((p) => p.ws_reg_id === r.reg_id)
+    return {
+      r,
+      link,
+      stop: stopCheck(r, th, opts.capMult, !!link?.ext_reason?.trim(), today, opts.testCost),
+      win: winCheck(r, ah, r.model && appr ? appr[r.model].pct : null, th, (link?.scale_check ?? {}) as ScaleManual, today, { roa: opts.roa, winner: opts.winner }),
+    }
+  })
+}

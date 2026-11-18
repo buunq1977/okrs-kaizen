@@ -99,3 +99,48 @@ export function suggestCoeffs(mp: Measured, ms: Measured, set: { phys: PhysCoeff
     sug('research_per_test', round1(mp.research_per_test), mp.n_tests, BENCH.min_tests, set.research_per_test),
   ].filter((x): x is Suggest => x !== null && x.value > 0)
 }
+
+/* ---------- GĐ5: cảnh báo thêm cho Kaizen Tháng / Quý / Năm (số Research + Ads-Hub) ---------- */
+export interface ExtraIn {
+  testCost: number | null // tiền test TB đo được
+  nTests: number
+  maxTest: number | null // maxtest Research
+  approval: { pct: number | null; resolved: number } | null // % duyệt đã quá hạn payout (null = chưa đọc được Ads-Hub)
+  warnPct: number // ngưỡng cảnh báo % duyệt (Cài đặt, mặc định 70)
+  pendingComm: number // hoa hồng đang chờ duyệt (trong kỳ)
+  deniedComm: number // hoa hồng bị huỷ (trong kỳ)
+  seasonWarn: boolean
+  capitalShort: { month: string; need: number; avail: number } | null
+}
+export function extraFindings(x: ExtraIn): Finding[] {
+  const out: Finding[] = []
+  if (x.testCost !== null && x.maxTest && x.nTests >= BENCH.min_tests && x.testCost > x.maxTest * 1.05)
+    out.push({ key: 'cost-max', level: 'red', stage: 'Chi phí test', text: `Tiền test TB ${usd(x.testCost)} vượt maxtest ${usd(x.maxTest)}`, number: usd(x.testCost), action: 'Cắt camp đúng cờ "Nên dừng" ở Sổ dự án; chỉ mở rộng khi có lý do.' })
+  if (x.approval && x.approval.pct !== null && x.approval.pct < x.warnPct)
+    out.push({
+      key: 'appr-low',
+      level: 'yellow',
+      stage: 'Hoa hồng',
+      text: `% duyệt ${r(x.approval.pct)}% (đơn đã quá hạn payout) dưới ${x.warnPct}%`,
+      number: `${r(x.approval.pct)}%`,
+      action: 'Kiểm bộ lọc dự án ở Research: Payout Rate ≥ 70%, Trustpilot có phàn nàn không trả hoa hồng, danh sách loại trừ, 10 câu chính sách.',
+    })
+  if (x.approval && x.approval.pct === null)
+    out.push({ key: 'appr-wait', level: 'info', stage: 'Hoa hồng', text: `Chưa đủ đơn quá hạn payout để đo % duyệt (${x.approval.resolved}/5)`, number: `${x.approval.resolved}/5`, action: 'Chưa kết luận % duyệt; không dùng số cũ (15%) làm chuẩn.' })
+  if (x.pendingComm > 0)
+    out.push({ key: 'pending', level: 'info', stage: 'Hoa hồng', text: `${usd(x.pendingComm)} hoa hồng đang chờ duyệt`, number: usd(x.pendingComm), action: 'Tiền màn hình chưa phải tiền thật: không tính vào lợi nhuận và ngân sách tháng sau cho tới khi được duyệt.' })
+  if (x.deniedComm > 0)
+    out.push({ key: 'denied', level: 'yellow', stage: 'Hoa hồng', text: `${usd(x.deniedComm)} hoa hồng bị huỷ trong kỳ`, number: usd(x.deniedComm), action: 'Xem dự án / network nào huỷ nhiều ở Ads-Hub; loại khỏi danh sách test lại.' })
+  if (x.seasonWarn)
+    out.push({ key: 'season', level: 'yellow', stage: 'Mùa vụ', text: 'Tháng 11, 12, 1 vẫn để hệ số mùa vụ = 1', number: '1', action: 'Số đo trong mùa cao điểm sẽ cao hơn tháng 2–3: đặt hệ số mùa vụ ở bảng phân bổ trước khi "Dùng số đo".' })
+  if (x.capitalShort)
+    out.push({
+      key: 'capital',
+      level: 'yellow',
+      stage: 'Vốn',
+      text: `Vốn khả dụng ${usd(x.capitalShort.avail)} < vốn cần ${usd(x.capitalShort.need)} (tháng ${x.capitalShort.month.slice(5, 7)}/${x.capitalShort.month.slice(0, 4)})`,
+      number: usd(x.capitalShort.need - x.capitalShort.avail),
+      action: 'Nhập vốn ngoài theo tháng ở bảng phân bổ, hoặc giảm khối lượng / lùi mốc.',
+    })
+  return out
+}

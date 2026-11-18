@@ -1,4 +1,4 @@
-export type AffMetric = 'search' | 'chon' | 'dang_ky' | 'duyet' | 'test' | 'win' | 'profit'
+export type AffMetric = 'search' | 'chon' | 'dang_ky' | 'duyet' | 'test' | 'win' | 'profit' | 'scale_ready'
 /** Ô tick: S M A R T, cộng KRO (tiêu điểm: các KR đạt thì O đạt?) và NEXT (hành động: đưa được vào OKR kỳ tới). */
 export type Smart = Record<string, boolean | undefined>
 

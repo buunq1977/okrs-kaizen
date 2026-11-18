@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { ahTotals, approvalStat, buildLedger, campModels, firstTestDay, modelOfType, monthlyMoney, sharedThresholds, stopCheck, vnDate, winCheck, wsCounts, type AhData, type WsData } from './affSource'
+import { ahTotals, approvalStat, buildLedger, flagSum, researchProjects, campModels, firstTestDay, modelOfType, monthlyMoney, sharedThresholds, stopCheck, vnDate, winCheck, wsCounts, type AhData, type WsData } from './affSource'
 
 const ws: WsData = {
   settings: {
@@ -336,5 +336,43 @@ describe('tiền theo tháng từ Ads-Hub (cho cổng)', () => {
   it('lọc theo mô hình', () => {
     const p = monthlyMoney(ah, ws, 'saas')
     expect(p[0]).toEqual({ month: '2026-11-01', cost: 9, received: 15 })
+  })
+})
+
+describe('GĐ5: dựng dữ liệu OKR từ Research + Ads-Hub', () => {
+  const ledger = buildLedger(ws, ah)
+  const { projects, entries } = researchProjects(ws, ah, ledger, (id) => (id === 11 ? 'có đơn chờ' : ''))
+  it('mỗi đăng ký = 1 dự án, có ngày từng bước; "chọn" chỉ tính 1 lần cho mỗi dự án Research', () => {
+    const a = projects.find((p) => p.id === 'ws-11')!
+    expect(a.model).toBe('phys')
+    expect(a.stage).toBe('test')
+    expect(a.dates).toEqual({ dat_loc: '2026-11-10', dang_ky: '2026-11-10', duoc_duyet: '2026-11-11', test: '2026-11-12' })
+    expect(a.ext_reason).toBe('có đơn chờ')
+    const b = projects.find((p) => p.id === 'ws-12')!
+    expect(b.model).toBe('tools_ai')
+    expect(b.stage).toBe('dung') // Rejected
+    expect(b.dates.dung).toBe('2026-11-12')
+    expect(projects.filter((p) => p.dates.dat_loc).length).toBe(3)
+  })
+  it('entries theo ngày từ Ads-Hub: chi phí, hoa hồng chưa huỷ, hoa hồng đã nhận, số đơn', () => {
+    const e = entries.filter((x) => x.project_id === 'ws-11')
+    const d13 = e.find((x) => x.date === '2026-11-13')!
+    expect(d13.cost).toBe(2.25)
+    expect(d13.revenue).toBe(8) // 2 đơn chờ; đơn bị huỷ không tính
+    expect(d13.received).toBe(0)
+    expect(d13.orders).toBe(2)
+    const s = entries.filter((x) => x.project_id === 'ws-13')
+    expect(s.reduce((a, x) => a + x.received, 0)).toBe(15)
+  })
+  it('kết quả "Lãi" ở Research → Thắng, ngày thắng = ngày có đơn gần nhất', () => {
+    const ws2 = { ...ws, regs: ws.regs.map((r) => (r.id === 13 ? { ...r, test_result: 'Lãi' } : r)) }
+    const r = researchProjects(ws2, ah, buildLedger(ws2, ah))
+    const c = r.projects.find((p) => p.id === 'ws-13')!
+    expect(c.stage).toBe('win')
+    expect(c.dates.win).toBe('2026-11-14')
+  })
+  it('đếm cờ: dừng / cân nhắc / chờ dùng thử chỉ xét dự án đang test', () => {
+    const it = (ts: string, level: 'stop' | 'consider' | 'trial' | 'none', candidate = false, ready = false) => ({ r: { test_status: ts }, stop: { level }, win: { candidate, ready } })
+    expect(flagSum([it('Đang Testing', 'stop'), it('Đã Test', 'stop'), it('Đang Testing', 'trial'), it('Đã Test', 'none', true), it('Đang Testing', 'none', true, true)])).toEqual({ stop: 1, consider: 0, trial: 1, candidate: 1, ready: 1 })
   })
 })

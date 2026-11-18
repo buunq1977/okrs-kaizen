@@ -1,7 +1,7 @@
 /* Sổ dự án Affiliate: giai đoạn phễu, chỉ số theo bảng của Luca, cờ win/dừng, đếm, đo hệ số. Logic thuần. */
 import type { PhysCoeffs, SaasCoeffs } from './affiliate'
 
-export type Model = 'phys' | 'saas'
+export type Model = 'phys' | 'tools_ai' | 'saas'
 export type Stage = 'research' | 'dat_loc' | 'dang_ky' | 'duoc_duyet' | 'test' | 'win' | 'dung'
 export type OpStatus = 'scale' | 'duy_tri' | 'theo_doi' | 'dung'
 export interface AffProject {
@@ -49,7 +49,7 @@ export const STAGE_NAME: Record<Stage, string> = {
   win: 'Thắng',
   dung: 'Dừng',
 }
-export const MODEL_NAME: Record<Model, string> = { phys: 'Vật lý', saas: 'SaaS' }
+export const MODEL_NAME: Record<Model, string> = { phys: 'Vật lý', tools_ai: 'Tools AI', saas: 'SaaS' }
 export const OP_NAME: Record<OpStatus, string> = { scale: 'Scale', duy_tri: 'Duy trì', theo_doi: 'Theo dõi', dung: 'Dừng' }
 /** Màu theo bảng giải nghĩa của Luca: Scale xanh lá, Duy trì xanh dương, Theo dõi vàng, Dừng đỏ. */
 export const OP_COLOR: Record<OpStatus, string> = { scale: 'green', duy_tri: 'blue', theo_doi: 'yellow', dung: 'red' }

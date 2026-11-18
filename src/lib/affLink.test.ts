@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { AffConfig, AffMonth } from './affiliate'
-import { affTickChanges, dayShare, kpiTargets, metricSeries, metricSum, monthsIn, type AffData } from './affLink'
+import { affTickChanges, dayShare, gateFromData, kpiTargets, metricSeries, metricSum, monthActuals, monthsIn, type AffData } from './affLink'
 import type { AffProject } from './affProjects'
 
 const cfg: AffConfig = {
@@ -60,5 +60,63 @@ describe('tự tick KA', () => {
       { id: 'a', done: true, auto_ticked: true },
       { id: 'b', done: false, auto_ticked: false },
     ])
+  })
+})
+
+describe('GĐ5: KR tự đếm từ Research + Ads-Hub', () => {
+  const base: AffData = {
+    projects: [P('a', { dates: { test: '2026-11-05' } })],
+    tallies: [],
+    entries: [{ id: 'e', project_id: 'a', date: '2026-11-06', cost: 100, revenue: 200, received: 150, orders: 2, refs: 0, customers: 0, note: '' }],
+  }
+  it('lợi nhuận đã nhận trừ tiền nạp Ads gồm phí 5% + thuế 8% (×1,134)', () => {
+    expect(metricSum('profit', { ...base, costMult: 1.134 }, '2026-11-01', '2026-11-30')).toBeCloseTo(150 - 113.4)
+    expect(metricSum('profit', base, '2026-11-01', '2026-11-30')).toBe(50) // chưa có hệ số: như cũ
+  })
+  it('KR "Dự án đủ điều kiện scale" đếm theo cờ hiện tại', () => {
+    const d: AffData = { ...base, source: 'research', today: '2026-11-19', flags: { stop: 1, consider: 0, trial: 0, candidate: 2, ready: 1 } }
+    expect(metricSum('scale_ready', d, '2026-11-01', '2026-11-30')).toBe(1)
+    expect(metricSum('scale_ready', base, '2026-11-01', '2026-11-30')).toBe(0)
+  })
+  it('Cổng 0: chỉ tiêu theo nhịp 60 test/tháng, chưa đặt lợi nhuận và thắng', () => {
+    const rows = [row('2026-12-01'), row('2027-01-01'), row('2027-02-01')]
+    const m = kpiTargets('month', '2026-12-01', '2026-12-31', rows, cfg, '2026-12-01', {}, 60)
+    expect(m).toEqual({ search: 300, dang_ky: 120, test: 60, win: null, profit: null })
+    const q = kpiTargets('quarter', '2026-12-01', '2027-02-28', rows, cfg, '2026-12-01', {}, 60)
+    expect(q.test).toBe(180)
+    const w = kpiTargets('week', '2026-12-07', '2026-12-13', rows, cfg, '2026-12-07', {}, 60)
+    expect(w.test).toBe(14) // 60 × 12 ÷ 52 = 13,8 → 14
+    const days = Array.from({ length: 7 }, (_, i) => kpiTargets('day', `2026-12-${String(7 + i).padStart(2, '0')}`, `2026-12-${String(7 + i).padStart(2, '0')}`, rows, cfg, '2026-12-07', {}, 60).test)
+    expect(days.reduce((a, b) => a + b, 0)).toBe(14) // chia đủ tổng tuần
+  })
+  it('chưa có số Research (gate null) → chỉ tiêu theo mô hình như cũ', () => {
+    const rows = [row('2026-12-01')]
+    expect(gateFromData(null, cfg)).toBeNull()
+    expect(gateFromData({ ...base, source: 'manual' }, cfg)).toBeNull()
+    expect(kpiTargets('month', '2026-12-01', '2026-12-31', rows, cfg, '2026-12-01').test).toBe(17) // $200 ÷ $12
+  })
+  it('có số Research → cổng tính từ cờ + tiền theo tháng', () => {
+    const d: AffData = { ...base, source: 'research', today: '2026-11-19', flags: { stop: 0, consider: 0, trial: 0, candidate: 0, ready: 0 }, money: [] }
+    expect(gateFromData(d, cfg)!.gate).toBe(0)
+    expect(gateFromData({ ...d, flags: { ...d.flags!, ready: 1 } }, cfg)!.gate).toBe(1)
+  })
+})
+
+describe('bản chụp số thực tế khi chốt sổ tháng', () => {
+  it('đếm đủ các chỉ số của tháng + tiền Ads-Hub + cờ', () => {
+    const d: AffData = {
+      projects: [P('a', { dates: { dat_loc: '2026-11-02', dang_ky: '2026-11-03', duoc_duyet: '2026-11-04', test: '2026-11-05' } }), P('b', { dates: { test: '2026-12-01' } })],
+      tallies: [{ id: 't', date: '2026-11-02', kind: 'search', model: 'phys', count: 12 }],
+      entries: [{ id: 'e', project_id: 'a', date: '2026-11-06', cost: 100, revenue: 200, received: 150, orders: 2, refs: 0, customers: 0, note: '' }],
+      source: 'research',
+      costMult: 1.134,
+      money: [{ month: '2026-11-01', cost: 100, received: 150 }],
+      flags: { stop: 1, consider: 0, trial: 0, candidate: 0, ready: 0 },
+    }
+    const a = monthActuals(d, '2026-11-01', '2026-11-30', '2026-12-02T01:00:00Z')
+    expect(a.counts).toEqual({ search: 12, chon: 1, dang_ky: 1, duyet: 1, test: 1, win: 0, profit: 36.6 })
+    expect(a.money).toEqual({ cost: 100, received: 150 })
+    expect(a.source).toBe('research')
+    expect(a.flags!.stop).toBe(1)
   })
 })

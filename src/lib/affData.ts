@@ -1,20 +1,66 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { adCharges, coeffsOf, v2Of, type AffConfig } from './affiliate'
 import type { AffData } from './affLink'
 import type { AffEntry, AffProject, Tally } from './affProjects'
-import { sharedThresholds, type AhData, type SharedThresholds, type WsData, type WsProject, type WsReg, type WsRun, type WsSettings, type WsType } from './affSource'
+import { approvalByModel, buildLedger, flagSum, ledgerItems, monthlyMoney, researchProjects, sharedThresholds, type AhData, type SharedThresholds, type WsData, type WsProject, type WsReg, type WsRun, type WsSettings, type WsType } from './affSource'
 import { listAll } from './db'
-import { ahClient, wsClient } from './supabase'
+import { addDays, today as todayIso } from './dates'
+import { ahClient, supabase, wsClient } from './supabase'
 
-/** Tải dữ liệu Sổ dự án. Chưa chạy migration 009/010 thì trả rỗng (không chặn trang OKR). */
-export async function loadAffData(): Promise<AffData> {
+/** Tải dữ liệu cho OKR / Kaizen (KR tự đếm, nhịp, đo lường, chẩn đoán).
+ *  Đã kết nối Research → dựng từ Research + Ads-Hub (GĐ5); chưa kết nối → Sổ nhập tay cũ. Bộ nhớ đệm 60 giây để nhiều khối trên một trang không tải lặp. */
+let cache: { at: number; p: Promise<AffData> } | null = null
+export function loadAffData(force = false): Promise<AffData> {
+  if (!force && cache && Date.now() - cache.at < 60e3) return cache.p
+  const p = loadAffDataNow()
+  cache = { at: Date.now(), p }
+  p.catch(() => (cache = null))
+  return p
+}
+async function readCfg(): Promise<AffConfig[]> {
+  if (!supabase) return []
+  const { data } = await supabase.from('aff_config').select('*').maybeSingle()
+  return data ? [data as AffConfig] : []
+}
+async function loadAffDataNow(): Promise<AffData> {
   const safe = <T,>(p: Promise<T[]>) => p.catch(() => [] as T[])
-  const [projects, tallies, entries] = await Promise.all([
+  const [projects, tallies, entries, cfgs] = await Promise.all([
     safe(listAll<AffProject>('aff_projects')),
     safe(listAll<Tally>('aff_tallies', 'date')),
     safe(listAll<AffEntry>('aff_entries', 'date')),
+    readCfg().catch(() => [] as AffConfig[]),
   ])
+  const cfg = cfgs[0]
+  const v = v2Of(cfg ?? {})
+  const costMult = adCharges(1, v.fee_pct, v.tax_pct).mult
   // dòng nối Research (ws_reg_id) chỉ giữ checklist / lý do, không phải dự án nhập tay → không đếm
-  return { projects: projects.filter((p) => !p.ws_reg_id), tallies, entries }
+  const manual: AffData = { projects: projects.filter((p) => !p.ws_reg_id), tallies, entries, source: 'manual', costMult }
+  const ws = await loadWs().catch(() => null)
+  if (!ws?.data) return manual
+  const t0 = todayIso()
+  const ah = await loadAh(addDays(t0, -399), t0).catch(() => null)
+  const ahD = ah?.data ?? null
+  const th = sharedThresholds(ws.data, ahD)
+  const ledger = buildLedger(ws.data, ahD)
+  const base: AffConfig = cfg ?? ({ phys: {}, saas: {}, test_cap_mult: 2, win_min_orders: 3 } as unknown as AffConfig)
+  const co = coeffsOf({ coeffs: null }, base, { max_test_usd: th.max_test_usd })
+  const appr = ahD ? approvalByModel(ahD, ws.data, t0, { phys: co.phys.payout_days, tools_ai: co.tools.payout_days, saas: co.saas.payout_days }) : null
+  const links = projects.filter((p) => p.ws_reg_id)
+  const items = ledgerItems(ledger, links, th, { capMult: base.test_cap_mult ?? 2, testCost: co.phys.test_cost, roa: co.phys.roas, winner: base.win_min_orders ?? 3 }, ahD, appr, t0)
+  const r = researchProjects(ws.data, ahD, ledger, (id) => links.find((l) => l.ws_reg_id === id)?.ext_reason ?? '')
+  return {
+    projects: r.projects as unknown as AffProject[],
+    entries: r.entries as unknown as AffEntry[],
+    tallies,
+    source: 'research',
+    costMult,
+    flags: flagSum(items),
+    money: ahD ? monthlyMoney(ahD) : [],
+    appr,
+    ws: ws.data,
+    ah: ahD,
+    today: t0,
+  }
 }
 
 /* ---------- Nguồn số ngoài: Research + Ads-Hub (chỉ đọc) ---------- */

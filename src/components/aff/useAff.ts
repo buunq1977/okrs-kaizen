@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { anyLocked, coeffsOf, type AffConfig, type AffMonth, type Live, needsAutoLock, snapshotV2 } from '../../lib/affiliate'
-import { loadAh, loadThresholds, loadWs, type SrcResult } from '../../lib/affData'
+import { loadAffData, loadAh, loadThresholds, loadWs, type SrcResult } from '../../lib/affData'
+import { monthActuals } from '../../lib/affLink'
 import type { AffProject } from '../../lib/affProjects'
-import { approvalStat, buildLedger, MODEL3, stopCheck, winCheck, type AhData, type ApprovalStat, type LedgerRow, type Model3, type ScaleManual, type SharedThresholds, type StopCheck, type WinCheck, type WsData } from '../../lib/affSource'
+import { approvalByModel, buildLedger, ledgerItems, type AhData, type ApprovalStat, type LedgerItem, type Model3, type SharedThresholds, type WsData } from '../../lib/affSource'
 import { useApp } from '../../lib/ctx'
 import { errMsg, getAffConfig, insertMany, listAll, saveAffConfig, update } from '../../lib/db'
-import { addDays, today } from '../../lib/dates'
+import { addDays, addMonths, monthEnd, today } from '../../lib/dates'
 
 /** Tải cấu hình + bảng phân bổ Affiliate + ngưỡng dùng chung (Research/Ads-Hub); tự chốt tháng đã qua cửa sổ sửa.
  *  Chốt tháng lưu bản chụp mô hình v2 (hệ số, phí, thuế, ngưỡng Research/Ads-Hub). */
@@ -27,6 +28,7 @@ export function useAff() {
         const locked_at = new Date().toISOString()
         await update('aff_months', m.id, { coeffs, locked_at })
         Object.assign(m, { coeffs, locked_at })
+        await closePrev(ms, m.month)
       }
       setCfg(c)
       setMonths(ms)
@@ -66,9 +68,10 @@ export function useAff() {
     async (m: AffMonth) => {
       if (!cfg) return
       await patchMonth(m.id, { coeffs: snapshotV2(cfg, th ?? {}), locked_at: new Date().toISOString() })
+      await closePrev(months, m.month, (id, actuals) => setMonths((xs) => xs.map((x) => (x.id === id ? { ...x, actuals } : x))))
       toast(`Đã chốt kế hoạch Affiliate tháng ${m.month.slice(5, 7)}/${m.month.slice(0, 4)}`)
     },
-    [cfg, th, patchMonth, toast],
+    [cfg, th, months, patchMonth, toast],
   )
   const saveCfg = useCallback(
     async (c: AffConfig) => {
@@ -86,18 +89,28 @@ export function useAff() {
   return { cfg, months, err, reload: load, patchMonth, addMonths, lockMonth, saveCfg, th, live, anyLocked: anyLocked(months) }
 }
 
+/** Chốt kế hoạch tháng M = chốt sổ tháng M−1: lưu số thực tế của tháng M−1 (chưa có bản chụp thì mới lưu). */
+async function closePrev(ms: AffMonth[], month: string, onSaved?: (id: string, a: Record<string, unknown>) => void) {
+  const prev = ms.find((x) => x.month === addMonths(month, -1))
+  if (!prev || prev.actuals) return
+  try {
+    const d = await loadAffData(true)
+    const a = monthActuals(d, prev.month, monthEnd(prev.month), new Date().toISOString()) as unknown as Record<string, unknown>
+    await update('aff_months', prev.id, { actuals: a })
+    prev.actuals = a
+    onSaved?.(prev.id, a)
+  } catch {
+    // không chặn việc chốt tháng nếu chưa đọc được số
+  }
+}
+
 /* ---------- Sổ dự án: Research + Ads-Hub ---------- */
 export interface Links {
   rows: AffProject[]
   add: (row: Record<string, unknown>) => Promise<AffProject | null>
   patch: (id: string, part: Partial<AffProject>) => Promise<void> | void
 }
-export interface Item {
-  r: LedgerRow
-  link: AffProject | undefined
-  stop: StopCheck
-  win: WinCheck
-}
+export type Item = LedgerItem<AffProject>
 export interface Ledger {
   ws: SrcResult<WsData> | null
   ah: SrcResult<AhData> | null
@@ -132,17 +145,9 @@ export function useLedger(links: Links): Ledger {
   if (!cfg || !wsD) return { ws, ah, items: [], appr: null, cfg, th: aff.th, live: aff.live }
   const co = coeffsOf({ coeffs: null }, cfg, aff.live)
   const payout: Record<Model3, number> = { phys: co.phys.payout_days, tools_ai: co.tools.payout_days, saas: co.saas.payout_days }
-  const appr = ahD ? (Object.fromEntries(MODEL3.map((m) => [m, approvalStat(ahD, wsD, t0, payout[m], m)])) as Record<Model3, ApprovalStat>) : null
+  const appr = ahD ? approvalByModel(ahD, wsD, t0, payout) : null
   const thr = aff.th ?? { usd_vnd: null, max_test_usd: null, roa: null, winner_orders: null, click_rules: [] }
-  const items: Item[] = rows.map((r) => {
-    const link = links.rows.find((p) => p.ws_reg_id === r.reg_id)
-    return {
-      r,
-      link,
-      stop: stopCheck(r, thr, cfg.test_cap_mult, !!link?.ext_reason?.trim(), t0, co.phys.test_cost),
-      win: winCheck(r, ahD, r.model && appr ? appr[r.model].pct : null, thr, (link?.scale_check ?? {}) as ScaleManual, t0, { roa: co.phys.roas, winner: cfg.win_min_orders ?? 3 }),
-    }
-  })
+  const items: Item[] = ledgerItems(rows, links.rows, thr, { capMult: cfg.test_cap_mult, testCost: co.phys.test_cost, roa: co.phys.roas, winner: cfg.win_min_orders ?? 3 }, ahD, appr, t0)
   return { ws, ah, items, appr, cfg, th: aff.th, live: aff.live }
 }
 export const testing = (x: Item) => x.r.test_status === 'Đang Testing'
