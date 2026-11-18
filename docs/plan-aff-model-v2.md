@@ -98,7 +98,7 @@
 
 | # | Chốt |
 |---|---|
-| D0 | O năm có **3 mức: $16.000 / $50.000 / $120.000** (ý nghĩa từng mức: hỏi lại ở GĐ4; schema lưu dạng danh sách mức) |
+| D0 | O năm 2027 có **3 mức: tối thiểu $16.000 / mục tiêu $50.000 / vươn tới $120.000** (chốt 19/11). Mức tối thiểu là cam kết, dùng để tính kế hoạch; dải O năm báo đang đạt mức nào |
 | D1 | Vốn ngoài 0 cho tới khi anh nhập |
 | D2 | 60 test/tháng từ 12/2026 |
 | D3 | **SaaS và Tools AI** tắt cho tới Cổng 2 |

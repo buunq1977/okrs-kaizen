@@ -41,7 +41,7 @@ export interface AffConfig {
   saas: Partial<SaasCoeffs>
   /* Migration 013 (v2). Tuỳ chọn: thiếu thì dùng V2_DEFAULT. */
   tools?: Partial<SaasCoeffs> // hệ số Tools AI
-  goal_levels?: number[] // 3 mức O năm ($/tháng)
+  goal_levels?: number[] // O năm 2027: [tối thiểu, mục tiêu, vươn tới] ($/tháng); mức tối thiểu = year_goal dùng tính kế hoạch
   fee_pct?: number
   tax_pct?: number
   tax_base?: 'profit' | 'received' // không dùng nữa: thuế tính trên chi phí nạp + phí (Luca chốt 18/11)
@@ -109,6 +109,17 @@ export const V2_DEFAULT = {
   gate2_profit: 2000,
   saas_unlock_gate: 2,
   approval_warn_pct: 70,
+}
+/** Tên 3 mức O năm (Luca chốt 19/11/2026: cùng năm 2027). Mức tối thiểu là cam kết, dùng để tính kế hoạch. */
+export const GOAL_LEVEL_NAMES = ['Tối thiểu', 'Mục tiêu', 'Vươn tới'] as const
+/** Mức cao nhất mà lợi nhuận dự kiến đạt được: -1 = chưa đạt tối thiểu, 0 = tối thiểu, 1 = mục tiêu, 2 = vươn tới. */
+export function goalLevelReached(net: number | null, levels: number[]): number {
+  if (net === null) return -1
+  let r = -1
+  levels.forEach((x, i) => {
+    if (net >= x) r = i
+  })
+  return r
 }
 /** Tham số v2 của cấu hình (thiếu thì lấy mặc định). */
 export const v2Of = (c: Partial<AffConfig>) => ({

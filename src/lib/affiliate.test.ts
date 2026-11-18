@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   ceilCount, dayLabel, winsLabel,
   analyze, configEditable, defaultProfit, defaultShare, monthEditable, monthsOfLevel, needsAutoLock, nextBudget, planRows, simulate, targetsFor,
-  adCharges, anyLocked, deseason, gateOf, kickoffBudget, profitAfterFees, sampleNeeds, suggestDouble, realRoas, rowEditable, seasonWarn, selfFundProfit, snapshotV2,
+  adCharges, anyLocked, deseason, gateOf, GOAL_LEVEL_NAMES, goalLevelReached, kickoffBudget, profitAfterFees, sampleNeeds, suggestDouble, realRoas, rowEditable, seasonWarn, selfFundProfit, snapshotV2,
   type AffConfig, type AffMonth,
 } from './affiliate'
 
@@ -332,5 +332,17 @@ describe('khoá đầu kỳ sau khi mở lại (migration 014)', () => {
     // tháng chốt v2 dùng bản chụp, không đổi khi maxtest đổi
     const m = row('2026-12-01', { budget_test: 200, coeffs: s, locked_at: 'x' })
     expect(simulate([m], cfg, '2026-12-01', 1, { max_test_usd: 20 })[0].testsP).toBeCloseTo(20)
+  })
+})
+
+describe('3 mức O năm 2027: tối thiểu / mục tiêu / vươn tới', () => {
+  const L = [16000, 50000, 120000]
+  it('mức cao nhất đạt được', () => {
+    expect(GOAL_LEVEL_NAMES).toEqual(['Tối thiểu', 'Mục tiêu', 'Vươn tới'])
+    expect(goalLevelReached(920, L)).toBe(-1)
+    expect(goalLevelReached(16000, L)).toBe(0)
+    expect(goalLevelReached(60000, L)).toBe(1)
+    expect(goalLevelReached(130000, L)).toBe(2)
+    expect(goalLevelReached(null, L)).toBe(-1)
   })
 })

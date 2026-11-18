@@ -1,7 +1,7 @@
 import { Fragment, useMemo } from 'react'
 import {
   analyze, ceilCount, coeffsOf, dayLabel, winsLabel, monthOf, monthsOfLevel, nextBudget, PHYS_FIELDS, planRows, quarterNo, SAAS_FIELDS, TOOLS_FIELDS, targetsFor,
-  defaultProfit, gateOf, kickoffBudget, profitAfterFees, rowEditable, sampleNeeds, selfFundProfit, suggestDouble, v2Of,
+  defaultProfit, gateOf, GOAL_LEVEL_NAMES, goalLevelReached, kickoffBudget, profitAfterFees, rowEditable, sampleNeeds, selfFundProfit, suggestDouble, v2Of,
   type AffConfig, type AffMonth, type Live, type SimMonth, type Targets,
 } from '../../lib/affiliate'
 import { totals, type AffEntry, type AffProject } from '../../lib/affProjects'
@@ -45,7 +45,8 @@ export default function AffiliatePlan() {
   const recv = profitAfterFees(tm, cfg)
   const extraNext = nextRow?.extra_capital ?? 0
   const missing = planRows(cfg, t0).filter((r) => !months.some((m) => m.month === r.month))
-  const goalOk = a.goalNet !== null && a.goalNet >= cfg.year_goal
+  const reached = goalLevelReached(a.goalNet, v2.goal_levels)
+  const goalOk = reached >= 0 // kế hoạch tính theo mức tối thiểu (cam kết)
   const mult = Math.max(1, a.xNeed ?? 1)
   const goalYear = cfg.goal_month.slice(0, 4)
   const g = a.goal
@@ -80,15 +81,15 @@ export default function AffiliatePlan() {
     <div className="stack">
       <div className={'band ' + (goalOk ? 'green' : 'red')}>
         <div className="band-t">
-          <small>O năm · lợi nhuận ròng sau ads, phí, thuế · 3 mức</small>
+          <small>O năm · lợi nhuận ròng sau ads, phí, thuế · vào tháng {mLabel(cfg.goal_month)}</small>
           <b>
-            {v2.goal_levels.map((x) => usd(x)).join(' / ')}/tháng vào tháng {mLabel(cfg.goal_month)}
+            {GOAL_LEVEL_NAMES.map((n, i) => `${n} ${usd(v2.goal_levels[i])}`).join(' · ')}
           </b>
         </div>
         <div className="band-p">
-          <small>Dự kiến theo kế hoạch (mức 1)</small>
+          <small>Dự kiến theo kế hoạch</small>
           <b>{usd(a.goalNet)}</b>
-          <span>{goalOk ? 'Đủ mục tiêu mức 1' : 'Chưa đủ: xem gợi ý ngân sách bên dưới'}</span>
+          <span>{reached < 0 ? 'Chưa đạt mức tối thiểu: xem gợi ý ngân sách bên dưới' : `Đạt mức ${GOAL_LEVEL_NAMES[reached].toLowerCase()}`}</span>
         </div>
       </div>
       <p className="note">

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { adCharges, coeffsOf, configEditable, deseason, PHYS_FIELDS, SAAS_FIELDS, TOOLS_FIELDS, v2Of, type AffConfig } from '../../lib/affiliate'
+import { adCharges, coeffsOf, GOAL_LEVEL_NAMES, configEditable, deseason, PHYS_FIELDS, SAAS_FIELDS, TOOLS_FIELDS, v2Of, type AffConfig } from '../../lib/affiliate'
 import { loadAffData, loadAh, loadWs, SRC, srcEmail, srcSignIn, srcSignOut, type SrcKey, type SrcResult } from '../../lib/affData'
 import { ahTotals, MODEL3, MODEL3_NAME, sharedThresholds, wsCounts, type AhData, type AhTotals, type Model3, type WsData } from '../../lib/affSource'
 import { supabase } from '../../lib/supabase'
@@ -87,9 +87,9 @@ export default function AffSettings() {
 
       <b>Mục tiêu</b>
       <div className="grid3">
-        {['Mức 1', 'Mức 2', 'Mức 3'].map((l, i) => (
+        {GOAL_LEVEL_NAMES.map((l, i) => (
           <label className="fld" key={l}>
-            <span>O năm {l.toLowerCase()} · lợi nhuận ròng ($/tháng){i === 0 ? ' · dùng để tính kế hoạch' : ''}</span>
+            <span>O năm · {l} · lợi nhuận ròng ($/tháng){i === 0 ? ' · cam kết, dùng để tính kế hoạch' : ''}</span>
             <input type="number" min={0} disabled={!ed} value={levels[i] ?? 0} onChange={(e) => setLevel(i, Number(e.target.value))} />
           </label>
         ))}
