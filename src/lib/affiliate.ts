@@ -37,6 +37,20 @@ export interface AffConfig {
   win_min_orders: number
   phys: Partial<PhysCoeffs>
   saas: Partial<SaasCoeffs>
+  /* Thêm ở migration 013 (plan v2). Tuỳ chọn để dữ liệu cũ vẫn chạy; logic dùng từ GĐ2. */
+  tools?: Partial<SaasCoeffs> // hệ số Tools AI
+  goal_levels?: number[] // 3 mức O năm ($/tháng)
+  fee_pct?: number
+  tax_pct?: number
+  tax_base?: 'profit' | 'received'
+  fixed_cost_month?: number
+  bridge_pct?: number
+  reserve_pct?: number
+  kickoff_tests_month?: number
+  gate1_profit?: number
+  gate2_profit?: number
+  saas_unlock_gate?: number
+  approval_warn_pct?: number
 }
 export interface AffMonth {
   id: string
@@ -48,6 +62,9 @@ export interface AffMonth {
   coeffs: { phys: PhysCoeffs; saas: SaasCoeffs } | null
   locked_at: string | null
   note: string
+  share_tools?: number // 013: % Tools AI; SaaS = 100 − Vật lý − Tools AI
+  extra_capital?: number // 013: vốn ngoài của tháng
+  actuals?: Record<string, unknown> | null // 013: bản chụp số thực tế khi chốt
 }
 
 export type Src = 'nguồn' | 'tính' | 'giả định' | 'của anh'

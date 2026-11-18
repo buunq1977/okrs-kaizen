@@ -39,8 +39,17 @@ Chạy lần lượt trong **SQL Editor** (mỗi file chạy một lần):
 10. `supabase/migrations/010_aff_search_tally.sql`
 11. `supabase/migrations/011_aff_okr_link.sql`
 12. `supabase/migrations/012_okr_lock_morning.sql`
+13. `supabase/migrations/013_aff_model_rework.sql`
 
 GitHub Secrets cần có: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`.
+
+### Nguồn số Affiliate: Research + Ads-Hub (chỉ đọc)
+
+OKR đọc số đầu vào từ app Research (repo `workspace`) và kết quả từ app Ads-Hub (repo `ads-hub`). Cần thêm:
+
+- Supabase của Research chạy `workspace/supabase/09_reg_dates.sql`; Supabase của Ads-Hub chạy `ads-hub/supabase/12_okr_read.sql`.
+- GitHub Secrets của repo này: `VITE_WS_URL`, `VITE_WS_KEY` (URL + anon key Supabase của Research), `VITE_ADSHUB_URL`, `VITE_ADSHUB_KEY` (của Ads-Hub). Thiếu thì app vẫn chạy, khối "Kết nối nguồn số" báo chưa cấu hình.
+- Email đăng nhập phải có trong `ws_users` (Research) và `dash_users` (Ads-Hub). Đăng nhập ở **Cài đặt → Kết nối nguồn số**.
 
 Sao lưu tự động: xem `backup-template/README.md`.
 

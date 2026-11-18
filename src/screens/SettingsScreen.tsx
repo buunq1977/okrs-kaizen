@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react'
-import AffSettings from '../components/aff/AffSettings'
+import AffSettings, { AffSources } from '../components/aff/AffSettings'
 import { Sec } from '../components/ui'
 import { useApp } from '../lib/ctx'
 import { errMsg, exportAll, saveSettings } from '../lib/db'
@@ -106,6 +106,7 @@ export default function SettingsScreen() {
       </Sec>
 
       <AffSettings />
+      <AffSources />
 
       <Sec title="Trang Ngày">
         <Row label="Số KR tối thiểu" unit="KR">{num('day_min_kr', 1, 6)}</Row>

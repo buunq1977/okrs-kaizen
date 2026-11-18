@@ -1,6 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { configEditable, PHYS_FIELDS, physOf, SAAS_FIELDS, saasOf, type AffConfig } from '../../lib/affiliate'
-import { loadAffData } from '../../lib/affData'
+import { loadAffData, loadAh, loadWs, SRC, srcEmail, srcSignIn, srcSignOut, type SrcKey, type SrcResult } from '../../lib/affData'
+import { ahTotals, MODEL3, MODEL3_NAME, sharedThresholds, wsCounts, type AhData, type AhTotals, type Model3, type WsData } from '../../lib/affSource'
+import { supabase } from '../../lib/supabase'
 import { suggestCoeffs } from '../../lib/affDiag'
 import type { AffData } from '../../lib/affLink'
 import { measure } from '../../lib/affProjects'
@@ -186,5 +188,279 @@ export default function AffSettings() {
         {dirty && <span className="flag">Có thay đổi chưa lưu</span>}
       </div>
     </Sec>
+  )
+}
+
+/* ---------- Kết nối nguồn số: Research + Ads-Hub (chỉ đọc) ---------- */
+const R = { textAlign: 'right' as const }
+const usd2 = (n: number) => '$' + n.toLocaleString('vi-VN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+
+/** Đăng nhập Research / Ads-Hub, xem ngưỡng dùng chung và số tháng này đọc được. OKR không ghi gì sang hai app. */
+export function AffSources() {
+  const t0 = today()
+  const from = t0.slice(0, 8) + '01'
+  const [email, setEmail] = useState<Record<SrcKey, string | null>>({ ws: null, ah: null })
+  const [form, setForm] = useState<{ k: SrcKey; email: string; pw: string } | null>(null)
+  const [ws, setWs] = useState<SrcResult<WsData> | null>(null)
+  const [ah, setAh] = useState<SrcResult<AhData> | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [msg, setMsg] = useState('')
+  const [readAt, setReadAt] = useState('')
+
+  const read = useCallback(async () => {
+    setBusy(true)
+    const [ew, ea] = await Promise.all([srcEmail('ws'), srcEmail('ah')])
+    setEmail({ ws: ew, ah: ea })
+    const [w, a] = await Promise.all([loadWs(), loadAh(from, t0)])
+    setWs(w)
+    setAh(a)
+    setReadAt(new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }))
+    setBusy(false)
+  }, [from, t0])
+  useEffect(() => {
+    read()
+  }, [read])
+
+  const openForm = async (k: SrcKey) => {
+    const okr = (await supabase?.auth.getSession())?.data.session?.user.email ?? ''
+    setMsg('')
+    setForm({ k, email: okr, pw: '' })
+  }
+  const signIn = async () => {
+    if (!form) return
+    setBusy(true)
+    try {
+      await srcSignIn(form.k, form.email, form.pw)
+      setForm(null)
+      await read()
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : String(e))
+      setBusy(false)
+    }
+  }
+  const signOut = async (k: SrcKey) => {
+    await srcSignOut(k)
+    await read()
+  }
+
+  const th = sharedThresholds(ws?.data ?? null, ah?.data ?? null)
+  const statusOf = (k: SrcKey, r: SrcResult<unknown> | null) => {
+    if (!SRC[k].client) return <span className="flag">Chưa cấu hình (thiếu biến môi trường của {SRC[k].name})</span>
+    if (!email[k]) return <span className="flag">Chưa đăng nhập</span>
+    if (r?.error) return <span className="flag">{r.error}</span>
+    if (r?.needSql)
+      return (
+        <span className="flag">
+          Đã kết nối {email[k]} · {SRC[k].name} chưa chạy <code>{SRC[k].sql}</code>
+        </span>
+      )
+    return <span>✅ Đã kết nối · {email[k]}</span>
+  }
+  const COUNT_ROWS = [
+    ['Dự án mới vào Research', 'chon'],
+    ['Đăng ký', 'dang_ky'],
+    ['Được duyệt link', 'duyet'],
+    ['Bị từ chối', 'tu_choi'],
+    ['Lên camp test', 'test'],
+  ] as const
+  const MONEY_ROWS: [string, (t: AhTotals) => string][] = [
+    ['Chi phí ads', (t) => usd2(t.cost)],
+    ['Click', (t) => fmtNum(t.clicks)],
+    ['Hoa hồng chờ duyệt', (t) => `${usd2(t.comm.pending)} · ${t.orders.pending} đơn`],
+    ['Hoa hồng đã duyệt + đã trả', (t) => `${usd2(t.comm.approved + t.comm.paid)} · ${t.orders.approved + t.orders.paid} đơn`],
+    ['Hoa hồng bị huỷ', (t) => `${usd2(t.comm.denied)} · ${t.orders.denied} đơn`],
+  ]
+  const cols: (Model3 | undefined)[] = [...MODEL3, undefined]
+
+  return (
+    <Sec title="Kết nối nguồn số: Research + Ads-Hub" hint="Chỉ đọc">
+      <p className="note">
+        Research cho số đầu vào (dự án, đăng ký, duyệt link, lên camp test) và ngưỡng dùng chung (tỷ giá, maxtest, ROA, Click/Sale). Ads-Hub cho kết quả (chi phí, click, hoa hồng theo trạng thái). OKR chỉ đọc, không ghi sang hai app. Mỗi app đăng nhập một lần, trình duyệt nhớ phiên.
+      </p>
+      <div className="tbl">
+        <table className="ktable">
+          <tbody>
+            {(['ws', 'ah'] as SrcKey[]).map((k) => (
+              <tr key={k}>
+                <td>
+                  <b>{SRC[k].name}</b>
+                </td>
+                <td>{statusOf(k, k === 'ws' ? ws : ah)}</td>
+                <td className="n">
+                  {SRC[k].client &&
+                    (email[k] ? (
+                      <button className="btn mini" disabled={busy} onClick={() => signOut(k)}>
+                        Đăng xuất
+                      </button>
+                    ) : (
+                      <button className="btn mini" disabled={busy} onClick={() => openForm(k)}>
+                        Đăng nhập
+                      </button>
+                    ))}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {form && (
+        <div className="aff-q">
+          <b>Đăng nhập {SRC[form.k].name}</b>
+          <div className="grid2">
+            <label className="fld">
+              <span>Email</span>
+              <input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+            </label>
+            <label className="fld">
+              <span>Mật khẩu {SRC[form.k].name}</span>
+              <input type="password" value={form.pw} onChange={(e) => setForm({ ...form, pw: e.target.value })} onKeyDown={(e) => e.key === 'Enter' && signIn()} />
+            </label>
+          </div>
+          <div className="savebar">
+            <button className="btn primary" disabled={busy || !form.email || !form.pw} onClick={signIn}>
+              Đăng nhập
+            </button>
+            <button className="btn" onClick={() => setForm(null)}>
+              Huỷ
+            </button>
+            {msg && <span className="flag">{msg}</span>}
+          </div>
+        </div>
+      )}
+
+      <b>Ngưỡng dùng chung đang có hiệu lực</b>
+      <div className="tbl">
+        <table className="ktable">
+          <tbody>
+            <tr>
+              <td>Tỷ giá USD/VND</td>
+              <td className="n">{th.usd_vnd != null ? fmtNum(th.usd_vnd) : '—'}</td>
+              <td>Research · Cài đặt tính toán</td>
+            </tr>
+            <tr>
+              <td>maxtest ($ test tối đa 1 dự án)</td>
+              <td className="n">{th.max_test_usd != null ? usd2(th.max_test_usd) : '—'}</td>
+              <td>Research · Cài đặt tính toán</td>
+            </tr>
+            <tr>
+              <td>ROA Hòa / Lãi / Lãi tốt</td>
+              <td className="n">{th.roa ? th.roa.map(fmtNum).join(' / ') : '—'}</td>
+              <td>Research · Cài đặt tính toán</td>
+            </tr>
+            <tr>
+              <td>Winner khi ≥ N đơn</td>
+              <td className="n">{th.winner_orders ?? '—'}</td>
+              <td>Ads-Hub · Cài đặt</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      {th.click_rules.length > 0 && (
+        <div className="tbl">
+          <table className="ktable">
+            <thead>
+              <tr>
+                <th>Loại dự án</th>
+                <th style={R}>Bậc CPC (đ)</th>
+                <th style={R}>Click / Sale: CPC thấp · giữa · cao</th>
+              </tr>
+            </thead>
+            <tbody>
+              {th.click_rules.map((r) => (
+                <tr key={r.code}>
+                  <td>{r.name}</td>
+                  <td className="n">
+                    {fmtNum(r.tier_low_vnd)} / {fmtNum(r.tier_high_vnd)}
+                  </td>
+                  <td className="n">
+                    {r.clicks_low} · {r.clicks_mid} · {r.clicks_high}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {(ws?.data || ah?.data) && (
+        <>
+          <b>
+            Đọc thử tháng {from.slice(5, 7)}/{from.slice(0, 4)} (từ ngày 1 đến hôm nay)
+          </b>
+          <div className="tbl">
+            <table className="ktable">
+              <thead>
+                <tr>
+                  <th />
+                  {MODEL3.map((m) => (
+                    <th key={m} style={R}>
+                      {MODEL3_NAME[m]}
+                    </th>
+                  ))}
+                  <th style={R}>Tổng</th>
+                </tr>
+              </thead>
+              <tbody>
+                {ws?.data &&
+                  COUNT_ROWS.map(([label, key]) => (
+                    <tr key={key}>
+                      <td>{label}</td>
+                      {cols.map((m) => {
+                        const v = wsCounts(ws.data!, from, t0, m)[key]
+                        return (
+                          <td key={m ?? 'all'} className="n">
+                            {v === null ? '—' : v}
+                          </td>
+                        )
+                      })}
+                    </tr>
+                  ))}
+                {ah?.data &&
+                  MONEY_ROWS.map(([label, f]) => (
+                    <tr key={label}>
+                      <td>{label}</td>
+                      {cols.map((m) => (
+                        <td key={m ?? 'all'} className="n">
+                          {f(ahTotals(ah.data!, ws?.data ?? null, from, t0, m))}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+              </tbody>
+            </table>
+          </div>
+          {ws?.data && !ws.data.hasDates && (
+            <p className="flag">
+              Research chưa có ngày đăng ký / duyệt link / từ chối: chạy <code>{SRC.ws.sql}</code> trong Supabase của Research.
+            </p>
+          )}
+          {ah?.data && <AhWarn t={ahTotals(ah.data, ws?.data ?? null, from, t0)} hasWs={!!ws?.data} />}
+        </>
+      )}
+      <div className="savebar">
+        <button className="btn" disabled={busy} onClick={read}>
+          {busy ? 'Đang đọc…' : 'Đọc lại'}
+        </button>
+        {readAt && <span className="note">Đọc lúc {readAt}</span>}
+      </div>
+    </Sec>
+  )
+}
+
+function AhWarn({ t, hasWs }: { t: AhTotals; hasWs: boolean }) {
+  const out: string[] = []
+  if (t.unmatchedOrders > 0) out.push(`${t.unmatchedOrders} đơn (${usd2(t.unmatchedComm)}) chưa ghép được camp ở Ads-Hub: chỉ tính vào Tổng, không vào mô hình nào.`)
+  if (hasWs && t.unknownCampCost > 0) out.push(`${usd2(t.unknownCampCost)} chi phí của camp chưa ghép được dự án ở Research (link affiliate chưa khớp đăng ký nào): chỉ tính vào Tổng.`)
+  if (!hasWs) out.push('Chưa đọc được Research nên chưa tách được theo mô hình: chỉ cột Tổng có số.')
+  if (t.noRateCost > 0) out.push(`${t.noRateCost} dòng chi phí chưa quy ra USD (Ads-Hub thiếu tỷ giá của tài khoản).`)
+  if (!out.length) return null
+  return (
+    <>
+      {out.map((s) => (
+        <p key={s} className="flag">
+          {s}
+        </p>
+      ))}
+    </>
   )
 }

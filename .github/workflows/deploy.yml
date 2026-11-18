@@ -29,6 +29,10 @@ jobs:
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          VITE_WS_URL: ${{ secrets.VITE_WS_URL }}
+          VITE_WS_KEY: ${{ secrets.VITE_WS_KEY }}
+          VITE_ADSHUB_URL: ${{ secrets.VITE_ADSHUB_URL }}
+          VITE_ADSHUB_KEY: ${{ secrets.VITE_ADSHUB_KEY }}
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
