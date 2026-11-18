@@ -1,95 +1,31 @@
-import { Fragment, useEffect, useMemo, useState } from 'react'
+import { Fragment, useState } from 'react'
 import { coeffsOf, v2Of } from '../../lib/affiliate'
-import { loadAh, loadWs, type SrcResult } from '../../lib/affData'
 import type { AffProject } from '../../lib/affProjects'
-import {
-  approvalStat, buildLedger, liveOrders, MODEL3, MODEL3_NAME, receivedComm, SCALE_MANUAL, stopCheck, winCheck,
-  type AhData, type ApprovalStat, type LedgerRow, type Model3, type ScaleManual, type StopCheck, type WinCheck, type WsData,
-} from '../../lib/affSource'
-import { addDays, fmtDM, today } from '../../lib/dates'
+import { liveOrders, MODEL3, MODEL3_NAME, SCALE_MANUAL, type ScaleManual } from '../../lib/affSource'
+import { fmtDM } from '../../lib/dates'
 import { fmtNum } from '../../lib/pace'
 import { Sec, Txt } from '../ui'
-import { useAff } from './useAff'
+import { needsAction, testing, type Item, type Ledger, type Links } from './useAff'
 
 const usd = (n: number | null) => (n === null || !Number.isFinite(n) ? '–' : '$' + n.toLocaleString('vi-VN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }))
 const x2 = (n: number | null) => (n === null ? '–' : (Math.round(n * 100) / 100).toLocaleString('vi-VN'))
-const pct = (n: number | null) => (n === null ? 'chưa đủ dữ liệu' : Math.round(n) + '%')
 
-interface Links {
-  rows: AffProject[]
-  add: (row: Record<string, unknown>) => Promise<AffProject | null>
-  patch: (id: string, part: Partial<AffProject>) => Promise<void> | void
-}
-interface Item {
-  r: LedgerRow
-  link: AffProject | undefined
-  stop: StopCheck
-  win: WinCheck
-}
-
-/** Sổ dự án GĐ3: dự án đã lên camp ở Research + số Ads-Hub. Chỉ đọc hai app; lý do mở rộng và checklist scale lưu ở OKR. */
-export default function AffLedger({ links }: { links: Links }) {
-  const aff = useAff()
-  const t0 = today()
-  const [ws, setWs] = useState<SrcResult<WsData> | null>(null)
-  const [ah, setAh] = useState<SrcResult<AhData> | null>(null)
-  const [model, setModel] = useState<'all' | Model3>('all')
-  const [only, setOnly] = useState<'testing' | 'all'>('testing')
+/** Danh sách việc cần xử lý từ Research + Ads-Hub. Số chi tiết (chi phí, click, đơn từng camp) xem ở Ads-Hub. */
+export default function AffLedger({ led, links }: { led: Ledger; links: Links }) {
   const [open, setOpen] = useState<number | null>(null)
-  useEffect(() => {
-    let alive = true
-    Promise.all([loadWs(), loadAh(addDays(t0, -399), t0)]).then(([w, a]) => {
-      if (!alive) return
-      setWs(w)
-      setAh(a)
-    })
-    return () => {
-      alive = false
-    }
-  }, [t0])
-
-  const cfg = aff.cfg
-  const th = aff.th
-  const wsD = ws?.data ?? null
-  const ahD = ah?.data ?? null
-  const rows = useMemo(() => (wsD ? buildLedger(wsD, ahD) : []), [wsD, ahD])
-  if (!cfg || !ws) return <Sec title="Dự án từ Research + Ads-Hub"><p className="note">Đang đọc Research và Ads-Hub…</p></Sec>
-  if (!wsD)
+  const { ws, ah, items, appr, cfg, th } = led
+  if (!cfg || !ws) return <Sec title="Cần xử lý"><p className="note">Đang đọc Research và Ads-Hub…</p></Sec>
+  if (!ws.data)
     return (
-      <Sec title="Dự án từ Research + Ads-Hub">
-        <p className="flag">{ws.error ?? 'Chưa đọc được Research.'} Đăng nhập ở Cài đặt → Kết nối nguồn số. Trong lúc chờ, Sổ dự án nhập tay bên dưới vẫn dùng được.</p>
+      <Sec title="Cần xử lý">
+        <p className="flag">{ws.error ?? 'Chưa đọc được Research.'} Đăng nhập ở Cài đặt → Kết nối nguồn số.</p>
       </Sec>
     )
-
   const v2 = v2Of(cfg)
-  const co = coeffsOf({ coeffs: null }, cfg, aff.live)
-  const payout: Record<Model3, number> = { phys: co.phys.payout_days, tools_ai: co.tools.payout_days, saas: co.saas.payout_days }
-  const appr: Record<Model3, ApprovalStat> | null = ahD
-    ? (Object.fromEntries(MODEL3.map((m) => [m, approvalStat(ahD, wsD, t0, payout[m], m)])) as Record<Model3, ApprovalStat>)
-    : null
-  const thr = th ?? { usd_vnd: null, max_test_usd: null, roa: null, winner_orders: null, click_rules: [] }
-  const items: Item[] = rows.map((r) => {
-    const link = links.rows.find((p) => p.ws_reg_id === r.reg_id)
-    const ext = !!link?.ext_reason?.trim()
-    return {
-      r,
-      link,
-      stop: stopCheck(r, thr, cfg.test_cap_mult, ext, t0, co.phys.test_cost),
-      win: winCheck(r, ahD, r.model && appr ? appr[r.model].pct : null, thr, (link?.scale_check ?? {}) as ScaleManual, t0, { roa: co.phys.roas, winner: cfg.win_min_orders ?? 3 }),
-    }
-  })
-  const shown = items
-    .filter((x) => model === 'all' || x.r.model === model)
-    .filter((x) => only === 'all' || x.r.test_status === 'Đang Testing')
-    .sort((a, b) => rank(b) - rank(a) || (b.r.first_test ?? '').localeCompare(a.r.first_test ?? ''))
-  // đếm theo đúng bộ lọc đang chọn; cờ dừng chỉ xét dự án Đang Testing
-  const count = (f: (x: Item) => boolean) => shown.filter(f).length
-  const testing = (x: Item) => x.r.test_status === 'Đang Testing'
-  const nStop = count((x) => testing(x) && x.stop.level === 'stop')
-  const nConsider = count((x) => testing(x) && x.stop.level === 'consider')
-  const nTrial = count((x) => testing(x) && x.stop.level === 'trial')
-  const nCand = count((x) => x.win.candidate && !x.win.ready)
-  const nReady = count((x) => x.win.ready)
+  const co = coeffsOf({ coeffs: null }, cfg, led.live)
+  const shown = items.filter(needsAction).sort((a, b) => rank(b) - rank(a) || (b.r.first_test ?? '').localeCompare(a.r.first_test ?? ''))
+  const nTesting = items.filter(testing).length
+  const lowAppr = appr ? MODEL3.filter((m) => appr[m].pct !== null && appr[m].pct! < v2.approval_warn_pct) : []
 
   async function save(it: Item, part: Partial<AffProject>) {
     if (it.link) await links.patch(it.link.id, part)
@@ -97,94 +33,41 @@ export default function AffLedger({ links }: { links: Links }) {
   }
 
   return (
-    <Sec title={`Dự án từ Research + Ads-Hub (${items.length})`} hint="Chỉ đọc: trạng thái test sửa ở Research; chi phí, click, đơn lấy từ Ads-Hub">
-      {!ahD && <p className="flag">{ah?.needSql ? 'Ads-Hub chưa chạy file 12_okr_read.sql.' : (ah?.error ?? 'Chưa đọc được Ads-Hub.')} Đang dùng chi phí, click của lần test ở Research; chưa có đơn hàng.</p>}
-      {!th?.max_test_usd && <p className="flag">Chưa đọc được maxtest ở Research: trần tiền test tạm dùng {usd(co.phys.test_cost)}.</p>}
-
-      <div className="badges">
-        {nStop > 0 && <span className="badge red">🔴 {nStop} nên dừng</span>}
-        {nConsider > 0 && <span className="badge yellow">🟡 {nConsider} cân nhắc dừng</span>}
-        {nTrial > 0 && <span className="badge">⏳ {nTrial} chờ dùng thử</span>}
-        {nCand > 0 && <span className="badge green">🟢 {nCand} ứng viên thắng</span>}
-        {nReady > 0 && <span className="badge green">✅ {nReady} đủ điều kiện scale</span>}
-        {!nStop && !nConsider && !nTrial && !nCand && !nReady && <span className="note">Chưa có cờ nào.</span>}
-      </div>
-
+    <Sec title={`Cần xử lý (${shown.length})`} hint={`${nTesting} dự án đang test ở Research · số chi tiết xem ở Ads-Hub`}>
+      {!ah?.data && <p className="flag">{ah?.needSql ? 'Ads-Hub chưa chạy file 12_okr_read.sql.' : (ah?.error ?? 'Chưa đọc được Ads-Hub.')} Đang dùng chi phí, click của lần test ở Research; chưa có đơn hàng.</p>}
       {appr && (
-        <div className="tbl">
-          <table className="ktable">
-            <thead>
-              <tr>
-                <th>% duyệt hoa hồng (đơn đã quá hạn payout)</th>
-                {MODEL3.map((m) => (
-                  <th key={m} style={{ textAlign: 'right' }}>
-                    {MODEL3_NAME[m]}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td>Đã duyệt ÷ (đã duyệt + bị huỷ)</td>
-                {MODEL3.map((m) => (
-                  <td key={m} className={'n ' + (appr[m].pct !== null && appr[m].pct! < v2.approval_warn_pct ? 'neg' : '')}>
-                    {pct(appr[m].pct)} <small>· {appr[m].resolved} đơn</small>
-                  </td>
-                ))}
-              </tr>
-              <tr>
-                <td>Đang chờ duyệt</td>
-                {MODEL3.map((m) => (
-                  <td key={m} className="n">
-                    {appr[m].pending_n} đơn · {usd(appr[m].pending_comm)}
-                  </td>
-                ))}
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      )}
-      {appr && MODEL3.some((m) => appr[m].pct !== null && appr[m].pct! < v2.approval_warn_pct) && (
-        <p className="flag">
-          % duyệt dưới {v2.approval_warn_pct}%: kiểm lại bộ lọc dự án trước khi test thêm: Payout Rate ≥ 70% (UpPromote), Trustpilot có phàn nàn không trả hoa hồng, danh sách dự án loại trừ, 10 câu hỏi chính sách.
+        <p className="note">
+          % duyệt hoa hồng (đơn đã quá hạn payout):{' '}
+          {MODEL3.map((m, i) => (
+            <span key={m} className={appr[m].pct !== null && appr[m].pct! < v2.approval_warn_pct ? 'neg' : ''}>
+              {i > 0 && ' · '}
+              {MODEL3_NAME[m]} {appr[m].pct === null ? 'chưa đủ dữ liệu' : Math.round(appr[m].pct!) + '%'}
+            </span>
+          ))}
+          {MODEL3.some((m) => appr[m].pending_n > 0) && ` · đang chờ duyệt ${MODEL3.reduce((s, m) => s + appr[m].pending_n, 0)} đơn`}
         </p>
       )}
-      <p className="note">
-        % duyệt chỉ tính đơn đã quá hạn payout (Vật lý {payout.phys} ngày, Tools AI {payout.tools_ai}, SaaS {payout.saas}) và cần ≥ 5 đơn có kết quả; đơn đang chờ tính riêng.
-      </p>
-
-      <div className="badges">
-        {(['all', ...MODEL3] as const).map((m) => (
-          <button key={m} className="chip" aria-pressed={model === m} onClick={() => setModel(m)}>
-            {m === 'all' ? 'Tất cả mô hình' : MODEL3_NAME[m]}
-          </button>
-        ))}
-        <button className="chip" aria-pressed={only === 'testing'} onClick={() => setOnly(only === 'testing' ? 'all' : 'testing')}>
-          Chỉ dự án Đang Testing
-        </button>
-      </div>
-
+      {lowAppr.length > 0 && (
+        <p className="flag">
+          % duyệt dưới {v2.approval_warn_pct}% ({lowAppr.map((m) => MODEL3_NAME[m]).join(', ')}): kiểm lại bộ lọc dự án ở Research: Payout Rate ≥ 70%, Trustpilot có phàn nàn không trả hoa hồng, danh sách loại trừ, 10 câu chính sách.
+        </p>
+      )}
       {!shown.length ? (
-        <p className="note">Chưa có dự án nào {only === 'testing' ? 'đang test' : 'đã lên camp'} ở Research.</p>
+        <p className="note">Không có dự án nào cần xử lý: chưa dự án nào chạm ngưỡng dừng hay đạt ứng viên thắng.</p>
       ) : (
         <div className="tbl">
           <table className="ktable">
             <thead>
               <tr>
                 <th>Dự án</th>
-                <th>Research</th>
-                <th style={{ textAlign: 'right' }}>Chi phí</th>
-                <th style={{ textAlign: 'right' }}>Click · CPC</th>
-                <th style={{ textAlign: 'right' }}>Đơn chờ / duyệt / huỷ</th>
-                <th style={{ textAlign: 'right' }}>HH đã duyệt</th>
-                <th style={{ textAlign: 'right' }}>ROAS thực nhận</th>
                 <th>Cờ</th>
+                <th>Vì sao</th>
               </tr>
             </thead>
             <tbody>
               {shown.map((it) => (
                 <Fragment key={it.r.reg_id}>
-                  <tr className={open === it.r.reg_id ? "open" : ""}>
+                  <tr className={open === it.r.reg_id ? 'open' : ''}>
                     <td>
                       <button className="linkbtn" onClick={() => setOpen(open === it.r.reg_id ? null : it.r.reg_id)}>
                         <b>{it.r.name}</b>
@@ -192,30 +75,16 @@ export default function AffLedger({ links }: { links: Links }) {
                       <small className="sub">
                         {it.r.model ? MODEL3_NAME[it.r.model] : 'Chưa rõ loại'}
                         {it.r.first_test && ` · test từ ${fmtDM(it.r.first_test)}`}
-                        {it.r.source === 'research' && ' · số từ Research'}
                       </small>
                     </td>
                     <td>
-                      {it.r.test_status}
-                      {it.r.test_result && it.r.test_result !== it.r.test_status && <small className="sub">{it.r.test_result}</small>}
-                    </td>
-                    <td className="n">{usd(it.r.cost)}</td>
-                    <td className="n">
-                      {fmtNum(it.r.clicks)}
-                      <small className="sub">{it.stop.cpc_vnd !== null ? fmtNum(Math.round(it.stop.cpc_vnd)) + 'đ' : '–'}</small>
-                    </td>
-                    <td className="n">
-                      {it.r.orders.pending} / {it.r.orders.approved + it.r.orders.paid} / {it.r.orders.denied}
-                    </td>
-                    <td className="n">{usd(receivedComm(it.r))}</td>
-                    <td className="n">{x2(it.win.roas_real)}</td>
-                    <td>
                       <Flags it={it} />
                     </td>
+                    <td>{why(it)}</td>
                   </tr>
                   {open === it.r.reg_id && (
                     <tr className="detail">
-                      <td colSpan={8}>
+                      <td colSpan={3}>
                         <Detail it={it} capMult={cfg.test_cap_mult} roaMin={th?.roa?.[0] ?? co.phys.roas} winN={th?.winner_orders ?? cfg.win_min_orders ?? 3} save={(p) => save(it, p)} />
                       </td>
                     </tr>
@@ -228,6 +97,18 @@ export default function AffLedger({ links }: { links: Links }) {
       )}
     </Sec>
   )
+}
+
+/** Một dòng lý do ngắn cho cờ. */
+function why(it: Item): string {
+  const { r, stop, win } = it
+  const base = `${usd(r.cost)} · ${fmtNum(r.clicks)} click`
+  if (win.ready) return `${win.conv30} đơn/30 ngày · ROAS thực nhận ${x2(win.roas_real)}`
+  if (win.candidate) return `${win.orders} đơn · ROAS dự kiến ${x2(win.roas_expected)} · bấm tên xem checklist scale`
+  if (stop.level === 'trial') return `${base} · 0 đơn · còn ${stop.trial_left} ngày dùng thử`
+  if (stop.level === 'stop') return `${base} · 0 đơn · chạm trần ${usd(stop.cap)}`
+  if (stop.level === 'consider') return `${base} · 0 đơn · đủ ${stop.cps} click/sale`
+  return base
 }
 
 const rank = (x: Item) => (x.win.ready ? 6 : x.win.candidate ? 5 : x.stop.level === 'stop' ? 4 : x.stop.level === 'consider' ? 3 : x.stop.level === 'trial' ? 2 : 1)
