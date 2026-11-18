@@ -13,7 +13,8 @@ export async function loadAffData(): Promise<AffData> {
     safe(listAll<Tally>('aff_tallies', 'date')),
     safe(listAll<AffEntry>('aff_entries', 'date')),
   ])
-  return { projects, tallies, entries }
+  // dòng nối Research (ws_reg_id) chỉ giữ checklist / lý do, không phải dự án nhập tay → không đếm
+  return { projects: projects.filter((p) => !p.ws_reg_id), tallies, entries }
 }
 
 /* ---------- Nguồn số ngoài: Research + Ads-Hub (chỉ đọc) ---------- */
@@ -66,7 +67,7 @@ export async function loadWs(): Promise<SrcResult<WsData>> {
     const member = await c.rpc('is_ws_user')
     if (member.error) throw member.error
     if (member.data !== true) return { data: null, error: 'Email này chưa có trong danh sách người dùng Research (ws_users).', needSql: false }
-    const regBase = 'id, project_id, ref_key, reg_status, test_status, created_at'
+    const regBase = 'id, project_id, ref_key, reg_status, test_status, test_result, created_at'
     let hasDates = true
     let regs: WsReg[]
     try {

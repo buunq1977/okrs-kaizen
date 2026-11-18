@@ -46,6 +46,7 @@ export interface WsReg {
   ref_key: string | null
   reg_status: RegStatus | string
   test_status: string
+  test_result?: string | null
   created_at: string
   registered_on?: string | null
   approved_on?: string | null
@@ -250,5 +251,243 @@ export function sharedThresholds(ws: Pick<WsData, 'settings' | 'types'> | null, 
         clicks_mid: Number(clicks_mid),
         clicks_high: Number(clicks_high),
       })),
+  }
+}
+
+/* =====================================================================================================
+   Sổ dự án GĐ3: mỗi đăng ký Research đã lên camp = 1 dòng, số liệu từ Ads-Hub (ghép theo ref_key).
+   ===================================================================================================== */
+const addDaysIso = (d: string, n: number) => {
+  const x = new Date(d + 'T00:00:00Z')
+  x.setUTCDate(x.getUTCDate() + n)
+  return x.toISOString().slice(0, 10)
+}
+const daysBetweenIso = (a: string, b: string) => Math.round((Date.parse(b + 'T00:00:00Z') - Date.parse(a + 'T00:00:00Z')) / 86400e3)
+
+export interface LedgerRow {
+  reg_id: number
+  project_id: number
+  name: string
+  model: Model3 | null
+  type_code: string | null
+  trial_days: number | null
+  ref_key: string | null
+  reg_status: string
+  test_status: string
+  test_result: string | null
+  first_test: string | null // ngày lên camp test đầu tiên (Research)
+  camps: string[]
+  source: 'ads-hub' | 'research' // số lấy từ Ads-Hub (ghép được camp) hay từ lần test ở Research
+  cost: number
+  clicks: number
+  last_click: string | null // ngày gần nhất có click
+  orders: Record<OrderStatus, number>
+  comm: Record<OrderStatus, number>
+  order_days: string[] // các ngày có đơn (không tính đơn bị huỷ), tăng dần
+}
+/** Dựng Sổ dự án từ Research (đăng ký đã lên camp, hoặc có chi phí ở Ads-Hub) + Ads-Hub. */
+export function buildLedger(ws: WsData, ah: AhData | null): LedgerRow[] {
+  const pById = new Map(ws.projects.map((p) => [p.id, p]))
+  const first = firstTestDay(ws.runs)
+  const runsBy = new Map<number, WsRun[]>()
+  for (const r of ws.runs) runsBy.set(r.registration_id, [...(runsBy.get(r.registration_id) ?? []), r])
+  const campsByRef = new Map<string, string[]>()
+  for (const c of ah?.camps ?? []) if (c.ref_key) campsByRef.set(c.ref_key, [...(campsByRef.get(c.ref_key) ?? []), c.camp])
+  const out: LedgerRow[] = []
+  const seenRef = new Set<string>()
+  for (const r of ws.regs) {
+    const camps = r.ref_key && !seenRef.has(r.ref_key) ? (campsByRef.get(r.ref_key) ?? []) : []
+    if (r.ref_key) seenRef.add(r.ref_key)
+    if (!first.get(r.id) && !camps.length) continue
+    const p = pById.get(r.project_id)
+    const row: LedgerRow = {
+      reg_id: r.id,
+      project_id: r.project_id,
+      name: p?.name ?? `Dự án #${r.project_id}`,
+      model: modelOfType(p?.type_code),
+      type_code: p?.type_code ?? null,
+      trial_days: p?.trial_days ?? null,
+      ref_key: r.ref_key,
+      reg_status: String(r.reg_status),
+      test_status: r.test_status,
+      test_result: r.test_result ?? null,
+      first_test: first.get(r.id) ?? null,
+      camps,
+      source: camps.length ? 'ads-hub' : 'research',
+      cost: 0,
+      clicks: 0,
+      last_click: null,
+      orders: { pending: 0, approved: 0, paid: 0, denied: 0 },
+      comm: { pending: 0, approved: 0, paid: 0, denied: 0 },
+      order_days: [],
+    }
+    if (camps.length && ah) {
+      const set = new Set(camps)
+      const days = new Set<string>()
+      for (const s of ah.spend) {
+        if (!set.has(s.camp)) continue
+        row.cost += Number(s.cost ?? 0)
+        row.clicks += Number(s.clicks)
+        if (Number(s.clicks) > 0 && (!row.last_click || s.d > row.last_click)) row.last_click = s.d
+      }
+      for (const o of ah.orders) {
+        if (!o.camp || !set.has(o.camp)) continue
+        row.orders[o.status] += Number(o.n)
+        row.comm[o.status] += Number(o.comm)
+        if (o.status !== 'denied' && Number(o.n) > 0) days.add(o.d)
+      }
+      row.order_days = [...days].sort()
+    } else {
+      for (const x of runsBy.get(r.id) ?? []) {
+        row.cost += Number(x.cost_usd ?? 0)
+        row.clicks += Number(x.clicks ?? 0)
+      }
+    }
+    row.cost = Math.round(row.cost * 100) / 100
+    out.push(row)
+  }
+  return out
+}
+export const liveOrders = (r: Pick<LedgerRow, 'orders'>) => r.orders.pending + r.orders.approved + r.orders.paid
+export const receivedComm = (r: Pick<LedgerRow, 'comm'>) => r.comm.approved + r.comm.paid
+
+/* ---------- Cờ dừng theo click (luật Research) ---------- */
+export type StopLevel = 'none' | 'consider' | 'stop' | 'trial' | 'has_orders'
+export interface StopCheck {
+  level: StopLevel
+  cpc_usd: number | null
+  cpc_vnd: number | null
+  cps: number | null // click cho 1 sale theo bậc CPC (bảng Loại dự án & Click/Sale của Research)
+  max_clicks: number | null // maxtest ÷ CPC
+  cap: number // trần tiền test = maxtest × (trần mở rộng nếu có lý do)
+  trial_left: number | null // SaaS/Tools AI: còn bao nhiêu ngày chờ dùng thử
+  by_money: boolean // chưa có click → chỉ xét theo tiền
+}
+/** Luật dừng giống Research: click/sale theo bậc CPC, không vượt maxtest ÷ CPC.
+ *  0 đơn mà đủ click/sale → "cân nhắc dừng"; tiêu chạm trần (maxtest, ×2 khi có lý do mở rộng) → "nên dừng".
+ *  SaaS / Tools AI: còn trong cửa sổ dùng thử (tính từ ngày có click gần nhất, mặc định 14 ngày) thì "chờ dùng thử", không báo dừng. */
+export function stopCheck(
+  r: Pick<LedgerRow, 'cost' | 'clicks' | 'type_code' | 'model' | 'trial_days' | 'last_click' | 'orders'>,
+  th: Pick<SharedThresholds, 'usd_vnd' | 'max_test_usd' | 'click_rules'>,
+  capMult: number,
+  extended: boolean,
+  today: string,
+  fallbackTestCost = 10,
+): StopCheck {
+  const maxTest = th.max_test_usd ?? fallbackTestCost
+  const cap = maxTest * (extended ? capMult : 1)
+  const cpcUsd = r.clicks > 0 && r.cost > 0 ? r.cost / r.clicks : null
+  const cpcVnd = cpcUsd !== null && th.usd_vnd ? cpcUsd * th.usd_vnd : null
+  const rule = th.click_rules.find((t) => t.code === r.type_code)
+  const cps = rule && cpcVnd !== null ? (cpcVnd < rule.tier_low_vnd ? rule.clicks_low : cpcVnd <= rule.tier_high_vnd ? rule.clicks_mid : rule.clicks_high) : null
+  const maxClicks = cpcUsd ? Math.round(maxTest / cpcUsd) : null
+  const base = { cpc_usd: cpcUsd, cpc_vnd: cpcVnd, cps, max_clicks: maxClicks, cap, trial_left: null, by_money: cpcUsd === null }
+  if (liveOrders(r) > 0) return { ...base, level: 'has_orders' }
+  const level: StopLevel = r.cost >= cap - 1e-9 ? 'stop' : cps !== null && r.clicks >= cps ? 'consider' : 'none'
+  if (level !== 'none' && (r.model === 'saas' || r.model === 'tools_ai') && r.last_click) {
+    const left = (r.trial_days && r.trial_days > 0 ? r.trial_days : 14) - daysBetweenIso(r.last_click, today)
+    if (left > 0) return { ...base, level: 'trial', trial_left: left }
+  }
+  return { ...base, level }
+}
+
+/* ---------- % duyệt hoa hồng đo được (B8) ---------- */
+export interface ApprovalStat {
+  pct: number | null // đã duyệt ÷ (đã duyệt + bị huỷ), chỉ đơn đã quá hạn payout; null = chưa đủ dữ liệu
+  resolved: number // số đơn đã quá hạn payout và có kết quả (duyệt/trả/huỷ)
+  pending_n: number // đơn đang chờ duyệt (mọi thời điểm)
+  pending_comm: number
+}
+export const MIN_RESOLVED = 5
+/** Chỉ tính đơn đã quá hạn payout (Vật lý 30 ngày, SaaS / Tools AI 45 ngày), bỏ phần chờ duyệt. */
+export function approvalStat(ah: AhData, ws: Pick<WsData, 'projects' | 'regs'> | null, today: string, payoutDays: number, model?: Model3): ApprovalStat {
+  const cm = campModels(ah, ws)
+  const cutoff = addDaysIso(today, -payoutDays)
+  let ok = 0
+  let bad = 0
+  let nOk = 0
+  let nBad = 0
+  let pn = 0
+  let pc = 0
+  for (const o of ah.orders) {
+    if (model && (!o.camp || cm.get(o.camp) !== model)) continue
+    if (o.status === 'pending') {
+      pn += Number(o.n)
+      pc += Number(o.comm)
+      continue
+    }
+    if (o.d > cutoff) continue
+    if (o.status === 'denied') {
+      bad += Number(o.comm)
+      nBad += Number(o.n)
+    } else {
+      ok += Number(o.comm)
+      nOk += Number(o.n)
+    }
+  }
+  const resolved = nOk + nBad
+  return { pct: resolved >= MIN_RESOLVED && ok + bad > 0 ? (ok / (ok + bad)) * 100 : null, resolved, pending_n: pn, pending_comm: Math.round(pc * 100) / 100 }
+}
+
+/* ---------- Hai cờ thắng + checklist đủ điều kiện scale (B4) ---------- */
+export interface ScaleManual {
+  qs7?: boolean // Quality Score ≥ 7
+  is40?: boolean // Impression Share ≤ 40%
+  lostis30?: boolean // Lost IS do ngân sách ≥ 30%
+  cap3?: boolean // cap offer ≥ 3 lần mức scale
+}
+export const SCALE_MANUAL: { k: keyof ScaleManual; label: string }[] = [
+  { k: 'qs7', label: 'Quality Score ≥ 7' },
+  { k: 'is40', label: 'Impression Share ≤ 40% (còn chỗ để tăng)' },
+  { k: 'lostis30', label: 'Lost IS do ngân sách ≥ 30%' },
+  { k: 'cap3', label: 'Cap của offer ≥ 3 lần mức muốn scale' },
+]
+export interface WinCheck {
+  candidate: boolean // ứng viên thắng: ≥ N đơn và ROAS thực nhận dự kiến ≥ ngưỡng
+  orders: number // đơn không bị huỷ
+  roas_expected: number | null // (đã duyệt + chờ × % duyệt) ÷ chi phí
+  roas_real: number | null // đã duyệt ÷ chi phí
+  conv30: number // đơn (không huỷ) trong 30 ngày gần nhất
+  steady_days: number // số ngày có đơn trong 14 ngày gần nhất
+  auto: { conv30: boolean; roas: boolean; steady: boolean }
+  manual_ok: boolean
+  ready: boolean // đủ điều kiện scale
+  low_volume: boolean // < 20 chuyển đổi / 30 ngày: đừng scale dù đang lãi
+}
+export function winCheck(
+  r: Pick<LedgerRow, 'cost' | 'orders' | 'comm' | 'order_days' | 'camps'>,
+  ah: AhData | null,
+  approvalPct: number | null,
+  th: Pick<SharedThresholds, 'roa' | 'winner_orders'>,
+  manual: ScaleManual,
+  today: string,
+  fallback = { roa: 1.5, winner: 3 },
+): WinCheck {
+  const roaMin = th.roa?.[0] ?? fallback.roa
+  const winN = th.winner_orders ?? fallback.winner
+  const orders = liveOrders(r)
+  const got = receivedComm(r)
+  const expected = got + r.comm.pending * ((approvalPct ?? 100) / 100)
+  const roasExp = r.cost > 0 ? expected / r.cost : null
+  const roasReal = r.cost > 0 ? got / r.cost : null
+  const from30 = addDaysIso(today, -29)
+  const from14 = addDaysIso(today, -13)
+  const set = new Set(r.camps)
+  let conv30 = 0
+  for (const o of ah?.orders ?? []) if (o.camp && set.has(o.camp) && o.status !== 'denied' && o.d >= from30 && o.d <= today) conv30 += Number(o.n)
+  const steady = r.order_days.filter((d) => d >= from14 && d <= today).length
+  const auto = { conv30: conv30 >= 30, roas: roasReal !== null && roasReal >= roaMin, steady: steady >= 7 }
+  const manualOk = SCALE_MANUAL.every((m) => !!manual[m.k])
+  return {
+    candidate: orders >= winN && roasExp !== null && roasExp >= roaMin,
+    orders,
+    roas_expected: roasExp,
+    roas_real: roasReal,
+    conv30,
+    steady_days: steady,
+    auto,
+    manual_ok: manualOk,
+    ready: auto.conv30 && auto.roas && auto.steady && manualOk,
+    low_volume: conv30 < 20,
   }
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { ahTotals, campModels, firstTestDay, modelOfType, sharedThresholds, vnDate, wsCounts, type AhData, type WsData } from './affSource'
+import { ahTotals, approvalStat, buildLedger, campModels, firstTestDay, modelOfType, sharedThresholds, stopCheck, vnDate, winCheck, wsCounts, type AhData, type WsData } from './affSource'
 
 const ws: WsData = {
   settings: {
@@ -238,5 +238,89 @@ describe('nguồn Research + Ads-Hub', () => {
     expect(t.winner_orders).toBe(3)
     expect(t.click_rules.map((r) => r.code)).toEqual(['vat_ly'])
     expect(sharedThresholds(null, null).usd_vnd).toBeNull()
+  })
+})
+
+describe('Sổ dự án GĐ3: Research + Ads-Hub', () => {
+  const th = sharedThresholds(ws, ah)
+  const R = 25726
+  const at = (vnd: number, clicks: number) => ({ cost: (vnd / R) * clicks, clicks })
+  const base = { type_code: 'vat_ly', model: 'phys' as const, trial_days: null, last_click: '2026-11-17', orders: { pending: 0, approved: 0, paid: 0, denied: 0 } }
+
+  it('dựng dòng từ đăng ký đã lên camp, số lấy từ Ads-Hub theo ref_key', () => {
+    const rows = buildLedger(ws, ah)
+    const den = rows.find((r) => r.reg_id === 11)!
+    expect(den.source).toBe('ads-hub')
+    expect(den.camps).toEqual(['c1'])
+    expect(den.cost).toBe(105.75) // gồm cả chi phí ngày 01/12
+    expect(den.orders.pending).toBe(2)
+    expect(den.orders.denied).toBe(1)
+    expect(den.order_days).toEqual(['2026-11-13'])
+    expect(den.last_click).toBe('2026-12-01')
+    expect(rows.find((r) => r.reg_id === 12)).toBeUndefined() // bị từ chối, chưa test
+  })
+  it('chưa ghép được camp → dùng chi phí, click của lần test ở Research', () => {
+    const rows = buildLedger(ws, { ...ah, camps: [] })
+    const den = rows.find((r) => r.reg_id === 11)!
+    expect(den.source).toBe('research')
+    expect(den.cost).toBe(7)
+    expect(den.clicks).toBe(40)
+  })
+  it('Vật lý CPC 4.000đ, 0 đơn: 49 click chưa cờ, 50 click cân nhắc dừng, chạm maxtest nên dừng', () => {
+    expect(stopCheck({ ...base, ...at(4000, 49) }, th, 2, false, '2026-11-18').level).toBe('none')
+    const c = stopCheck({ ...base, ...at(4000, 50) }, th, 2, false, '2026-11-18')
+    expect(c.level).toBe('consider')
+    expect(c.cps).toBe(50)
+    expect(c.max_clicks).toBe(64) // $10 ÷ CPC
+    expect(stopCheck({ ...base, ...at(4000, 65) }, th, 2, false, '2026-11-18').level).toBe('stop')
+  })
+  it('CPC 8.000đ → bậc giữa 30 click; có lý do mở rộng thì trần ×2', () => {
+    expect(stopCheck({ ...base, ...at(8000, 30) }, th, 2, false, '2026-11-18').level).toBe('consider')
+    const x = stopCheck({ ...base, cost: 12, clicks: 38 }, th, 2, true, '2026-11-18')
+    expect(x.cap).toBe(20)
+    expect(x.level).toBe('consider')
+  })
+  it('có đơn thì không báo dừng', () => {
+    expect(stopCheck({ ...base, cost: 30, clicks: 200, orders: { pending: 1, approved: 0, paid: 0, denied: 0 } }, th, 2, false, '2026-11-18').level).toBe('has_orders')
+  })
+  it('SaaS $40, 0 đơn, còn trong cửa sổ dùng thử → chờ dùng thử, không báo dừng', () => {
+    const s = stopCheck({ ...base, type_code: 'saas', model: 'saas', trial_days: 14, cost: 40, clicks: 150, last_click: '2026-11-15' }, th, 2, false, '2026-11-18')
+    expect(s.level).toBe('trial')
+    expect(s.trial_left).toBe(11)
+    expect(stopCheck({ ...base, type_code: 'saas', model: 'saas', trial_days: 14, cost: 40, clicks: 150, last_click: '2026-11-01' }, th, 2, false, '2026-11-18').level).toBe('stop')
+  })
+  it('đợt cũ không có click → xét theo tiền, không lỗi', () => {
+    const s = stopCheck({ ...base, cost: 12, clicks: 0, last_click: null }, th, 2, false, '2026-11-18')
+    expect(s.by_money).toBe(true)
+    expect(s.level).toBe('stop')
+  })
+  it('% duyệt chỉ tính đơn đã quá hạn payout, bỏ đơn chờ; chưa đủ 5 đơn thì "chưa đủ dữ liệu"', () => {
+    const mk = (d: string, status: 'pending' | 'approved' | 'paid' | 'denied', n: number, comm: number) => ({ d, camp: 'c1', status, n, comm })
+    const a2: AhData = { ...ah, orders: [mk('2026-09-01', 'approved', 3, 30), mk('2026-09-05', 'denied', 2, 20), mk('2026-11-10', 'denied', 5, 50), mk('2026-11-12', 'pending', 4, 40)] }
+    const s = approvalStat(a2, ws, '2026-11-18', 30)
+    expect(s.resolved).toBe(5)
+    expect(s.pct).toBeCloseTo(60) // 30 ÷ (30 + 20); đơn huỷ 10/11 chưa quá hạn nên chưa tính
+    expect(s.pending_n).toBe(4)
+    expect(approvalStat(a2, ws, '2026-11-18', 30, 'saas').pct).toBeNull()
+    expect(approvalStat({ ...a2, orders: a2.orders.slice(0, 1) }, ws, '2026-11-18', 30).pct).toBeNull()
+  })
+  it('3 đơn, ROAS thực nhận dự kiến 1,6 → ứng viên thắng nhưng chưa đủ điều kiện scale (thiếu 30 chuyển đổi/30 ngày)', () => {
+    const r = { cost: 100, camps: ['c9'], order_days: ['2026-11-10', '2026-11-12'], orders: { pending: 3, approved: 0, paid: 0, denied: 0 }, comm: { pending: 160, approved: 0, paid: 0, denied: 0 } }
+    const a2: AhData = { ...ah, orders: [{ d: '2026-11-10', camp: 'c9', status: 'pending', n: 3, comm: 160 }] }
+    const w = winCheck(r, a2, null, th, {}, '2026-11-18')
+    expect(w.roas_expected).toBeCloseTo(1.6)
+    expect(w.candidate).toBe(true)
+    expect(w.auto.conv30).toBe(false)
+    expect(w.ready).toBe(false)
+    expect(w.low_volume).toBe(true)
+    expect(winCheck(r, a2, 50, th, {}, '2026-11-18').candidate).toBe(false) // % duyệt 50% → 0,8
+  })
+  it('đủ điều kiện scale: ≥ 30 đơn/30 ngày, ROAS thực nhận ≥ 1,5, có đơn ≥ 7 ngày trong 14 ngày, đủ 4 mục tick tay', () => {
+    const days = Array.from({ length: 10 }, (_, i) => `2026-11-${String(9 + i).padStart(2, '0')}`)
+    const a2: AhData = { ...ah, orders: days.map((d) => ({ d, camp: 'c9', status: 'approved' as const, n: 4, comm: 20 })) }
+    const r = { cost: 100, camps: ['c9'], order_days: days, orders: { pending: 0, approved: 40, paid: 0, denied: 0 }, comm: { pending: 0, approved: 200, paid: 0, denied: 0 } }
+    const all = { qs7: true, is40: true, lostis30: true, cap3: true }
+    expect(winCheck(r, a2, null, th, all, '2026-11-18').ready).toBe(true)
+    expect(winCheck(r, a2, null, th, { ...all, cap3: false }, '2026-11-18').ready).toBe(false)
   })
 })

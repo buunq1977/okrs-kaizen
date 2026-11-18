@@ -106,6 +106,7 @@ main h1 { font: 700 26px var(--f-display); color: var(--brand); margin: 0; line-
 .badge.green { background: var(--good-soft); color: var(--good); border-color: transparent }
 .badge.yellow { background: var(--warn-soft); color: var(--warn); border-color: transparent }
 .badge.red { background: var(--signal-soft); color: var(--signal); border-color: transparent }
+.badges { display: flex; flex-wrap: wrap; gap: 6px; margin-block: 6px }
 
 /* focus + ring */
 .sec.focus { border: 1px solid var(--rule); border-top: 4px solid var(--brand) }

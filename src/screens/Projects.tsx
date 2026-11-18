@@ -1,4 +1,5 @@
 import { Fragment, useMemo, useState } from 'react'
+import AffLedger from '../components/aff/AffLedger'
 import { useAff } from '../components/aff/useAff'
 import { Sec, Txt, toNum } from '../components/ui'
 import { analyze, ceilCount, coeffsOf, monthOf, targetsFor, winsLabel } from '../lib/affiliate'
@@ -47,8 +48,9 @@ export default function Projects() {
 
   const wk = { from: mondayOf(t0), to: addDays(mondayOf(t0), 6) }
   const mo = { from: monthOf(t0), to: monthEnd(t0) }
-  const cw = countBetween(ps.rows, ts.rows, wk.from, wk.to)
-  const cm = countBetween(ps.rows, ts.rows, mo.from, mo.to)
+  const manual = ps.rows.filter((p) => !p.ws_reg_id) // bỏ dòng nối Research (chỉ giữ checklist)
+  const cw = countBetween(manual, ts.rows, wk.from, wk.to)
+  const cm = countBetween(manual, ts.rows, mo.from, mo.to)
   const tw = targetsFor([monthOf(t0)], a, aff.months, cfg, 'week')
   const tm = targetsFor([monthOf(t0)], a, aff.months, cfg, 'month')
   const pace = (done: number, [lo, hi]: [number, number]) => (
@@ -59,15 +61,15 @@ export default function Projects() {
   )
 
   const since = addMonths(t0, -3)
-  const meas = { phys: measure(ps.rows, es.rows, ts.rows, 'phys', since, t0), saas: measure(ps.rows, es.rows, ts.rows, 'saas', since, t0) }
-  const apprAll = { phys: measure(ps.rows, es.rows, ts.rows, 'phys', '2000-01-01', t0).approval, saas: measure(ps.rows, es.rows, ts.rows, 'saas', '2000-01-01', t0).approval }
+  const meas = { phys: measure(manual, es.rows, ts.rows, 'phys', since, t0), saas: measure(manual, es.rows, ts.rows, 'saas', since, t0) }
+  const apprAll = { phys: measure(manual, es.rows, ts.rows, 'phys', '2000-01-01', t0).approval, saas: measure(manual, es.rows, ts.rows, 'saas', '2000-01-01', t0).approval }
   const todayTally = ts.rows.find((x) => x.date === t0 && x.model === draft.model)
   async function setSearch(n: number) {
     const v = Math.max(0, Math.round(n))
     if (todayTally) ts.patch(todayTally.id, { count: v })
     else if (v > 0) await ts.add({ date: t0, kind: 'search', model: draft.model, count: v })
   }
-  const list = ps.rows
+  const list = manual
     .filter((p) => model === 'all' || p.model === model)
     .filter((p) => (filter === 'all' ? true : filter === 'active' ? p.stage !== 'dung' : p.stage === filter))
     .filter((p) => !q.trim() || (p.name + ' ' + p.network + ' ' + p.niche).toLowerCase().includes(q.trim().toLowerCase()))
@@ -191,7 +193,7 @@ export default function Projects() {
         {!aff.months.length && <p className="note">Chưa có bảng phân bổ: tạo ở Mô hình thu nhập → Affiliate Global để có chỉ tiêu.</p>}
       </Sec>
 
-      <Sec title="Search & chọn dự án" hint="Search chỉ cần đếm số; dự án đủ điều kiện mới ghi vào Sổ">
+      <Sec title="Search & chọn dự án" hint="Search chỉ đếm số. Dự án chọn để đăng ký thì nhập ở Research; ô + Đã chọn chỉ dùng cho dự án chưa có ở Research">
         <div className="tally">
           <span className="tally-l">
             Đã search hôm nay ({draft.model === 'phys' ? 'Vật lý' : 'SaaS'})
@@ -245,7 +247,9 @@ export default function Projects() {
         )}
       </Sec>
 
-      <Sec title={`Danh sách (${list.length})`} hint="Bấm tên để mở chi tiết, nhập số">
+      <AffLedger links={ps} />
+
+      <Sec title={`Dự án nhập tay (${list.length})`} hint="Dữ liệu cũ hoặc dự án chưa có ở Research · bấm tên để mở chi tiết, nhập số">
         <div className="filters">
           <select aria-label="Lọc mô hình" value={model} onChange={(e) => setModel(e.target.value as 'all' | Model)}>
             <option value="all">Vật lý + SaaS</option>
@@ -257,7 +261,7 @@ export default function Projects() {
             <option value="all">Tất cả</option>
             {[...STAGES, 'dung' as Stage].map((s) => (
               <option key={s} value={s}>
-                {STAGE_NAME[s]} ({ps.rows.filter((p) => p.stage === s).length})
+                {STAGE_NAME[s]} ({manual.filter((p) => p.stage === s).length})
               </option>
             ))}
           </select>

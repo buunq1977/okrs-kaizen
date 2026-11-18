@@ -19,6 +19,10 @@ export interface AffProject {
   stop_reason: string
   note: string
   created_at: string
+  /* Migration 013: dòng nối với 1 đăng ký ở Research (chỉ để lưu lý do mở rộng, checklist scale). Không phải dự án nhập tay. */
+  ws_reg_id?: number | null
+  scale_check?: Record<string, boolean>
+  scale_override_reason?: string
 }
 export interface AffEntry {
   id: string
