@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { anyLockedV2, type AffConfig, type AffMonth, type Live, needsAutoLock, snapshotV2 } from '../../lib/affiliate'
+import { anyLocked, type AffConfig, type AffMonth, type Live, needsAutoLock, snapshotV2 } from '../../lib/affiliate'
 import { loadThresholds } from '../../lib/affData'
 import type { SharedThresholds } from '../../lib/affSource'
 import { useApp } from '../../lib/ctx'
@@ -7,7 +7,7 @@ import { errMsg, getAffConfig, insertMany, listAll, saveAffConfig, update } from
 import { today } from '../../lib/dates'
 
 /** Tải cấu hình + bảng phân bổ Affiliate + ngưỡng dùng chung (Research/Ads-Hub); tự chốt tháng đã qua cửa sổ sửa.
- *  Khoá đầu kỳ chỉ tính các tháng chốt theo mô hình v2 (mở khoá một lần, Luca duyệt 18/11/2026). */
+ *  Chốt tháng lưu bản chụp mô hình v2 (hệ số, phí, thuế, ngưỡng Research/Ads-Hub). */
 export function useAff() {
   const { uid, toast } = useApp()
   const [cfg, setCfg] = useState<AffConfig | null>(null)
@@ -19,8 +19,8 @@ export function useAff() {
   const load = useCallback(async () => {
     try {
       const [c, ms, t] = await Promise.all([getAffConfig(uid), listAll<AffMonth>('aff_months', 'month'), loadThresholds().catch(() => null)])
-      const lockedV2 = anyLockedV2(ms)
-      const auto = ms.filter((m) => needsAutoLock(m, t0, c.edit_days, lockedV2))
+      const locked = anyLocked(ms)
+      const auto = ms.filter((m) => needsAutoLock(m, t0, c.edit_days, locked))
       for (const m of auto) {
         const coeffs = snapshotV2(c, t ?? {})
         const locked_at = new Date().toISOString()
@@ -82,5 +82,5 @@ export function useAff() {
     [toast],
   )
   const live: Live = { max_test_usd: th?.max_test_usd ?? null }
-  return { cfg, months, err, reload: load, patchMonth, addMonths, lockMonth, saveCfg, th, live, anyLocked: anyLockedV2(months) }
+  return { cfg, months, err, reload: load, patchMonth, addMonths, lockMonth, saveCfg, th, live, anyLocked: anyLocked(months) }
 }

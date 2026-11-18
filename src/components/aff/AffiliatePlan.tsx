@@ -1,7 +1,7 @@
 import { Fragment, useMemo } from 'react'
 import {
   analyze, ceilCount, coeffsOf, dayLabel, winsLabel, monthOf, monthsOfLevel, nextBudget, PHYS_FIELDS, planRows, quarterNo, SAAS_FIELDS, TOOLS_FIELDS, targetsFor,
-  isV1, profitAfterFees, rowEditable, selfFundProfit, v2Of,
+  profitAfterFees, rowEditable, selfFundProfit, v2Of,
   type AffConfig, type AffMonth, type Live, type SimMonth, type Targets,
 } from '../../lib/affiliate'
 import { totals, type AffEntry } from '../../lib/affProjects'
@@ -80,7 +80,7 @@ export default function AffiliatePlan() {
           </span>
         ))}
         . <span className="flag">Độ tin cậy thấp</span> cho tới khi đo được ≥ 3 thắng thật.
-        {g && g.v === 2 && (
+        {g && (
           <>
             {' '}
             Tháng {mLabel(cfg.goal_month)}: lợi nhuận trước phí {usd(g.gross)} − phí Invoice {usd(g.fee)} − thuế {usd(g.tax)} (trên tiền nạp Ads) − chi phí cố định {usd(g.fixed)} = {usd(g.net)}. Trong đó SaaS + Tools AI {usd(g.profitS + g.profitT)} (chưa chắc).
@@ -286,7 +286,7 @@ export default function AffiliatePlan() {
             </div>
             <p className="note">
               Tỷ trọng = phần ngân sách test và công sức dồn cho từng mô hình; % SaaS = 100 − Vật lý − Tools AI. App tự tính mỗi mô hình đóng góp lợi nhuận vào tháng nào: SaaS và Tools AI trả CAC khi có khách, hoa hồng về sau{' '}
-              {coeffsOf(curRow ?? { coeffs: null }, cfg).saas.lag_months} tháng. Chốt tháng thì lưu bản chụp hệ số, phí, thuế và ngưỡng của Research; quá {cfg.edit_days} ngày đầu tháng mà chưa chốt, app tự chốt. Tháng đã chốt theo mô hình cũ giữ nguyên cách tính cũ.
+              {coeffsOf(curRow ?? { coeffs: null }, cfg).saas.lag_months} tháng. Chốt tháng thì lưu bản chụp hệ số, phí, thuế và ngưỡng của Research; quá {cfg.edit_days} ngày đầu tháng mà chưa chốt, app tự chốt.
             </p>
           </>
         )}
@@ -346,7 +346,7 @@ function MonthRow({ m, cur, ed, sm, patch }: { m: AffMonth; cur: string; ed: boo
       className="num"
       type="number"
       value={String(m[k] ?? 0)}
-      disabled={!ed || (k === 'share_tools' && isV1(m))}
+      disabled={!ed}
       label={k}
       onSave={(v) => {
         const x = toNum(v)
@@ -374,7 +374,7 @@ function MonthRow({ m, cur, ed, sm, patch }: { m: AffMonth; cur: string; ed: boo
       <td className="n">{sm ? `${cnt(sm.testsP)} / ${cnt(sm.testsT)} / ${cnt(sm.testsS)}` : '–'}</td>
       <td className="n">{sm ? winsLabel(sm.winsP + sm.winsT + sm.winsS) : '–'}</td>
       <td className={'n ' + (short ? 'neg' : '')}>{sm ? usd(sm.net) : '–'}</td>
-      <td className="st">{m.locked_at ? (isV1(m) ? '🔒 Đã chốt (mô hình cũ)' : '🔒 Đã chốt') : ed ? 'Đang mở' : 'Khoá'}</td>
+      <td className="st">{m.locked_at ? '🔒 Đã chốt' : ed ? 'Đang mở' : 'Khoá'}</td>
     </tr>
   )
 }

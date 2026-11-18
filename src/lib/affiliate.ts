@@ -1,9 +1,8 @@
 /* Mô hình thu nhập Affiliate Global: Vật lý + Tools AI + SaaS, phân bổ theo tháng.
    Logic thuần, không gọi DB. Nguồn số mặc định: 2 trang wiki "Mô hình thu nhập Affiliate Global
    (Vật lý / SaaS) - từ mục tiêu 16.000 USD/tháng ra việc mỗi ngày" (09/11/2026).
-   Mô hình v2 (docs/plan-aff-model-v2.md, 18/11/2026): 3 mô hình riêng, phí + thuế + chi phí cố định, quỹ cầu nối + dự phòng,
-   SaaS/Tools AI ghi lợi nhuận theo dòng tiền, tiền test = maxtest của Research. Tháng chốt theo v1 (bản chụp không có
-   model_version) giữ nguyên cách tính cũ. */
+   Mô hình v2 (docs/plan-aff-model-v2.md, 18/11/2026): 3 mô hình riêng, phí + thuế trên tiền nạp Ads, chi phí cố định, quỹ cầu nối + dự phòng,
+   SaaS/Tools AI ghi lợi nhuận theo dòng tiền, tiền test = maxtest của Research. Mô hình cũ (v1) đã bỏ hẳn (migration 014). */
 import { addDays, addMonths } from './dates'
 
 export interface PhysCoeffs {
@@ -171,16 +170,12 @@ export function coeffsOf(m: Pick<AffMonth, 'coeffs'>, cfg: Pick<AffConfig, 'phys
     tools: withTpw(withTest(toolsOf(cfg.tools), live.max_test_usd), live.tests_per_win),
   }
 }
-/** Tháng chốt theo mô hình cũ (bản chụp không có model_version). */
-export const isV1 = (m: Pick<AffMonth, 'coeffs'>) => !!m.coeffs && !m.coeffs.model_version
-/** Tham số tính của một tháng: hệ số + phí/thuế/quỹ. v1 = không phí, không thuế, không quỹ (cách tính cũ). */
+/** Tham số tính của một tháng: hệ số + phí/thuế/quỹ (bản chụp nếu đã chốt, thiếu trường thì lấy mặc định). */
 export function monthModel(m: Pick<AffMonth, 'coeffs'>, cfg: AffConfig, live: Live = {}) {
   const c = coeffsOf(m, cfg, live)
-  if (isV1(m)) return { ...c, v: 1 as const, fee_pct: 0, tax_pct: 0, fixed_cost_month: 0, bridge_pct: 0, reserve_pct: 0 }
   const src = m.coeffs ? { ...v2Of(cfg), ...stripUndef(m.coeffs) } : v2Of(cfg)
   return {
     ...c,
-    v: 2 as const,
     fee_pct: num(src.fee_pct, V2_DEFAULT.fee_pct),
     tax_pct: num(src.tax_pct, V2_DEFAULT.tax_pct),
     fixed_cost_month: num(src.fixed_cost_month, 0),
@@ -233,13 +228,12 @@ export const configEditable = (today: string, editDays: number, anyLocked: boole
 /** Tháng đã qua cửa sổ sửa mà chưa chốt (khi đã từng chốt) → tự chốt bằng hệ số hiện tại. */
 export const needsAutoLock = (m: AffMonth, today: string, editDays: number, anyLocked: boolean) =>
   anyLocked && !m.locked_at && m.month <= monthOf(today) && !monthEditable(m.month, today, editDays, true)
-/** Mở khoá một lần cho mô hình v2 (Luca duyệt 18/11/2026): chỉ tháng chốt theo v2 mới tính là "đã chốt".
- *  Chưa chốt tháng nào theo v2 → cài đặt và các tháng chưa chốt sửa tự do (như lần thiết lập đầu). */
-export const anyLockedV2 = (ms: Pick<AffMonth, 'locked_at' | 'coeffs'>[]) => ms.some((m) => !!m.locked_at && !isV1(m))
-/** Một dòng của bảng phân bổ có sửa được không. Tháng đã chốt theo luật cũ: chỉ trong N ngày đầu của chính tháng đó. */
-export function rowEditable(m: Pick<AffMonth, 'month' | 'locked_at'>, today: string, editDays: number, lockedV2: boolean): boolean {
+/** Đã chốt ít nhất một tháng → bật luật khoá đầu kỳ. (Mở khoá một lần 18/11/2026: migration 014 mở lại tháng chốt theo mô hình cũ.) */
+export const anyLocked = (ms: Pick<AffMonth, 'locked_at'>[]) => ms.some((m) => !!m.locked_at)
+/** Một dòng của bảng phân bổ có sửa được không. Tháng đã chốt: chỉ trong N ngày đầu của chính tháng đó. */
+export function rowEditable(m: Pick<AffMonth, 'month' | 'locked_at'>, today: string, editDays: number, locked: boolean): boolean {
   if (m.locked_at) return monthEditable(m.month, today, editDays, true)
-  return monthEditable(m.month, today, editDays, lockedV2)
+  return monthEditable(m.month, today, editDays, locked)
 }
 
 /* ---------- Kế hoạch mặc định ---------- */
@@ -282,7 +276,6 @@ export function planRows(cfg: Pick<AffConfig, 'year_goal' | 'goal_month' | 'base
 /* ---------- Mô phỏng ---------- */
 export interface SimMonth {
   month: string
-  v: 1 | 2
   budget: number
   testsP: number
   testsT: number // Tools AI
@@ -310,21 +303,10 @@ export interface SimMonth {
   reserve: number // quỹ dự phòng
   capital: number // vốn cần = vận hành + cầu nối + dự phòng
 }
-/** Dòng tiền SaaS/Tools AI của tháng i.
- *  v2: thắng tìm tháng j mua khách từ tháng j+1 trong `win_life` tháng (trả CAC ngay); mỗi khách trả hoa hồng `customer_life` tháng,
- *      tiền đầu tiên về sau (lag − 1) tháng kể từ tháng mua khách → thắng tìm tháng m có tiền đầu tiên ở tháng m + lag.
- *  v1 (cũ): thắng ra tiền từ tháng m + lag, ghi trọn LTV của khách ngay khi có khách. */
-function subModel(i: number, v: 1 | 2, c: SaasCoeffs, wins: number[], acq: number[]) {
-  if (v === 1) {
-    const ls = Math.max(1, Math.round(c.win_life))
-    const lag = Math.max(0, Math.round(c.lag_months))
-    let active = 0
-    for (let j = i - lag - ls + 1; j <= i - lag; j++) if (j >= 0 && j < i + 1) active += wins[j]
-    const profit = active * c.cust_per_win * (c.commission_month * c.customer_life - c.cac)
-    const ads = active * c.cust_per_win * c.cac
-    acq[i] = 0
-    return { active, profit, ads, inflow: profit + ads }
-  }
+/** Dòng tiền SaaS/Tools AI của tháng i: thắng tìm tháng j mua khách từ tháng j+1 trong `win_life` tháng (trả CAC ngay);
+ *  mỗi khách trả hoa hồng `customer_life` tháng, tiền đầu tiên về sau (lag − 1) tháng kể từ tháng mua khách
+ *  → thắng tìm tháng m có tiền hoa hồng đầu tiên ở tháng m + lag. */
+function subModel(i: number, c: SaasCoeffs, wins: number[], acq: number[]) {
   const life = Math.max(1, Math.round(c.win_life))
   let active = 0
   for (let j = i - life; j <= i - 1; j++) if (j >= 0) active += wins[j]
@@ -356,10 +338,10 @@ export function simulate(rows: AffMonth[], cfg: AffConfig, fromMonth: string, x 
     const month = addMonths(first, i)
     // tháng không có dòng trong bảng: dùng mô hình (hệ số, phiên bản) của dòng gần nhất phía trước, ngân sách 0
     const mm = monthModel(r ?? prev ?? { coeffs: null }, cfg, live)
-    const { phys, saas, tools, v } = mm
+    const { phys, saas, tools } = mm
     const budget = r ? r.budget_test * (month >= fromMonth ? x : 1) : 0
     const sp = r ? r.share_phys / 100 : 0
-    const st = r && v === 2 ? Math.min(1 - sp, (r.share_tools ?? 0) / 100) : 0
+    const st = r ? Math.min(1 - sp, (r.share_tools ?? 0) / 100) : 0
     const ss = r ? Math.max(0, 1 - sp - st) : 0
     const testsP = (budget * sp) / phys.test_cost
     const testsT = (budget * st) / tools.test_cost
@@ -373,21 +355,20 @@ export function simulate(rows: AffMonth[], cfg: AffConfig, fromMonth: string, x 
     const season = r?.season ?? 1
     const profitP = activeP * phys.win_profit * season
     const adsP = phys.roas > 1 ? profitP / (phys.roas - 1) : 0
-    const T = subModel(i, v, tools, winsT, acqT)
-    const S = subModel(i, v, saas, winsS, acqS)
+    const T = subModel(i, tools, winsT, acqT)
+    const S = subModel(i, saas, winsS, acqS)
     const gross = profitP + T.profit + S.profit - budget
     // Phí + thuế tính trên chi phí nạp tài khoản Ads (tiền test + ads scale + ads mua khách SaaS/Tools AI)
     const { fee, tax, mult } = adCharges(budget + adsP + T.ads + S.ads, mm.fee_pct, mm.tax_pct)
     const fixed = mm.fixed_cost_month
     const received = profitP + adsP + T.inflow + S.inflow
-    const sub = (c: SaasCoeffs, ads: number) => ads * ((v === 1 ? c.cac / c.commission_month : 0) + c.payout_days / 30)
+    const sub = (c: SaasCoeffs, ads: number) => ads * (c.payout_days / 30)
     // vốn vận hành = tiền phải nạp (đã gồm phí + thuế) cho test + ads chờ hoa hồng về
     const capitalOps = (budget + adsP * (phys.payout_days / 30) + sub(tools, T.ads) + sub(saas, S.ads)) * mult
     const bridge = (capitalOps * mm.bridge_pct) / 100
     const reserve = (capitalOps * mm.reserve_pct) / 100
     out.push({
       month,
-      v,
       budget,
       testsP,
       testsT,

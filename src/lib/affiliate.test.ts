@@ -2,8 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   ceilCount, dayLabel, winsLabel,
   analyze, configEditable, defaultProfit, defaultShare, monthEditable, monthsOfLevel, needsAutoLock, nextBudget, planRows, simulate, targetsFor,
-  adCharges, anyLockedV2, deseason, profitAfterFees, realRoas, rowEditable, seasonWarn, selfFundProfit, snapshotV2,
-  PHYS_DEFAULT, SAAS_DEFAULT,
+  adCharges, anyLocked, deseason, profitAfterFees, realRoas, rowEditable, seasonWarn, selfFundProfit, snapshotV2,
   type AffConfig, type AffMonth,
 } from './affiliate'
 
@@ -11,7 +10,8 @@ const cfg: AffConfig = {
   user_id: 'u', year_goal: 16000, goal_month: '2027-12-01', base_budget: 200, reinvest_pct: 50, test_cap_mult: 2, edit_days: 3,
   cap_tests_week: 15, working_days_week: 7, reg_per_test: 2, research_per_test: 5, win_min_orders: 3, phys: {}, saas: {},
 }
-const V1 = { coeffs: { phys: PHYS_DEFAULT, saas: SAAS_DEFAULT } } // bản chụp tháng chốt theo mô hình cũ (không có model_version)
+/** Không phí, không thuế, không quỹ: để kiểm phần lõi Vật lý bằng số tròn. */
+const cfg0: AffConfig = { ...cfg, fee_pct: 0, tax_pct: 0, fixed_cost_month: 0, bridge_pct: 0, reserve_pct: 0 }
 const row = (month: string, p: Partial<AffMonth> = {}): AffMonth => ({
   id: month, month, share_phys: 100, budget_test: 0, season: 1, profit_target: 0, coeffs: null, locked_at: null, note: '', ...p,
 })
@@ -62,9 +62,9 @@ describe('chỉ sửa ở đầu kỳ', () => {
   })
 })
 
-describe('mô phỏng tháng chốt theo v1 (giữ đúng kết quả cũ)', () => {
+describe('mô phỏng Vật lý (không phí, không thuế)', () => {
   it('Vật lý: $1.200 → 100 test → 1 thắng, ra tiền 3 tháng kế tiếp', () => {
-    const sim = simulate([row('2027-01-01', { budget_test: 1200, ...V1 }), row('2027-05-01', V1)], cfg, '2027-01-01')
+    const sim = simulate([row('2027-01-01', { budget_test: 1200 }), row('2027-05-01')], cfg0, '2027-01-01')
     expect(sim.length).toBe(5)
     expect(sim[0].testsP).toBeCloseTo(100)
     expect(sim[0].winsP).toBeCloseTo(1)
@@ -78,27 +78,19 @@ describe('mô phỏng tháng chốt theo v1 (giữ đúng kết quả cũ)', () 
     const sim = simulate([row('2027-01-01', { budget_test: 1200 }), row('2027-02-01', { season: 1.5 })], cfg, '2027-01-01')
     expect(sim[1].profitP).toBeCloseTo(3000)
   })
-  it('SaaS: ra tiền sau độ trễ 3 tháng, mỗi thắng 35 × (15×6 − 40) = $1.750/tháng', () => {
-    const rows = [row('2027-01-01', { budget_test: 4000, share_phys: 0, ...V1 }), row('2027-06-01', { share_phys: 0, ...V1 })]
-    const sim = simulate(rows, cfg, '2027-01-01')
-    expect(sim[0].testsS).toBeCloseTo(100)
-    expect(sim[2].profitS).toBe(0)
-    expect(sim[3].profitS).toBeCloseTo(1750)
-    expect(sim[5].activeS).toBeCloseTo(1)
-  })
 })
 
 describe('phân tích', () => {
   it('tìm hệ số nhân ngân sách tối thiểu', () => {
-    const rows = [row('2027-01-01', { budget_test: 1200, profit_target: 100, ...V1 }), row('2027-02-01', { budget_test: 1200, profit_target: 4000, ...V1 })]
-    const a = analyze(rows, cfg, '2027-01-02')
+    const rows = [row('2027-01-01', { budget_test: 1200, profit_target: 100 }), row('2027-02-01', { budget_test: 1200, profit_target: 4000 })]
+    const a = analyze(rows, cfg0, '2027-01-02')
     // x = 4000 / (2000 − 1200) = 5; tháng 1 có mục tiêu nhưng không kịp (thắng chưa ra tiền)
     expect(a.xNeed).toBeCloseTo(5)
     expect(a.scaleFrom).toBe('2027-01-01')
     expect(a.suggestBudget).toBeCloseTo(6000)
     expect(a.late).toEqual(['2027-01-01'])
     expect(a.short).toEqual(['2027-01-01', '2027-02-01'])
-    const s5 = simulate(rows.map((r) => ({ ...r, budget_test: r.budget_test * 5 })), cfg, '2027-01-01')
+    const s5 = simulate(rows.map((r) => ({ ...r, budget_test: r.budget_test * 5 })), cfg0, '2027-01-01')
     expect(s5[1].net).toBeCloseTo(4000)
   })
   it('giai đoạn đo (LN mục tiêu 0) không bị nhân ngân sách', () => {
@@ -228,8 +220,6 @@ describe('mô hình v2 (tháng chưa chốt)', () => {
     expect(s[0].testsP).toBeCloseTo(50)
     expect(s[0].testsT).toBeCloseTo(30)
     expect(s[0].testsS).toBeCloseTo(20)
-    const v1 = simulate([row('2027-01-01', { budget_test: 1000, share_phys: 50, share_tools: 30, ...V1 })], cfg, '2027-01-01')
-    expect(v1[0].testsT).toBe(0) // tháng chốt v1 không có Tools AI
   })
   it('vốn cần = vận hành (gồm phí + thuế nạp) + quỹ cầu nối 15% + dự phòng 10%; cảnh báo khi thiếu', () => {
     const rows = [row('2027-01-01', { budget_test: 1200 }), row('2027-02-01')]
@@ -258,18 +248,28 @@ describe('mô hình v2 (tháng chưa chốt)', () => {
   })
 })
 
-describe('mở khoá một lần cho v2', () => {
-  const novV1 = row('2026-11-01', { locked_at: '2026-11-05T00:00:00Z', ...V1 })
-  it('tháng chốt theo v1 không tính là "đã chốt" → cài đặt sửa tự do', () => {
-    expect(anyLockedV2([novV1])).toBe(false)
-    expect(configEditable('2026-11-18', 3, anyLockedV2([novV1]))).toBe(true)
-    expect(anyLockedV2([row('2026-12-01', { locked_at: 'x', coeffs: snapshotV2(cfg) })])).toBe(true)
+describe('khoá đầu kỳ sau khi mở lại (migration 014)', () => {
+  it('chưa chốt tháng nào → cài đặt và mọi tháng sửa tự do', () => {
+    const ms = [row('2026-11-01'), row('2026-12-01')]
+    expect(anyLocked(ms)).toBe(false)
+    expect(configEditable('2026-11-18', 3, anyLocked(ms))).toBe(true)
+    expect(rowEditable(ms[0], '2026-11-18', 3, anyLocked(ms))).toBe(true)
   })
-  it('tháng 11 đã chốt (v1) giữ khoá; tháng chưa chốt sửa được', () => {
-    expect(rowEditable(novV1, '2026-11-18', 3, false)).toBe(false)
-    expect(rowEditable(row('2026-12-01'), '2026-11-18', 3, false)).toBe(true)
-    expect(rowEditable(row('2026-11-01'), '2026-11-18', 3, false)).toBe(true)
-    expect(rowEditable(row('2026-11-01'), '2026-11-18', 3, true)).toBe(false)
+  it('chốt tháng 12 → luật đầu kỳ chạy lại; tháng 11 chưa chốt sẽ tự chốt', () => {
+    const dec = row('2026-12-01', { locked_at: 'x', coeffs: snapshotV2(cfg) })
+    const ms = [row('2026-11-01'), dec]
+    expect(anyLocked(ms)).toBe(true)
+    expect(configEditable('2026-12-10', 3, true)).toBe(false)
+    expect(rowEditable(dec, '2026-12-02', 3, true)).toBe(true) // 3 ngày đầu của chính tháng đó
+    expect(rowEditable(dec, '2026-12-10', 3, true)).toBe(false)
+    expect(rowEditable(row('2027-01-01'), '2026-12-10', 3, true)).toBe(true)
+    expect(needsAutoLock(ms[0], '2026-12-10', 3, true)).toBe(true)
+  })
+  it('tháng chốt có bản chụp thiếu trường (cũ) vẫn tính được, thiếu thì dùng mặc định', () => {
+    const old = row('2026-11-01', { budget_test: 200, locked_at: 'x', coeffs: { phys: { ...snapshotV2(cfg).phys, test_cost: 12 }, saas: snapshotV2(cfg).saas } })
+    const s = simulate([old], cfg, '2026-11-01', 1, { max_test_usd: 10 })
+    expect(s[0].testsP).toBeCloseTo(200 / 12) // giữ tiền test của bản chụp
+    expect(s[0].fee).toBeCloseTo(10) // phí mặc định 5%
   })
   it('bản chụp v2: model_version 2, tiền test = maxtest, phí/thuế/quỹ, ngưỡng dùng chung', () => {
     const s = snapshotV2(cfg, { max_test_usd: 10, usd_vnd: 25726, roa: [1.5, 3, 4.5], winner_orders: 3 })

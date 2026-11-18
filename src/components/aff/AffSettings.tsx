@@ -81,7 +81,7 @@ export default function AffSettings() {
       {!ed && <p className="flag">🔒 Đang khoá. Mở lại vào {c.edit_days} ngày đầu tháng tới. Kế hoạch các tháng đã chốt giữ nguyên bản chụp hệ số.</p>}
       {ed && !aff.anyLocked && (
         <p className="note">
-          Mở khoá một lần cho mô hình mới (v2): sửa tự do cho tới khi chốt tháng đầu tiên theo mô hình mới ở Mô hình thu nhập → Affiliate. Tháng đã chốt theo mô hình cũ giữ nguyên bản chụp.
+          Chưa chốt tháng nào: sửa tự do cho tới khi chốt tháng đầu tiên ở Mô hình thu nhập → Affiliate. Từ đó cài đặt chỉ sửa trong {c.edit_days} ngày đầu tháng.
         </p>
       )}
 
