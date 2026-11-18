@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { coeffsOf, configEditable, deseason, PHYS_FIELDS, SAAS_FIELDS, TOOLS_FIELDS, v2Of, type AffConfig } from '../../lib/affiliate'
+import { adCharges, coeffsOf, configEditable, deseason, PHYS_FIELDS, SAAS_FIELDS, TOOLS_FIELDS, v2Of, type AffConfig } from '../../lib/affiliate'
 import { loadAffData, loadAh, loadWs, SRC, srcEmail, srcSignIn, srcSignOut, type SrcKey, type SrcResult } from '../../lib/affData'
 import { ahTotals, MODEL3, MODEL3_NAME, sharedThresholds, wsCounts, type AhData, type AhTotals, type Model3, type WsData } from '../../lib/affSource'
 import { supabase } from '../../lib/supabase'
@@ -104,19 +104,17 @@ export default function AffSettings() {
         {fld('Ngân sách test tối thiểu ($/tháng)', 'base_budget', 0)}
         {fld('% lợi nhuận đã nhận (sau phí) cộng vào ngân sách tháng sau', 'reinvest_pct', 0, 100)}
         {fld('Trần mở rộng test 1 dự án (× maxtest, phải ghi lý do)', 'test_cap_mult', 1, 10)}
-        {fld('Phí tài khoản Invoice (% chi tiêu ads)', 'fee_pct', 0, 100)}
-        {fld('Thuế (%)', 'tax_pct', 0, 100)}
-        <label className="fld">
-          <span>Thuế tính trên</span>
-          <select disabled={!ed} value={v2.tax_base} onChange={(e) => set('tax_base', e.target.value as 'profit' | 'received')}>
-            <option value="profit">Lợi nhuận (sau ads, phí)</option>
-            <option value="received">Thực nhận (hoa hồng về)</option>
-          </select>
-        </label>
+        {fld('Phí tài khoản Invoice (% chi phí nạp Ads)', 'fee_pct', 0, 100)}
+        {fld('Thuế (% trên chi phí nạp + phí)', 'tax_pct', 0, 100)}
         {fld('Chi phí cố định ($/tháng: công cụ, người…)', 'fixed_cost_month', 0)}
         {fld('Quỹ cầu nối chờ payout (% vốn vận hành)', 'bridge_pct', 0, 100)}
         {fld('Quỹ dự phòng (% vốn vận hành)', 'reserve_pct', 0, 100)}
       </div>
+      <p className="note">
+        Ví dụ chi tiêu 500.000đ: phí {fmtNum(v2.fee_pct)}% = {fmtNum(Math.round((500000 * v2.fee_pct) / 100))}đ, thuế {fmtNum(v2.tax_pct)}% × (chi tiêu + phí) ={' '}
+        {fmtNum(Math.round(adCharges(500000, v2.fee_pct, v2.tax_pct).tax))}đ → tổng phải nạp {fmtNum(Math.round(adCharges(500000, v2.fee_pct, v2.tax_pct).total))}đ (×
+        {fmtNum(Math.round(adCharges(1, v2.fee_pct, v2.tax_pct).mult * 1000) / 1000)}). Áp cho mọi tiền nạp Ads: tiền test, ads scale, ads mua khách SaaS/Tools AI.
+      </p>
 
       <b>Cổng bằng chứng và nhịp</b>
       <div className="grid3">

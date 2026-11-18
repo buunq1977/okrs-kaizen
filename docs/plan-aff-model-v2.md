@@ -104,7 +104,7 @@
 | D3 | **SaaS và Tools AI** tắt cho tới Cổng 2 |
 | D4 | Mục tiêu theo cổng bằng chứng |
 | D5 | Tỷ giá: `usd_vnd` của Research |
-| D6 | Phí 5% chi tiêu ads, **thuế 8%** (cơ sở tính: hỏi lại ở GĐ2), chi phí cố định 0 |
+| D6 | Phí 5% **trên chi phí nạp Ads**, **thuế 8% trên (chi phí nạp + phí)**, chi phí cố định 0. VD chi tiêu 500.000đ → phí 25.000đ, thuế 42.000đ, nạp 567.000đ (×1,134). Áp cho mọi tiền nạp: test, ads scale, ads mua khách |
 | D7 | Maxtest: một nguồn ở Research, OKR chụp theo tháng |
 | D8 | Trần dừng ×2 maxtest khi đã ghi lý do |
 | D9 | Cổng 2: đạt trong 1 tháng là đủ |

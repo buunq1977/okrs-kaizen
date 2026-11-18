@@ -45,7 +45,7 @@ export interface AffConfig {
   goal_levels?: number[] // 3 mức O năm ($/tháng)
   fee_pct?: number
   tax_pct?: number
-  tax_base?: 'profit' | 'received'
+  tax_base?: 'profit' | 'received' // không dùng nữa: thuế tính trên chi phí nạp + phí (Luca chốt 18/11)
   fixed_cost_month?: number
   bridge_pct?: number
   reserve_pct?: number
@@ -63,7 +63,7 @@ export interface CoeffSnap {
   model_version?: number
   fee_pct?: number
   tax_pct?: number
-  tax_base?: 'profit' | 'received'
+  tax_base?: 'profit' | 'received' // không dùng nữa: thuế tính trên chi phí nạp + phí (Luca chốt 18/11)
   fixed_cost_month?: number
   bridge_pct?: number
   reserve_pct?: number
@@ -102,7 +102,6 @@ export const V2_DEFAULT = {
   goal_levels: [16000, 50000, 120000],
   fee_pct: 5,
   tax_pct: 8,
-  tax_base: 'profit' as 'profit' | 'received',
   fixed_cost_month: 0,
   bridge_pct: 15,
   reserve_pct: 10,
@@ -117,7 +116,6 @@ export const v2Of = (c: Partial<AffConfig>) => ({
   goal_levels: Array.isArray(c.goal_levels) && c.goal_levels.length ? c.goal_levels.map(Number) : V2_DEFAULT.goal_levels,
   fee_pct: num(c.fee_pct, V2_DEFAULT.fee_pct),
   tax_pct: num(c.tax_pct, V2_DEFAULT.tax_pct),
-  tax_base: c.tax_base === 'received' ? ('received' as const) : ('profit' as const),
   fixed_cost_month: num(c.fixed_cost_month, V2_DEFAULT.fixed_cost_month),
   bridge_pct: num(c.bridge_pct, V2_DEFAULT.bridge_pct),
   reserve_pct: num(c.reserve_pct, V2_DEFAULT.reserve_pct),
@@ -178,14 +176,13 @@ export const isV1 = (m: Pick<AffMonth, 'coeffs'>) => !!m.coeffs && !m.coeffs.mod
 /** Tham số tính của một tháng: hệ số + phí/thuế/quỹ. v1 = không phí, không thuế, không quỹ (cách tính cũ). */
 export function monthModel(m: Pick<AffMonth, 'coeffs'>, cfg: AffConfig, live: Live = {}) {
   const c = coeffsOf(m, cfg, live)
-  if (isV1(m)) return { ...c, v: 1 as const, fee_pct: 0, tax_pct: 0, tax_base: 'profit' as const, fixed_cost_month: 0, bridge_pct: 0, reserve_pct: 0 }
+  if (isV1(m)) return { ...c, v: 1 as const, fee_pct: 0, tax_pct: 0, fixed_cost_month: 0, bridge_pct: 0, reserve_pct: 0 }
   const src = m.coeffs ? { ...v2Of(cfg), ...stripUndef(m.coeffs) } : v2Of(cfg)
   return {
     ...c,
     v: 2 as const,
     fee_pct: num(src.fee_pct, V2_DEFAULT.fee_pct),
     tax_pct: num(src.tax_pct, V2_DEFAULT.tax_pct),
-    tax_base: src.tax_base === 'received' ? ('received' as const) : ('profit' as const),
     fixed_cost_month: num(src.fixed_cost_month, 0),
     bridge_pct: num(src.bridge_pct, V2_DEFAULT.bridge_pct),
     reserve_pct: num(src.reserve_pct, V2_DEFAULT.reserve_pct),
@@ -205,7 +202,6 @@ export function snapshotV2(
     model_version: 2,
     fee_pct: v.fee_pct,
     tax_pct: v.tax_pct,
-    tax_base: v.tax_base,
     fixed_cost_month: v.fixed_cost_month,
     bridge_pct: v.bridge_pct,
     reserve_pct: v.reserve_pct,
@@ -300,12 +296,12 @@ export interface SimMonth {
   profitP: number
   profitT: number
   profitS: number
-  gross: number // lợi nhuận trước phí/thuế = LN các mô hình − tiền test
-  fee: number // phí tài khoản Invoice
+  gross: number // lợi nhuận trước phí/thuế nạp tiền = LN các mô hình − tiền test
+  fee: number // phí tài khoản Invoice (% chi phí nạp)
   fixed: number // chi phí cố định
-  tax: number
+  tax: number // thuế (% chi phí nạp + phí)
   net: number // lợi nhuận ròng sau tiền test, ads, phí, chi phí cố định, thuế
-  received: number // thực nhận dự kiến (cơ sở thuế khi tính trên thực nhận)
+  received: number // thực nhận dự kiến
   adsP: number // tiền ads scale Vật lý
   adsT: number // tiền ads mua khách Tools AI
   adsS: number // tiền ads mua khách SaaS
@@ -380,13 +376,13 @@ export function simulate(rows: AffMonth[], cfg: AffConfig, fromMonth: string, x 
     const T = subModel(i, v, tools, winsT, acqT)
     const S = subModel(i, v, saas, winsS, acqS)
     const gross = profitP + T.profit + S.profit - budget
-    const fee = (mm.fee_pct / 100) * (budget + adsP + T.ads + S.ads)
+    // Phí + thuế tính trên chi phí nạp tài khoản Ads (tiền test + ads scale + ads mua khách SaaS/Tools AI)
+    const { fee, tax, mult } = adCharges(budget + adsP + T.ads + S.ads, mm.fee_pct, mm.tax_pct)
     const fixed = mm.fixed_cost_month
     const received = profitP + adsP + T.inflow + S.inflow
-    const preTax = gross - fee - fixed
-    const tax = (mm.tax_pct / 100) * (mm.tax_base === 'received' ? received : Math.max(0, preTax))
     const sub = (c: SaasCoeffs, ads: number) => ads * ((v === 1 ? c.cac / c.commission_month : 0) + c.payout_days / 30)
-    const capitalOps = budget + adsP * (phys.payout_days / 30) + sub(tools, T.ads) + sub(saas, S.ads)
+    // vốn vận hành = tiền phải nạp (đã gồm phí + thuế) cho test + ads chờ hoa hồng về
+    const capitalOps = (budget + adsP * (phys.payout_days / 30) + sub(tools, T.ads) + sub(saas, S.ads)) * mult
     const bridge = (capitalOps * mm.bridge_pct) / 100
     const reserve = (capitalOps * mm.reserve_pct) / 100
     out.push({
@@ -409,7 +405,7 @@ export function simulate(rows: AffMonth[], cfg: AffConfig, fromMonth: string, x 
       fee,
       fixed,
       tax,
-      net: preTax - tax,
+      net: gross - fee - tax - fixed,
       received,
       adsP,
       adsT: T.ads,
@@ -506,6 +502,15 @@ export function analyze(rows: AffMonth[], cfg: AffConfig, today: string, live: L
 /** ROAS thực nhận = ROAS hoa hồng (màn hình) × % duyệt. Mọi quyết định scale dùng số này, không dùng ROAS màn hình. */
 export const realRoas = (roasScreen: number, approvalPct: number) => roasScreen * (approvalPct / 100)
 
+/* ---------- Phí + thuế khi nạp tiền tài khoản Ads ---------- */
+/** Luca chốt 18/11/2026: phí Invoice tính trên chi phí nạp; thuế tính trên (chi phí nạp + phí).
+ *  VD chi tiêu 500.000đ: phí 5% = 25.000đ, thuế 8% × 525.000 = 42.000đ, tổng phải nạp 567.000đ (×1,134). */
+export function adCharges(spend: number, feePct: number, taxPct: number) {
+  const fee = (spend * feePct) / 100
+  const tax = ((spend + fee) * taxPct) / 100
+  return { fee, tax, total: spend + fee + tax, mult: (1 + feePct / 100) * (1 + taxPct / 100) }
+}
+
 /* ---------- Ngân sách + lợi nhuận đã nhận ---------- */
 /** Ngân sách test tối thiểu tháng sau: nền + x% lợi nhuận đã nhận (sau phí) tháng này + vốn ngoài. Lợi nhuận âm tính là 0. */
 export const nextBudget = (base: number, reinvestPct: number, receivedProfit: number, extra = 0) => base + Math.max(0, receivedProfit) * (reinvestPct / 100) + Math.max(0, extra)
@@ -514,10 +519,8 @@ export const selfFundProfit = (target: number, base: number, reinvestPct: number
 /** Lợi nhuận đã nhận sau phí, chi phí cố định và thuế (từ số thực tế: thực nhận + chi phí ads). */
 export function profitAfterFees(t: { received: number; cost: number }, cfg: Partial<AffConfig>) {
   const v = v2Of(cfg)
-  const fee = (v.fee_pct / 100) * t.cost
-  const pre = t.received - t.cost - fee - v.fixed_cost_month
-  const tax = (v.tax_pct / 100) * (v.tax_base === 'received' ? t.received : Math.max(0, pre))
-  return { fee, fixed: v.fixed_cost_month, tax, net: pre - tax }
+  const { fee, tax } = adCharges(t.cost, v.fee_pct, v.tax_pct)
+  return { fee, fixed: v.fixed_cost_month, tax, net: t.received - t.cost - fee - tax - v.fixed_cost_month }
 }
 
 /* ---------- Mùa vụ ---------- */

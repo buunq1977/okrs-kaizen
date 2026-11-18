@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   ceilCount, dayLabel, winsLabel,
   analyze, configEditable, defaultProfit, defaultShare, monthEditable, monthsOfLevel, needsAutoLock, nextBudget, planRows, simulate, targetsFor,
-  anyLockedV2, deseason, profitAfterFees, realRoas, rowEditable, seasonWarn, selfFundProfit, snapshotV2,
+  adCharges, anyLockedV2, deseason, profitAfterFees, realRoas, rowEditable, seasonWarn, selfFundProfit, snapshotV2,
   PHYS_DEFAULT, SAAS_DEFAULT,
   type AffConfig, type AffMonth,
 } from './affiliate'
@@ -182,23 +182,31 @@ describe('mô hình v2 (tháng chưa chốt)', () => {
   it('ROAS thực nhận: 15% duyệt × ROAS màn hình 1,5 = 0,225', () => {
     expect(realRoas(1.5, 15)).toBeCloseTo(0.225)
   })
-  it('lợi nhuận sau phí 5% ads, thuế 8% trên lợi nhuận', () => {
+  it('ví dụ của Luca: chi tiêu 500.000đ → phí 25.000đ, thuế 42.000đ, phải nạp 567.000đ', () => {
+    const c = adCharges(500000, 5, 8)
+    expect(c.fee).toBe(25000)
+    expect(c.tax).toBe(42000)
+    expect(c.total).toBe(567000)
+    expect(c.mult).toBeCloseTo(1.134)
+  })
+  it('lợi nhuận sau phí + thuế tính trên tiền nạp Ads (cả tiền test lẫn ads scale)', () => {
     const s = simulate([row('2027-01-01', { budget_test: 1200 }), row('2027-02-01')], cfg, '2027-01-01', 1, { max_test_usd: 12 })
     expect(s[0].fee).toBeCloseTo(60) // 5% × $1.200 tiền test
-    expect(s[0].tax).toBe(0) // lỗ thì không thuế
-    expect(s[0].net).toBeCloseTo(-1260)
+    expect(s[0].tax).toBeCloseTo(100.8) // 8% × (1.200 + 60): lỗ vẫn chịu thuế vì tính trên tiền nạp
+    expect(s[0].net).toBeCloseTo(-1360.8)
     expect(s[1].profitP).toBeCloseTo(2000)
     expect(s[1].adsP).toBeCloseTo(4000)
     expect(s[1].fee).toBeCloseTo(200) // 5% × $4.000 ads
-    expect(s[1].tax).toBeCloseTo(144) // 8% × (2.000 − 200)
-    expect(s[1].net).toBeCloseTo(1656)
+    expect(s[1].tax).toBeCloseTo(336) // 8% × 4.200
+    expect(s[1].net).toBeCloseTo(1464)
   })
-  it('phí: ads $32.000 × 5% = $1.600; thuế trên thực nhận nếu chọn', () => {
+  it('phí: ads $32.000 × 5% = $1.600; thuế 8% × 33.600 = $2.688; số T10 của anh', () => {
     const r = profitAfterFees({ received: 48000, cost: 32000 }, { fee_pct: 5, tax_pct: 0 })
     expect(r.fee).toBe(1600)
     expect(r.net).toBe(14400)
-    expect(profitAfterFees({ received: 1000, cost: 400 }, { fee_pct: 0, tax_pct: 8, tax_base: 'received' }).tax).toBeCloseTo(80)
-    expect(profitAfterFees({ received: 24, cost: 312 }, { fee_pct: 5, tax_pct: 8 }).tax).toBe(0)
+    expect(profitAfterFees({ received: 48000, cost: 32000 }, { fee_pct: 5, tax_pct: 8 }).tax).toBeCloseTo(2688)
+    const t10 = profitAfterFees({ received: 24, cost: 312 }, { fee_pct: 5, tax_pct: 8 })
+    expect(t10.net).toBeCloseTo(24 - 312 * 1.134) // −$329,8
   })
   it('ngân sách tháng sau + vốn ngoài + tự nuôi được tới đâu', () => {
     expect(nextBudget(200, 50, -288)).toBe(200)
@@ -223,11 +231,11 @@ describe('mô hình v2 (tháng chưa chốt)', () => {
     const v1 = simulate([row('2027-01-01', { budget_test: 1000, share_phys: 50, share_tools: 30, ...V1 })], cfg, '2027-01-01')
     expect(v1[0].testsT).toBe(0) // tháng chốt v1 không có Tools AI
   })
-  it('vốn cần = vận hành + quỹ cầu nối 15% + dự phòng 10%; cảnh báo khi thiếu', () => {
+  it('vốn cần = vận hành (gồm phí + thuế nạp) + quỹ cầu nối 15% + dự phòng 10%; cảnh báo khi thiếu', () => {
     const rows = [row('2027-01-01', { budget_test: 1200 }), row('2027-02-01')]
     const s = simulate(rows, cfg, '2027-01-01', 1, { max_test_usd: 12 })
-    expect(s[1].capitalOps).toBeCloseTo(4000) // ads $4.000 × 30/30
-    expect(s[1].capital).toBeCloseTo(5000)
+    expect(s[1].capitalOps).toBeCloseTo(4000 * 1.134) // ads $4.000 × 30/30, nạp kèm phí + thuế
+    expect(s[1].capital).toBeCloseTo(4000 * 1.134 * 1.25)
     const a = analyze(rows, cfg, '2027-01-02', { max_test_usd: 12 })
     expect(a.capitalShort.map((x) => x.month)).toEqual(['2027-01-01', '2027-02-01'])
     const b = analyze([row('2027-01-01', { budget_test: 100, extra_capital: 200 })], cfg, '2027-01-02', live)

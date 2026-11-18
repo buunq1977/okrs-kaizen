@@ -83,7 +83,7 @@ export default function AffiliatePlan() {
         {g && g.v === 2 && (
           <>
             {' '}
-            Tháng {mLabel(cfg.goal_month)}: lợi nhuận trước phí {usd(g.gross)} − phí {usd(g.fee)} − chi phí cố định {usd(g.fixed)} − thuế {usd(g.tax)} = {usd(g.net)}. Trong đó SaaS + Tools AI {usd(g.profitS + g.profitT)} (chưa chắc).
+            Tháng {mLabel(cfg.goal_month)}: lợi nhuận trước phí {usd(g.gross)} − phí Invoice {usd(g.fee)} − thuế {usd(g.tax)} (trên tiền nạp Ads) − chi phí cố định {usd(g.fixed)} = {usd(g.net)}. Trong đó SaaS + Tools AI {usd(g.profitS + g.profitT)} (chưa chắc).
           </>
         )}
       </p>
