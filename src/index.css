@@ -585,3 +585,12 @@ nav .more-m button.ghost { color: var(--ink-2) }
 .act-t { table-layout: fixed; min-width: 560px }
 .act-t th:nth-child(1) { width: 34% }
 .act-t th:nth-child(2) { width: 22% }
+
+/* Chỉ tiêu Năm → Ngày: cột nhãn cố định, 5 cột số đều nhau, căn phải thẳng với tiêu đề */
+.aff-tt { table-layout: fixed; min-width: 760px }
+.aff-tt th:first-child, .aff-tt td:first-child { width: 20% }
+.aff-tt th:not(:first-child) { text-align: right; white-space: normal }
+.aff-tt td.n { vertical-align: top }
+.aff-tt td.n .sub { text-align: right; white-space: nowrap }
+.aff-tt td.n .note { font-size: 12px }
+.aff-tt tbody tr:nth-child(3) td { border-bottom-width: 2px }

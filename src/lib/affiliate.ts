@@ -247,6 +247,27 @@ export function rowEditable(m: Pick<AffMonth, 'month' | 'locked_at'>, today: str
   return monthEditable(m.month, today, editDays, locked)
 }
 
+/* ---------- Tỷ trọng 3 mô hình luôn = 100% ---------- */
+export type ShareKey = 'phys' | 'tools' | 'saas'
+/** Luca chốt 19/11/2026: % Vật lý + % Tools AI + % SaaS = 100%. Sửa 1 cột thì cột cao nhất trong 2 cột còn lại
+ *  nhận phần chênh (giảm khi tổng vượt 100, tăng khi tổng thiếu); cột đó về 0 mà vẫn chênh thì cột còn lại nhận tiếp.
+ *  Trả về share_phys, share_tools (SaaS = 100 − hai cột, không lưu riêng). Số làm tròn tới 1 chữ số. */
+export function rebalanceShares(cur: { phys: number; tools: number }, key: ShareKey, value: number): { share_phys: number; share_tools: number } {
+  const r1 = (n: number) => Math.round(n * 10) / 10
+  const v = Math.min(100, Math.max(0, value))
+  const s: Record<ShareKey, number> = { phys: cur.phys, tools: cur.tools, saas: Math.max(0, 100 - cur.phys - cur.tools) }
+  s[key] = v
+  const others = (['phys', 'tools', 'saas'] as ShareKey[]).filter((k) => k !== key).sort((a, b) => s[b] - s[a])
+  let diff = s[others[0]] + s[others[1]] - (100 - v) // > 0: phải giảm; < 0: phải tăng
+  for (const k of others) {
+    if (Math.abs(diff) < 1e-9) break
+    const next = Math.min(100, Math.max(0, s[k] - diff))
+    diff -= s[k] - next
+    s[k] = next
+  }
+  return { share_phys: r1(s.phys), share_tools: r1(s.tools) }
+}
+
 /* ---------- Kế hoạch mặc định ---------- */
 /** (Tuỳ chọn) Tỷ trọng Vật lý theo bảng cũ duyệt 10/11/2026; từ GĐ4 kế hoạch mới mặc định 100% Vật lý. */
 /** Tỷ trọng Vật lý mặc định cũ (anh đã duyệt 10/11/2026): T11–12/2026 100%, Q1 60%, Q2 30%, Q3 50%, Q4 80%. */

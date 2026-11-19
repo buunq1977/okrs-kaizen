@@ -1,7 +1,7 @@
 import { Fragment, useMemo } from 'react'
 import {
   analyze, ceilCount, coeffsOf, dayLabel, winsLabel, monthOf, monthsOfLevel, nextBudget, PHYS_FIELDS, planRows, quarterNo, SAAS_FIELDS, TOOLS_FIELDS, targetsFor,
-  defaultProfit, gateOf, GOAL_LEVEL_NAMES, goalLevelReached, kickoffBudget, profitAfterFees, rowEditable, sampleNeeds, selfFundProfit, suggestDouble, v2Of,
+  defaultProfit, gateOf, GOAL_LEVEL_NAMES, goalLevelReached, rebalanceShares, type ShareKey, kickoffBudget, profitAfterFees, rowEditable, sampleNeeds, selfFundProfit, suggestDouble, v2Of,
   type AffConfig, type AffMonth, type Live, type SimMonth, type Targets,
 } from '../../lib/affiliate'
 import { totals, type AffEntry, type AffProject } from '../../lib/affProjects'
@@ -242,7 +242,7 @@ export default function AffiliatePlan() {
 
       <Sec title="Chỉ tiêu Năm → Ngày" hint="tối thiểu (theo ngân sách) / mục tiêu (đủ đạt lợi nhuận)">
         <div className="tbl">
-          <table className="ktable aff-t">
+          <table className="ktable aff-t aff-tt">
             <thead>
               <tr>
                 <th />
@@ -465,7 +465,8 @@ const cfgDays = (cfg: { phys: { payout_days?: number }; saas: { payout_days?: nu
 
 function MonthRow({ m, cur, ed, sm, patch }: { m: AffMonth; cur: string; ed: boolean; sm: SimMonth | undefined; patch: (p: Partial<AffMonth>) => void }) {
   const tools = m.share_tools ?? 0
-  const n = (k: 'share_phys' | 'share_tools' | 'budget_test' | 'extra_capital' | 'season' | 'profit_target', min: number, max?: number) => (
+  const saas = Math.max(0, Math.round((100 - m.share_phys - tools) * 10) / 10)
+  const n = (k: 'budget_test' | 'extra_capital' | 'season' | 'profit_target', min: number, max?: number) => (
     <Txt
       className="num"
       type="number"
@@ -475,10 +476,22 @@ function MonthRow({ m, cur, ed, sm, patch }: { m: AffMonth; cur: string; ed: boo
       onSave={(v) => {
         const x = toNum(v)
         if (x === null || x < min || (max !== undefined && x > max)) return
-        // Vật lý + Tools AI không vượt 100%
-        if (k === 'share_phys' && x + tools > 100) return
-        if (k === 'share_tools' && x + m.share_phys > 100) return
         patch({ [k]: x } as Partial<AffMonth>)
+      }}
+    />
+  )
+  // 3 cột % luôn cộng = 100: sửa 1 cột thì cột cao nhất trong 2 cột còn lại tự điều chỉnh
+  const sh = (key: ShareKey, value: number, label: string) => (
+    <Txt
+      className="num"
+      type="number"
+      value={String(value)}
+      disabled={!ed}
+      label={label}
+      onSave={(v) => {
+        const x = toNum(v)
+        if (x === null || x < 0 || x > 100) return
+        patch(rebalanceShares({ phys: m.share_phys, tools }, key, x))
       }}
     />
   )
@@ -488,9 +501,9 @@ function MonthRow({ m, cur, ed, sm, patch }: { m: AffMonth; cur: string; ed: boo
       <td>
         <b>{mLabel(m.month)}</b>
       </td>
-      <td>{n('share_phys', 0, 100)}</td>
-      <td>{n('share_tools', 0, 100)}</td>
-      <td className="n">{Math.max(0, 100 - m.share_phys - tools)}%</td>
+      <td>{sh('phys', m.share_phys, '% Vật lý')}</td>
+      <td>{sh('tools', tools, '% Tools AI')}</td>
+      <td>{sh('saas', saas, '% SaaS')}</td>
       <td>{n('budget_test', 0)}</td>
       <td>{n('extra_capital', 0)}</td>
       <td>{n('season', 0.1, 5)}</td>

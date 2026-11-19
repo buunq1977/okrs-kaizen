@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   ceilCount, dayLabel, winsLabel,
   analyze, configEditable, defaultProfit, defaultShare, monthEditable, monthsOfLevel, needsAutoLock, nextBudget, planRows, simulate, targetsFor,
-  adCharges, anyLocked, deseason, gateOf, GOAL_LEVEL_NAMES, goalLevelReached, kickoffBudget, profitAfterFees, sampleNeeds, suggestDouble, realRoas, rowEditable, seasonWarn, selfFundProfit, snapshotV2,
+  adCharges, anyLocked, deseason, gateOf, rebalanceShares, GOAL_LEVEL_NAMES, goalLevelReached, kickoffBudget, profitAfterFees, sampleNeeds, suggestDouble, realRoas, rowEditable, seasonWarn, selfFundProfit, snapshotV2,
   type AffConfig, type AffMonth,
 } from './affiliate'
 
@@ -344,5 +344,28 @@ describe('3 mức O năm 2027: tối thiểu / mục tiêu / vươn tới', () =
     expect(goalLevelReached(60000, L)).toBe(1)
     expect(goalLevelReached(130000, L)).toBe(2)
     expect(goalLevelReached(null, L)).toBe(-1)
+  })
+})
+
+describe('tỷ trọng 3 mô hình luôn = 100%', () => {
+  const total = (r: { share_phys: number; share_tools: number }) => r.share_phys + r.share_tools + (100 - r.share_phys - r.share_tools)
+  it('tăng Tools AI: cột cao nhất còn lại (Vật lý) giảm', () => {
+    expect(rebalanceShares({ phys: 60, tools: 0 }, 'tools', 30)).toEqual({ share_phys: 30, share_tools: 30 }) // SaaS giữ 40
+  })
+  it('giảm Vật lý: cột cao nhất còn lại (SaaS) nhận phần thiếu', () => {
+    expect(rebalanceShares({ phys: 60, tools: 10 }, 'phys', 50)).toEqual({ share_phys: 50, share_tools: 10 }) // SaaS 30 → 40
+  })
+  it('sửa SaaS: cột cao nhất (Vật lý) điều chỉnh', () => {
+    expect(rebalanceShares({ phys: 100, tools: 0 }, 'saas', 20)).toEqual({ share_phys: 80, share_tools: 0 })
+    expect(rebalanceShares({ phys: 30, tools: 30 }, 'saas', 0)).toEqual({ share_phys: 70, share_tools: 30 }) // hoà: lấy cột đứng trước
+  })
+  it('cột cao nhất về 0 mà vẫn thiếu → cột còn lại nhận tiếp', () => {
+    expect(rebalanceShares({ phys: 50, tools: 40 }, 'saas', 100)).toEqual({ share_phys: 0, share_tools: 0 })
+    expect(rebalanceShares({ phys: 30, tools: 25 }, 'phys', 90)).toEqual({ share_phys: 90, share_tools: 10 }) // SaaS 45 → 0, Tools 25 → 10
+  })
+  it('chặn ngoài 0–100 và tổng luôn 100', () => {
+    const r = rebalanceShares({ phys: 60, tools: 0 }, 'phys', 140)
+    expect(r).toEqual({ share_phys: 100, share_tools: 0 })
+    expect(total(rebalanceShares({ phys: 33.3, tools: 33.3 }, 'tools', 50))).toBe(100)
   })
 })
