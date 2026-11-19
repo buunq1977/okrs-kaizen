@@ -147,6 +147,24 @@ export interface Tally {
   kind: 'search'
   model: Model
   count: number
+  reject_reasons?: Record<string, number> // 013: số lần loại theo nhãn trong ngày
+}
+/** Bộ đếm "loại vì…": cộng / trừ 1 lần cho 1 nhãn (không âm, nhãn về 0 thì bỏ). */
+export function bumpReject(r: Record<string, number> | null | undefined, label: string, delta: number): Record<string, number> {
+  const out = { ...(r ?? {}) }
+  const v = Math.max(0, (out[label] ?? 0) + delta)
+  if (v) out[label] = v
+  else delete out[label]
+  return out
+}
+/** Tổng số lần loại theo nhãn trong khoảng ngày (theo mô hình nếu có). */
+export function rejectSum(ts: Pick<Tally, 'date' | 'model' | 'reject_reasons'>[], from: string, to: string, model?: Model): Record<string, number> {
+  const out: Record<string, number> = {}
+  for (const t of ts) {
+    if (t.date < from || t.date > to || (model && t.model !== model)) continue
+    for (const [k, v] of Object.entries(t.reject_reasons ?? {})) out[k] = (out[k] ?? 0) + Number(v)
+  }
+  return out
 }
 export const searchSum = (ts: Pick<Tally, 'date' | 'model' | 'count'>[], from: string, to: string, model?: Model) =>
   ts.filter((t) => t.date >= from && t.date <= to && (!model || t.model === model)).reduce((s, t) => s + Number(t.count), 0)

@@ -3,7 +3,7 @@ import AffLedger from '../components/aff/AffLedger'
 import { useAff, useLedger } from '../components/aff/useAff'
 import { Sec, Txt, toNum } from '../components/ui'
 import { analyze, ceilCount, coeffsOf, gateOf, monthOf, paceTargets, targetsFor, v2Of, winsLabel } from '../lib/affiliate'
-import { advance, countBetween, flags, kindOf, measure, metrics, MODEL_NAME, nextStage, OP_COLOR, OP_NAME, searchSum, STAGE_NAME, STAGES, totals, type AffEntry, type AffProject, type Model, type OpStatus, type Stage, type Tally } from '../lib/affProjects'
+import { advance, bumpReject, countBetween, flags, kindOf, measure, metrics, MODEL_NAME, nextStage, OP_COLOR, OP_NAME, rejectSum, searchSum, STAGE_NAME, STAGES, totals, type AffEntry, type AffProject, type Model, type OpStatus, type Stage, type Tally } from '../lib/affProjects'
 import { MODEL3, MODEL3_NAME, monthlyMoney, wsCounts, type Model3 } from '../lib/affSource'
 import { useRows } from '../lib/ctx'
 import { listAll } from '../lib/db'
@@ -23,6 +23,7 @@ export default function Projects() {
   const t0 = today()
   const [open, setOpen] = useState<string | null>(null)
   const [tm3, setTm3] = useState<Model3>('phys')
+  const [lastRej, setLastRej] = useState<string | null>(null)
   const led = useLedger(ps)
 
   const byP = useMemo(() => {
@@ -75,6 +76,16 @@ export default function Projects() {
     )
 
   const todayTally = ts.rows.find((x) => x.date === t0 && x.model === (tm3 as Tally['model']))
+  // "Loại vì…": chạm 1 lần +1 cho nhãn; nhớ nhãn vừa chạm để hoàn tác
+  const labels = v2Of(cfg).reject_labels
+  const rejToday = todayTally?.reject_reasons ?? {}
+  const rejMonth = Object.entries(rejectSum(ts.rows, mo.from, mo.to)).sort((x, y) => y[1] - x[1])
+  async function bumpRej(label: string, d: number) {
+    const next = bumpReject(todayTally?.reject_reasons, label, d)
+    if (todayTally) ts.patch(todayTally.id, { reject_reasons: next })
+    else if (d > 0) await ts.add({ date: t0, kind: 'search', model: tm3, count: 0, reject_reasons: next })
+    setLastRej(d > 0 ? label : null)
+  }
   async function setSearch(n: number) {
     const v = Math.max(0, Math.round(n))
     if (todayTally) ts.patch(todayTally.id, { count: v })
@@ -167,6 +178,25 @@ export default function Projects() {
             </button>
           ))}
         </div>
+        <div className="tally rej">
+          <span className="tally-l">Loại vì…</span>
+          {labels.map((l) => (
+            <button key={l} className="chip" onClick={() => bumpRej(l, 1)} title={`Chạm để +1: ${l}`}>
+              {l}
+              {rejToday[l] ? <b> · {rejToday[l]}</b> : null}
+            </button>
+          ))}
+          {lastRej && (
+            <button className="btn mini ghost" onClick={() => bumpRej(lastRej, -1)}>
+              ↶ Hoàn tác
+            </button>
+          )}
+        </div>
+        {rejMonth.length > 0 && (
+          <p className="note">
+            Tháng này loại nhiều nhất: {rejMonth.slice(0, 3).map(([k, v]) => `${k} (${v})`).join(' · ')}. Lý do lặp lại nhiều thì siết bộ lọc ở bước research để đỡ tốn công.
+          </p>
+        )}
         <p className="note">
           {wsD
             ? `Đăng ký, lên camp đếm từ Research${wsD.hasDates ? '' : ' (Research chưa có ngày đăng ký: chạy 09_reg_dates.sql)'}; search đếm ở đây (chỉ số, không cần tên).`

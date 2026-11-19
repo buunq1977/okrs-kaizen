@@ -128,6 +128,10 @@ export default function AffSettings() {
         {fld('Ngày làm / tuần', 'working_days_week', 1, 7)}
         {fld('Đăng ký / 1 test (phễu minh hoạ)', 'reg_per_test', 0.1)}
         {fld('Search / 1 test (phễu minh hoạ)', 'research_per_test', 0.1)}
+        <label className="fld">
+          <span>Nhãn "loại vì…" ở bộ đếm search (mỗi dòng 1 nhãn, tối đa 12)</span>
+          <textarea rows={4} disabled={!ed} value={(c.reject_labels ?? v2.reject_labels).join('\n')} onChange={(e) => set('reject_labels', e.target.value.split('\n').slice(0, 12))} />
+        </label>
       </div>
 
       <b>Lấy từ app khác (sửa ở app đó)</b>

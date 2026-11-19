@@ -11,6 +11,7 @@ export const BENCH = {
   min_tests: 5, // mẫu tối thiểu để đo tiền test, tỷ lệ
   min_tests_orders: 10,
   min_regs: 5,
+  min_tests_funnel: 30, // phễu 5:2:1 là minh hoạ của nguồn: chỉ gợi ý thay bằng tỷ lệ đo khi đủ ≥ 30 dự án test (C3)
 }
 
 export interface Finding {
@@ -95,8 +96,8 @@ export function suggestCoeffs(mp: Measured, ms: Measured, set: { phys: PhysCoeff
     sug('phys.win_profit', mp.win_profit === null ? null : Math.round(mp.win_profit), mp.n_wins, 3, set.phys.win_profit),
     sug('saas.test_cost', round1(ms.test_cost), ms.n_tests, BENCH.min_tests, set.saas.test_cost),
     sug('saas.tests_per_win', ms.tests_per_win === null ? null : Math.round(ms.tests_per_win), ms.n_wins, 3, set.saas.tests_per_win),
-    sug('reg_per_test', round1(mp.reg_per_test), mp.n_tests, BENCH.min_tests, set.reg_per_test),
-    sug('research_per_test', round1(mp.research_per_test), mp.n_tests, BENCH.min_tests, set.research_per_test),
+    sug('reg_per_test', round1(mp.reg_per_test), mp.n_tests, BENCH.min_tests_funnel, set.reg_per_test),
+    sug('research_per_test', round1(mp.research_per_test), mp.n_tests, BENCH.min_tests_funnel, set.research_per_test),
   ].filter((x): x is Suggest => x !== null && x.value > 0)
 }
 

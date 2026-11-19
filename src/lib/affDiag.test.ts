@@ -41,9 +41,11 @@ describe('gợi ý hệ số', () => {
     const s = suggestCoeffs(M({ n_tests: 6, test_cost: 14.37, reg_per_test: 2.5, research_per_test: 7 }), M({}), { phys: PHYS_DEFAULT, saas: SAAS_DEFAULT, reg_per_test: 2, research_per_test: 5 })
     expect(s.map((x) => [x.key, x.value, x.enough])).toEqual([
       ['phys.test_cost', 14.4, true],
-      ['reg_per_test', 2.5, true],
-      ['research_per_test', 7, true],
+      ['reg_per_test', 2.5, false], // phễu minh hoạ: cần ≥ 30 dự án test mới đủ
+      ['research_per_test', 7, false],
     ])
+    const s30 = suggestCoeffs(M({ n_tests: 30, reg_per_test: 2.5, research_per_test: 7 }), M({}), { phys: PHYS_DEFAULT, saas: SAAS_DEFAULT, reg_per_test: 2, research_per_test: 5 })
+    expect(s30.find((x) => x.key === 'reg_per_test')!.enough).toBe(true)
     expect(s[0].diffPct).toBe(20)
   })
 })

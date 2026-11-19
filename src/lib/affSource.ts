@@ -38,6 +38,13 @@ export interface WsProject {
   type_code: string | null
   trial_days: number | null
   created_at: string
+  /* trường lọc (GĐ6, chẩn đoán ROI); tuỳ chọn */
+  fixed_commission?: number | null
+  commission_pct?: number | null
+  pricing?: number | null
+  commission_type?: string | null
+  top_countries?: string[] | null
+  cookie_days?: number | null
 }
 export type RegStatus = 'Chưa đăng ký' | 'Pending approval' | 'Active' | 'Rejected'
 export interface WsReg {
@@ -671,4 +678,58 @@ export function ledgerItems<L extends LinkRow>(
       win: winCheck(r, ah, r.model && appr ? appr[r.model].pct : null, th, (link?.scale_check ?? {}) as ScaleManual, today, { roa: opts.roa, winner: opts.winner }),
     }
   })
+}
+
+/* ---------- GĐ6: ROI theo trường lọc của Research (C2) ---------- */
+export interface RoiBucket {
+  bucket: string
+  n: number // số dự án đã test (có chi phí)
+  cost: number
+  received: number // hoa hồng đã duyệt + đã trả
+  roi: number | null // %
+  few: boolean // ít mẫu (< minN)
+}
+export interface RoiGroup {
+  field: string
+  buckets: RoiBucket[]
+}
+export const ROI_MIN_TOTAL = 10
+/** Hoa hồng 1 đơn ước tính: hoa hồng cố định, hoặc % × giá. */
+export const commissionPerOrder = (p: Pick<WsProject, 'fixed_commission' | 'commission_pct' | 'pricing'>): number | null => {
+  if (p.fixed_commission && p.fixed_commission > 0) return Number(p.fixed_commission)
+  if (p.commission_pct && p.pricing && p.commission_pct > 0 && p.pricing > 0) return (Number(p.commission_pct) / 100) * Number(p.pricing)
+  return null
+}
+/** So ROI của dự án đã test theo nhóm của từng trường lọc. Chỉ có ý nghĩa khi tổng ≥ ROI_MIN_TOTAL dự án. */
+export function roiByField(rows: LedgerRow[], ws: Pick<WsData, 'projects'>, minN = 5): { total: number; enough: boolean; groups: RoiGroup[] } {
+  const pById = new Map(ws.projects.map((p) => [p.id, p]))
+  const tested = rows.filter((r) => r.cost > 0)
+  const keyers: [string, (p: WsProject | undefined) => string][] = [
+    [
+      'Hoa hồng / đơn',
+      (p) => {
+        const c = p ? commissionPerOrder(p) : null
+        return c === null ? 'không rõ' : c < 10 ? '< $10' : c < 30 ? '$10–30' : '≥ $30'
+      },
+    ],
+    ['Loại hoa hồng', (p) => (p?.commission_type?.trim() ? p.commission_type.trim() : 'không rõ')],
+    ['Thị trường chính', (p) => (p?.top_countries?.length ? p.top_countries[0] : 'không rõ')],
+    ['Cookie', (p) => (p?.cookie_days == null ? 'không rõ' : p.cookie_days < 30 ? '< 30 ngày' : '≥ 30 ngày')],
+  ]
+  const groups = keyers.map(([field, key]) => {
+    const by = new Map<string, { n: number; cost: number; received: number }>()
+    for (const r of tested) {
+      const k = key(pById.get(r.project_id))
+      const b = by.get(k) ?? { n: 0, cost: 0, received: 0 }
+      b.n++
+      b.cost += r.cost
+      b.received += receivedComm(r)
+      by.set(k, b)
+    }
+    const buckets = [...by.entries()]
+      .map(([bucket, b]) => ({ bucket, n: b.n, cost: Math.round(b.cost * 100) / 100, received: Math.round(b.received * 100) / 100, roi: b.cost > 0 ? ((b.received - b.cost) / b.cost) * 100 : null, few: b.n < minN }))
+      .sort((a, b) => b.n - a.n)
+    return { field, buckets }
+  })
+  return { total: tested.length, enough: tested.length >= ROI_MIN_TOTAL, groups }
 }

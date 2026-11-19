@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Kaizen, OkrSummary } from '../components/day/Kaizen'
 import { KrBlocks, ObjectiveBlock } from '../components/day/Okr'
 import { Analyze, CarryOver, Observe, RootCauses } from '../components/day/Observe'
-import { FocusBand, PctPill, Step, UpperBand, type Upper } from '../components/ui'
+import { FocusBand, KaizenSave, PctPill, Step, UpperBand, type Upper } from '../components/ui'
 import { Verify } from '../components/week/Verify'
 import { WeekGrid } from '../components/week/WeekGrid'
 import { statusColor as statusColorN } from '../lib/numeric'
@@ -441,6 +441,7 @@ export default function Week({ date, setDate }: { date: string; setDate: (d: str
               </>
             }
           />
+          <KaizenSave label={`Kaizen tuần ${fmtDM(ws)}`} />
         </div>
       )}
     </>

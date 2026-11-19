@@ -27,6 +27,8 @@ const SCREENS: { id: Screen; label: string }[] = [
   { id: 'quarter', label: 'Quý' },
   { id: 'year', label: 'Năm' },
 ]
+/** Trang tổng của Luca (Research, Ads-Hub, KQKD). Đổi được bằng biến VITE_WORKSPACE_URL. */
+const WORKSPACE_URL = (import.meta.env.VITE_WORKSPACE_URL as string | undefined) || 'https://workspace.buunq.workers.dev'
 const MORE: { id: Screen; label: string }[] = [
   { id: 'vision', label: 'Tầm nhìn' },
   { id: 'kickoff', label: 'Kỳ khởi động' },
@@ -136,7 +138,22 @@ function Main({ session }: { session: Session }) {
     window.scrollTo(0, 0)
   }, [])
 
-  const moreRef = useRef<HTMLDetailsElement>(null)
+  // Menu "Thêm": bấm để mở / đóng; bấm ra ngoài hoặc Esc thì đóng
+  const [moreOpen, setMoreOpen] = useState(false)
+  const moreRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!moreOpen) return
+    const down = (e: PointerEvent) => {
+      if (moreRef.current && !moreRef.current.contains(e.target as Node)) setMoreOpen(false)
+    }
+    const key = (e: KeyboardEvent) => e.key === 'Escape' && setMoreOpen(false)
+    document.addEventListener('pointerdown', down)
+    document.addEventListener('keydown', key)
+    return () => {
+      document.removeEventListener('pointerdown', down)
+      document.removeEventListener('keydown', key)
+    }
+  }, [moreOpen])
   // Chiều cao header để thanh tab dính ngay dưới nó
   useEffect(() => {
     const el = document.querySelector('header.top') as HTMLElement | null
@@ -150,7 +167,7 @@ function Main({ session }: { session: Session }) {
   function open(s: Screen) {
     setScreen(s)
     setDate(s === 'plan' ? addDays(today(), 1) : today())
-    if (moreRef.current) moreRef.current.open = false
+    setMoreOpen(false)
   }
 
   return (
@@ -159,25 +176,34 @@ function Main({ session }: { session: Session }) {
         <div className="brand">
           OKRs · Kaizen<small>{session.user.email}</small>
         </div>
+        <div className="acct">
+          <a className="acct-b" href={WORKSPACE_URL} title="Về trang Workspace (Research, Ads-Hub)">
+            ← Workspace
+          </a>
+          <button className="acct-b" onClick={() => supabase?.auth.signOut()}>
+            Đăng xuất
+          </button>
+        </div>
         <nav aria-label="Màn hình">
           {SCREENS.map((s) => (
             <button key={s.id} aria-pressed={s.id === screen} onClick={() => open(s.id)}>
               {s.label}
             </button>
           ))}
-          <details className="more" ref={moreRef}>
-            <summary aria-pressed={MORE.some((m) => m.id === screen)}>{MORE.find((m) => m.id === screen)?.label ?? 'Thêm'} ▾</summary>
-            <div className="more-m">
-              {MORE.map((s) => (
-                <button key={s.id} aria-pressed={s.id === screen} onClick={() => open(s.id)}>
-                  {s.label}
-                </button>
-              ))}
-              <button className="ghost" onClick={() => supabase?.auth.signOut()}>
-                Đăng xuất
-              </button>
-            </div>
-          </details>
+          <div className="more" ref={moreRef}>
+            <button className="more-b" aria-haspopup="menu" aria-expanded={moreOpen} aria-pressed={MORE.some((m) => m.id === screen)} onClick={() => setMoreOpen((o) => !o)}>
+              {MORE.find((m) => m.id === screen)?.label ?? 'Thêm'} {moreOpen ? '▴' : '▾'}
+            </button>
+            {moreOpen && (
+              <div className="more-m" role="menu">
+                {MORE.map((s) => (
+                  <button key={s.id} role="menuitem" aria-pressed={s.id === screen} onClick={() => open(s.id)}>
+                    {s.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </nav>
       </header>
       <main>
@@ -223,7 +249,7 @@ function SetupError({ msg, retry }: { msg: string; retry: () => void }) {
       {missingTable ? (
         <p>
           Supabase chưa có bảng của app. Vào Supabase → <b>SQL Editor → New query</b>, dán và chạy lần lượt <code>supabase/migrations/001_init.sql</code> rồi{' '}
-          <code>002_goal_current.sql</code>, <code>003_grants.sql</code>, <code>004_okr_kaizen_v2.sql</code>, <code>005_v3_day.sql</code>, <code>006_week.sql</code>, <code>007_long_periods.sql</code>, <code>008_affiliate_plan.sql</code>, <code>009_aff_projects.sql</code>, <code>010_aff_search_tally.sql</code>, <code>011_aff_okr_link.sql</code>, <code>012_okr_lock_morning.sql</code>, <code>013_aff_model_rework.sql</code>, <code>014_aff_reopen_v1.sql</code> trong repo, sau đó bấm Thử lại.
+          <code>002_goal_current.sql</code>, <code>003_grants.sql</code>, <code>004_okr_kaizen_v2.sql</code>, <code>005_v3_day.sql</code>, <code>006_week.sql</code>, <code>007_long_periods.sql</code>, <code>008_affiliate_plan.sql</code>, <code>009_aff_projects.sql</code>, <code>010_aff_search_tally.sql</code>, <code>011_aff_okr_link.sql</code>, <code>012_okr_lock_morning.sql</code>, <code>013_aff_model_rework.sql</code>, <code>014_aff_reopen_v1.sql</code>, <code>015_aff_reject_labels.sql</code> trong repo, sau đó bấm Thử lại.
         </p>
       ) : noGrant ? (
         <p>

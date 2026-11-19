@@ -4,7 +4,7 @@ import { loadAffData } from '../../lib/affData'
 import { affTickChanges, gateFromData, kpiTargets, metricSum, METRIC_NAME, METRIC_UNIT, type AffData, type Level, type MonthActuals } from '../../lib/affLink'
 import { BENCH, diagnose, extraFindings } from '../../lib/affDiag'
 import { countBetween, flags, measure, totals } from '../../lib/affProjects'
-import { MODEL3 } from '../../lib/affSource'
+import { buildLedger, MODEL3, ROI_MIN_TOTAL, roiByField } from '../../lib/affSource'
 import { useApp } from '../../lib/ctx'
 import { errMsg, update } from '../../lib/db'
 import { addMonths, fmtDM, monthEnd, today } from '../../lib/dates'
@@ -72,7 +72,8 @@ export function AffDayWeek(props: { level: 'day' | 'week'; start: string; end: s
     if (!kr) return
     const items = (['search', 'dang_ky', 'test'] as const).filter((m) => t[m] > 0)
     let i = 0
-    for (const m of items) await kas.add({ kr_id: kr.id, title: `${METRIC_NAME[m]} ${t[m]} ${METRIC_UNIT[m]}`, sort: i++, aff_metric: m, aff_target: t[m] })
+    // Search / đăng ký theo phễu minh hoạ 5:2:1 → mức tham khảo; Lên camp test là chỉ tiêu bắt buộc
+    for (const m of items) await kas.add({ kr_id: kr.id, title: `${METRIC_NAME[m]} ${t[m]} ${METRIC_UNIT[m]}${m === 'test' ? '' : ' (tham khảo)'}`, sort: i++, aff_metric: m, aff_target: t[m] })
     kas.reload()
   }
   const hasAff = affKas.length > 0
@@ -346,7 +347,57 @@ export function AffDiagnosis({ level, start, end, k, save }: { level: Level; sta
           )
         })}
       </ul>
+      {fromRs && data.ws && <RoiByField data={data} />}
       <p className="note">Hệ số đo được khác số đặt nhiều thì cập nhật ở Cài đặt → Mô hình Affiliate trong buổi rà đầu kỳ (nút "Dùng số đo").</p>
+    </div>
+  )
+}
+
+/** GĐ6: ROI theo trường lọc của Research (hoa hồng / đơn, loại hoa hồng, thị trường, cookie). Chỉ kết luận khi đủ dự án đã test. */
+function RoiByField({ data }: { data: AffData }) {
+  const r = roiByField(buildLedger(data.ws!, data.ah ?? null), data.ws!)
+  if (!r.enough)
+    return (
+      <p className="note">
+        ROI theo trường lọc của Research: cần ≥ {ROI_MIN_TOTAL} dự án đã test để so (đang có {r.total}).
+      </p>
+    )
+  const pct = (n: number | null) => (n === null ? '–' : `${n > 0 ? '+' : ''}${Math.round(n)}%`)
+  return (
+    <div className="aff-q">
+      <b>ROI theo trường lọc của Research ({r.total} dự án đã test, từ trước tới nay)</b>
+      <div className="tbl">
+        <table className="ktable">
+          <thead>
+            <tr>
+              <th>Trường lọc</th>
+              <th>Nhóm</th>
+              <th style={{ textAlign: 'right' }}>Dự án</th>
+              <th style={{ textAlign: 'right' }}>Chi phí</th>
+              <th style={{ textAlign: 'right' }}>Đã nhận</th>
+              <th style={{ textAlign: 'right' }}>ROI</th>
+            </tr>
+          </thead>
+          <tbody>
+            {r.groups.flatMap((g) =>
+              g.buckets.map((b, i) => (
+                <tr key={g.field + b.bucket}>
+                  <td>{i === 0 ? <b>{g.field}</b> : ''}</td>
+                  <td>
+                    {b.bucket}
+                    {b.few && <small className="sub">ít mẫu</small>}
+                  </td>
+                  <td className="n">{b.n}</td>
+                  <td className="n">{usd(b.cost)}</td>
+                  <td className="n">{usd(b.received)}</td>
+                  <td className={'n ' + (b.roi !== null && b.roi < 0 ? 'neg' : '')}>{pct(b.roi)}</td>
+                </tr>
+              )),
+            )}
+          </tbody>
+        </table>
+      </div>
+      <p className="note">Nhóm nào ROI âm rõ và đủ mẫu thì siết bộ lọc ở Research (ví dụ bỏ dự án hoa hồng / đơn thấp). Nhóm "ít mẫu" chỉ để tham khảo.</p>
     </div>
   )
 }

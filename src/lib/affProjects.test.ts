@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { PHYS_DEFAULT, SAAS_DEFAULT } from './affiliate'
-import { advance, countBetween, flags, kindOf, measure, metrics, nextStage, parseImport, receivedProfit, totals, type AffEntry, type AffProject } from './affProjects'
+import { advance, bumpReject, countBetween, flags, kindOf, measure, metrics, nextStage, parseImport, receivedProfit, rejectSum, totals, type AffEntry, type AffProject } from './affProjects'
 
 const C = { phys: PHYS_DEFAULT, saas: SAAS_DEFAULT }
 const P = (id: string, p: Partial<AffProject> = {}): AffProject => ({
@@ -132,5 +132,25 @@ describe('nhập từ Excel', () => {
   })
   it('thiếu cột tên thì báo', () => {
     expect(parseImport([['Chi phí', 'Doanh số']], '2026-11-10').missing.length).toBe(1)
+  })
+})
+
+describe('bộ đếm "loại vì…" (GĐ6)', () => {
+  it('chạm một lần +1, hoàn tác −1, về 0 thì bỏ nhãn', () => {
+    const a = bumpReject(undefined, 'Hoa hồng thấp', 1)
+    expect(a).toEqual({ 'Hoa hồng thấp': 1 })
+    expect(bumpReject(a, 'Hoa hồng thấp', 1)).toEqual({ 'Hoa hồng thấp': 2 })
+    expect(bumpReject(a, 'Hoa hồng thấp', -1)).toEqual({})
+    expect(bumpReject({}, 'CPC cao', -1)).toEqual({})
+  })
+  it('cộng theo khoảng ngày và mô hình', () => {
+    const ts: { date: string; model: 'phys' | 'saas'; reject_reasons: Record<string, number> }[] = [
+      { date: '2026-11-18', model: 'phys' as const, reject_reasons: { 'Hoa hồng thấp': 2, 'CPC cao': 1 } },
+      { date: '2026-11-19', model: 'phys' as const, reject_reasons: { 'Hoa hồng thấp': 1 } },
+      { date: '2026-11-19', model: 'saas' as const, reject_reasons: { 'CPC cao': 4 } },
+      { date: '2026-10-30', model: 'phys' as const, reject_reasons: { 'Hoa hồng thấp': 9 } },
+    ]
+    expect(rejectSum(ts, '2026-11-01', '2026-11-30')).toEqual({ 'Hoa hồng thấp': 3, 'CPC cao': 5 })
+    expect(rejectSum(ts, '2026-11-01', '2026-11-30', 'phys')).toEqual({ 'Hoa hồng thấp': 3, 'CPC cao': 1 })
   })
 })

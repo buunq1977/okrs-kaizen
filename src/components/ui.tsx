@@ -173,3 +173,26 @@ export function PaceBar({ actual, target, frac, unit, label }: { actual: number;
     </div>
   )
 }
+
+/** Nút "Lưu" cuối tab Kaizen (Tuần / Tháng / Quý / Năm / Kỳ khởi động). Mọi ô vẫn tự lưu khi rời ô;
+ *  nút này đẩy nốt ô đang gõ dở (rời ô) rồi báo đã lưu, để chắc chắn trước khi đóng trang. */
+export function KaizenSave({ label }: { label: string }) {
+  const { toast } = useApp()
+  const [at, setAt] = useState('')
+  async function save() {
+    const el = document.activeElement as HTMLElement | null
+    if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT')) el.blur()
+    await new Promise((r) => setTimeout(r, 400))
+    const t = new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+    setAt(t)
+    toast(`Đã lưu ${label}`)
+  }
+  return (
+    <div className="kz-save">
+      <button className="btn primary" onClick={save}>
+        💾 Lưu {label}
+      </button>
+      <span className="note">{at ? `Đã lưu lúc ${at}.` : 'Các ô tự lưu khi rời ô; bấm Lưu để chắc chắn trước khi đóng trang.'}</span>
+    </div>
+  )
+}

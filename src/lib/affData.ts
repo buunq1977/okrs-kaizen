@@ -126,7 +126,7 @@ export async function loadWs(): Promise<SrcResult<WsData>> {
     const [settings, types, projects, runs] = await Promise.all([
       c.from('settings').select('max_test_usd, usd_vnd, roa_hoa, roa_lai, roa_lai_tot, updated_at').eq('id', 1).maybeSingle(),
       pageAll<WsType>(c, 'project_types', 'code, name, tier_low_vnd, tier_high_vnd, clicks_low, clicks_mid, clicks_high, active', 'sort'),
-      pageAll<WsProject>(c, 'projects', 'id, name, type_code, trial_days, created_at'),
+      pageAll<WsProject>(c, 'projects', 'id, name, type_code, trial_days, created_at, fixed_commission, commission_pct, pricing, commission_type, top_countries, cookie_days'),
       pageAll<WsRun>(c, 'test_runs', 'id, registration_id, started_on, cost_usd, clicks'),
     ])
     if (settings.error) throw settings.error

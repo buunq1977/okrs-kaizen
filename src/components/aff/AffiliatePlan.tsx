@@ -256,13 +256,17 @@ export default function AffiliatePlan() {
             </thead>
             <tbody>
               <tr>
-                <td>Search dự án</td>
+                <td>
+                  Search dự án <small className="sub">tham khảo · phễu minh hoạ ×{cfg.research_per_test}</small>
+                </td>
                 {cols.map((c) => (
                   <td key={c.label} className="n">{count(c, 'research')}</td>
                 ))}
               </tr>
               <tr>
-                <td>Đăng ký</td>
+                <td>
+                  Đăng ký <small className="sub">tham khảo · phễu minh hoạ ×{cfg.reg_per_test}</small>
+                </td>
                 {cols.map((c) => (
                   <td key={c.label} className="n">{count(c, 'reg')}</td>
                 ))}

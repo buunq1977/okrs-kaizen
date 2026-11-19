@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { ahTotals, approvalStat, buildLedger, flagSum, researchProjects, campModels, firstTestDay, modelOfType, monthlyMoney, sharedThresholds, stopCheck, vnDate, winCheck, wsCounts, type AhData, type WsData } from './affSource'
+import { ahTotals, approvalStat, buildLedger, commissionPerOrder, flagSum, researchProjects, roiByField, campModels, firstTestDay, modelOfType, monthlyMoney, sharedThresholds, stopCheck, vnDate, winCheck, wsCounts, type AhData, type WsData } from './affSource'
 
 const ws: WsData = {
   settings: {
@@ -374,5 +374,37 @@ describe('GĐ5: dựng dữ liệu OKR từ Research + Ads-Hub', () => {
   it('đếm cờ: dừng / cân nhắc / chờ dùng thử chỉ xét dự án đang test', () => {
     const it = (ts: string, level: 'stop' | 'consider' | 'trial' | 'none', candidate = false, ready = false) => ({ r: { test_status: ts }, stop: { level }, win: { candidate, ready } })
     expect(flagSum([it('Đang Testing', 'stop'), it('Đã Test', 'stop'), it('Đang Testing', 'trial'), it('Đã Test', 'none', true), it('Đang Testing', 'none', true, true)])).toEqual({ stop: 1, consider: 0, trial: 1, candidate: 1, ready: 1 })
+  })
+})
+
+describe('GĐ6: ROI theo trường lọc của Research', () => {
+  const row = (id: number, pid: number, cost: number, got: number) =>
+    ({ reg_id: id, project_id: pid, cost, comm: { pending: 0, approved: got, paid: 0, denied: 0 } }) as unknown as Parameters<typeof roiByField>[0][number]
+  const projects = [
+    { id: 1, name: 'A', type_code: 'vat_ly', trial_days: null, created_at: '', fixed_commission: 5, top_countries: ['US'], commission_type: 'One time', cookie_days: 30 },
+    { id: 2, name: 'B', type_code: 'vat_ly', trial_days: null, created_at: '', commission_pct: 20, pricing: 200, top_countries: ['UK'], cookie_days: 7 },
+    { id: 3, name: 'C', type_code: 'vat_ly', trial_days: null, created_at: '' },
+  ]
+  it('hoa hồng / đơn: cố định, hoặc % × giá', () => {
+    expect(commissionPerOrder(projects[0])).toBe(5)
+    expect(commissionPerOrder(projects[1])).toBe(40)
+    expect(commissionPerOrder(projects[2])).toBeNull()
+  })
+  it('nhóm theo trường lọc, ROI = (đã nhận − chi phí) ÷ chi phí; chưa đủ 10 dự án thì chưa kết luận', () => {
+    const rows = [row(1, 1, 10, 0), row(2, 1, 10, 5), row(3, 2, 10, 40), row(4, 3, 10, 0), row(5, 3, 0, 0)]
+    const r = roiByField(rows, { projects })
+    expect(r.total).toBe(4) // dòng chưa có chi phí bỏ qua
+    expect(r.enough).toBe(false)
+    const hh = r.groups.find((g) => g.field === 'Hoa hồng / đơn')!.buckets
+    expect(hh.find((b) => b.bucket === '< $10')).toMatchObject({ n: 2, cost: 20, received: 5, roi: -75, few: true })
+    expect(hh.find((b) => b.bucket === '≥ $30')).toMatchObject({ n: 1, roi: 300 })
+    expect(r.groups.find((g) => g.field === 'Thị trường chính')!.buckets.map((b) => b.bucket)).toEqual(['US', 'UK', 'không rõ'])
+    expect(r.groups.find((g) => g.field === 'Cookie')!.buckets.find((b) => b.bucket === '< 30 ngày')!.n).toBe(1)
+  })
+  it('đủ ≥ 10 dự án đã test thì bật', () => {
+    const rows = Array.from({ length: 10 }, (_, i) => row(i, 1, 10, 12))
+    const r = roiByField(rows, { projects })
+    expect(r.enough).toBe(true)
+    expect(r.groups[0].buckets[0]).toMatchObject({ bucket: '< $10', n: 10, roi: 20, few: false })
   })
 })

@@ -5,7 +5,7 @@ import { AffDiagnosis, AffLongKrs, AffPulse } from '../components/aff/AffOkr'
 import { Events } from '../components/long/Events'
 import { KaizenLong } from '../components/long/KaizenLong'
 import { NumericKr, StatusPill } from '../components/long/NumericKr'
-import { Criteria, Step, Txt, UpperBand, type Upper } from '../components/ui'
+import { Criteria, KaizenSave, Step, Txt, UpperBand, type Upper } from '../components/ui'
 import { Verify } from '../components/week/Verify'
 import { ExportButtons } from '../components/ExportButtons'
 import { statusColor as statusColorN } from '../lib/numeric'
@@ -470,6 +470,7 @@ function LongInner({ kind, start, setDate }: { kind: LongKind; start: string; se
                 : 'Quý là nơi duy nhất sửa kế hoạch năm. Mọi thay đổi tạo phiên bản mới, so với bản gốc.'
           }
         />
+        <KaizenSave label={`Kaizen ${{ month: 'tháng', quarter: 'quý', year: 'năm', kickoff: 'kỳ khởi động' }[kind]}`} />
         </>
       )}
     </>

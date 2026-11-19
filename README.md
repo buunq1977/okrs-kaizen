@@ -41,6 +41,7 @@ Chạy lần lượt trong **SQL Editor** (mỗi file chạy một lần):
 12. `supabase/migrations/012_okr_lock_morning.sql`
 13. `supabase/migrations/013_aff_model_rework.sql`
 14. `supabase/migrations/014_aff_reopen_v1.sql`
+15. `supabase/migrations/015_aff_reject_labels.sql`
 
 GitHub Secrets cần có: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`.
 

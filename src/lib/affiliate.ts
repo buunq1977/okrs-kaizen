@@ -53,6 +53,7 @@ export interface AffConfig {
   gate2_profit?: number
   saas_unlock_gate?: number
   approval_warn_pct?: number
+  reject_labels?: string[] // 015: nhãn "loại vì…" của bộ đếm search
 }
 /** Bản chụp lúc chốt tháng. v1 = chỉ {phys, saas}; v2 có model_version = 2 và các tham số bên dưới. */
 export interface CoeffSnap {
@@ -109,6 +110,7 @@ export const V2_DEFAULT = {
   gate2_profit: 2000,
   saas_unlock_gate: 2,
   approval_warn_pct: 70,
+  reject_labels: ['Hoa hồng thấp', 'CPC cao, không hoà vốn', 'Cấm chạy Ads / brand', 'Payout rate thấp', 'Trustpilot xấu', 'Ít người tìm'],
 }
 /** Tên 3 mức O năm (Luca chốt 19/11/2026: cùng năm 2027). Mức tối thiểu là cam kết, dùng để tính kế hoạch. */
 export const GOAL_LEVEL_NAMES = ['Tối thiểu', 'Mục tiêu', 'Vươn tới'] as const
@@ -134,6 +136,7 @@ export const v2Of = (c: Partial<AffConfig>) => ({
   gate2_profit: num(c.gate2_profit, V2_DEFAULT.gate2_profit),
   saas_unlock_gate: num(c.saas_unlock_gate, V2_DEFAULT.saas_unlock_gate),
   approval_warn_pct: num(c.approval_warn_pct, V2_DEFAULT.approval_warn_pct),
+  reject_labels: Array.isArray(c.reject_labels) ? c.reject_labels.map(String).filter((x) => x.trim()) : V2_DEFAULT.reject_labels,
 })
 const num = (v: unknown, d: number) => (typeof v === 'number' && Number.isFinite(v) ? v : v != null && v !== '' && Number.isFinite(Number(v)) ? Number(v) : d)
 

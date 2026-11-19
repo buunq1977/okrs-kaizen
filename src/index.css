@@ -420,14 +420,19 @@ input.need, select.need { border-color: var(--warn) }
 
 /* ===== Kỳ dài, Tầm nhìn, Thu nhập, Tổng quan, Cây, Lịch sử ===== */
 nav .more { position: relative }
-nav .more summary { list-style: none; cursor: pointer; color: rgb(255 255 255 / .85); font: 600 13px var(--f-body); padding: 8px 12px; border-radius: 6px }
-nav .more summary::-webkit-details-marker { display: none }
-nav .more summary[aria-pressed='true'] { background: #fff; color: var(--brand) }
-nav .more-m { position: absolute; right: 0; top: calc(100% + 4px); z-index: 30; background: var(--sheet); border: 1px solid var(--rule); border-radius: 8px; box-shadow: 0 8px 24px rgb(0 0 0 / .15); display: flex; flex-direction: column; min-width: 200px; padding: 4px }
-nav .more-m button { color: var(--ink); text-align: left }
-nav .more-m button:hover { background: var(--brand-soft); color: var(--brand) }
+nav .more-b { border: 1px solid rgb(255 255 255 / .35) }
+nav .more-b[aria-expanded='true'] { background: rgb(255 255 255 / .18); color: #fff }
+nav .more-m { position: absolute; right: 0; top: calc(100% + 6px); z-index: 30; background: var(--sheet); border: 1px solid var(--rule-2); border-radius: 10px; box-shadow: 0 12px 32px rgb(0 0 0 / .22);
+  display: grid; grid-template-columns: 1fr; min-width: 220px; padding: 6px; gap: 2px }
+nav .more-m button { color: var(--ink); text-align: left; padding: 11px 14px; font-size: 14px; border-radius: 7px }
+nav .more-m button:hover, nav .more-m button:focus-visible { background: var(--brand-soft); color: var(--brand) }
 nav .more-m button[aria-pressed='true'] { background: var(--brand); color: #fff }
-nav .more-m button.ghost { color: var(--ink-2) }
+@media (max-width: 640px) { nav .more-m { position: fixed; left: 12px; right: 12px; top: calc(var(--top-h, 120px) + 4px); min-width: 0; grid-template-columns: 1fr 1fr } }
+.acct { display: flex; gap: 6px; align-items: center; order: 0 }
+.acct-b { border: 1px solid rgb(255 255 255 / .35); background: none; color: #fff; font: 600 12px var(--f-body); border-radius: 6px; padding: 6px 10px; cursor: pointer; text-decoration: none; white-space: nowrap }
+.acct-b:hover { background: rgb(255 255 255 / .15) }
+.kz-save { position: sticky; bottom: 0; z-index: 3; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; padding: 10px 14px; margin-top: 8px;
+  background: var(--sheet); border: 1px solid var(--rule-2); border-radius: 10px; box-shadow: 0 -4px 16px rgb(0 0 0 / .06) }
 .export { display: inline-flex; gap: 2px; margin-left: auto }
 
 .sumband { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px }
@@ -594,3 +599,5 @@ nav .more-m button.ghost { color: var(--ink-2) }
 .aff-tt td.n .sub { text-align: right; white-space: nowrap }
 .aff-tt td.n .note { font-size: 12px }
 .aff-tt tbody tr:nth-child(3) td { border-bottom-width: 2px }
+.tally.rej { background: var(--paper); border: 1px dashed var(--rule-2) }
+.tally.rej .chip { font-size: 12px; padding: 5px 10px }
