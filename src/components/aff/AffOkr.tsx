@@ -348,7 +348,7 @@ export function AffDiagnosis({ level, start, end, k, save }: { level: Level; sta
         })}
       </ul>
       {fromRs && data.ws && <RoiByField data={data} />}
-      <p className="note">Hệ số đo được khác số đặt nhiều thì cập nhật ở Cài đặt → Mô hình Affiliate trong buổi rà đầu kỳ (nút "Dùng số đo").</p>
+      <p className="note">Hệ số đo được khác số đặt nhiều thì cập nhật ở Mô hình thu nhập → Cấu hình mô hình trong buổi rà đầu kỳ (nút "Dùng số đo").</p>
     </div>
   )
 }

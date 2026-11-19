@@ -141,7 +141,7 @@ export default function AffSettings() {
             <tr>
               <td>Tiền test 1 dự án (cả 3 mô hình) = maxtest</td>
               <td className="n">{th?.max_test_usd != null ? usdN(th.max_test_usd) : `${usdN(co.phys.test_cost)} (đang lưu ở OKR)`}</td>
-              <td>{th?.max_test_usd != null ? 'Research · Cài đặt tính toán' : <span className="flag">Chưa đọc được Research: đăng nhập ở khối Kết nối nguồn số bên dưới</span>}</td>
+              <td>{th?.max_test_usd != null ? 'Research · Cài đặt tính toán' : <span className="flag">Chưa đọc được Research: đăng nhập ở tab Kết nối nguồn số</span>}</td>
             </tr>
             <tr>
               <td>Ứng viên thắng khi ≥ N đơn</td>

@@ -635,14 +635,19 @@ main.thm .upper > *, main.thm .uband > * { border-radius: 10px }
 main.thm .btn.primary { box-shadow: 0 2px 6px rgb(10 74 156 / .25) }
 main.thm .note { line-height: 1.5 }
 @media (max-width: 640px) { main.thm .sec { padding: 14px } main.thm .tabs { width: 100% } main.thm .tabs button { flex: 1 1 auto; padding: 8px 10px } }
-/* Cài đặt: các khối xếp 2 cột trên màn rộng; khối Affiliate và Kết nối nguồn số trải hết chiều ngang */
-main.thm.scr-settings > .stack.narrow { max-width: none; display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 12px; align-items: start }
-main.thm.scr-settings > .stack.narrow > :is(h1, .savebar, .sec:has(.coef), .sec:has(.ktable)) { grid-column: 1 / -1 }
+/* Cài đặt: khối xếp kiểu cột báo (2 cột trên màn rộng), khối ngắn tự lấp chỗ trống; tiêu đề, giới thiệu, nút Lưu trải hết chiều ngang */
+main.thm.scr-settings > .stack.narrow { display: block; max-width: none; columns: 2 440px; column-gap: 14px }
+main.thm.scr-settings > .stack.narrow > * { break-inside: avoid; margin: 0 0 14px }
+main.thm.scr-settings > .stack.narrow > :is(h1, .set-intro, .savebar) { column-span: all }
+main.thm.scr-settings > .stack.narrow > .savebar { margin-bottom: 14px }
 /* Tầm nhìn: rộng hơn để đọc */
 main.thm.scr-vision > .stack.narrow { max-width: 900px }
 /* Cài đặt: nhãn trái, ô nhập thẳng một cột, đơn vị bên phải */
-main.thm.scr-settings .sec > .fld.inline { display: grid; grid-template-columns: minmax(0, 1fr) 96px 90px; align-items: center; gap: 10px; padding: 4px 0; border-bottom: 1px dashed var(--rule) }
+main.thm.scr-settings .sec > .fld.inline { display: grid; grid-template-columns: minmax(0, 1fr) 120px 90px; align-items: center; gap: 10px; padding: 4px 0; border-bottom: 1px dashed var(--rule) }
 main.thm.scr-settings .sec > .fld.inline > span:first-child { text-transform: none; letter-spacing: 0; font: 600 13px var(--f-body); color: var(--ink) }
-main.thm.scr-settings .sec > .fld.inline > input { width: 96px; text-align: right }
+main.thm.scr-settings .sec > .fld.inline > :is(input, select) { width: 120px; text-align: right }
 main.thm.scr-settings .sec > .fld.inline > .unit { font-size: 12px; color: var(--ink-2) }
-@media (max-width: 640px) { main.thm.scr-settings > .stack.narrow { grid-template-columns: minmax(0, 1fr) } main.thm.scr-settings .sec > .fld.inline { grid-template-columns: minmax(0, 1fr) 80px 70px } }
+@media (max-width: 640px) { main.thm.scr-settings > .stack.narrow { columns: 1 } main.thm.scr-settings .sec > .fld.inline { grid-template-columns: minmax(0, 1fr) 96px 60px } main.thm.scr-settings .sec > .fld.inline > :is(input, select) { width: 96px } }
+main.thm.scr-settings .sec > .fld.inline.pw { grid-template-columns: minmax(0, 1fr) 180px auto }
+main.thm.scr-settings .sec > .fld.inline.pw > input { width: 180px; text-align: left }
+main.thm.scr-settings .sec .days { display: flex; flex-wrap: wrap; gap: 6px 14px }

@@ -6,6 +6,8 @@ import { fmtDM } from '../../lib/dates'
 import { fmtNum } from '../../lib/pace'
 import { Sec, Txt } from '../ui'
 import { needsAction, testing, type Item, type Ledger, type Links } from './useAff'
+import { useApp } from '../../lib/ctx'
+import { openIncomeTab } from '../../lib/incomeTab'
 
 const usd = (n: number | null) => (n === null || !Number.isFinite(n) ? '–' : '$' + n.toLocaleString('vi-VN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }))
 const x2 = (n: number | null) => (n === null ? '–' : (Math.round(n * 100) / 100).toLocaleString('vi-VN'))
@@ -13,12 +15,18 @@ const x2 = (n: number | null) => (n === null ? '–' : (Math.round(n * 100) / 10
 /** Danh sách việc cần xử lý từ Research + Ads-Hub. Số chi tiết (chi phí, click, đơn từng camp) xem ở Ads-Hub. */
 export default function AffLedger({ led, links }: { led: Ledger; links: Links }) {
   const [open, setOpen] = useState<number | null>(null)
+  const { go } = useApp()
   const { ws, ah, items, appr, cfg, th } = led
   if (!cfg || !ws) return <Sec title="Cần xử lý"><p className="note">Đang đọc Research và Ads-Hub…</p></Sec>
   if (!ws.data)
     return (
       <Sec title="Cần xử lý">
-        <p className="flag">{ws.error ?? 'Chưa đọc được Research.'} Đăng nhập ở Cài đặt → Kết nối nguồn số.</p>
+        <p className="flag">
+          {ws.error ?? 'Chưa đọc được Research.'}{' '}
+          <button className="linkbtn" onClick={() => (openIncomeTab('sources'), go('income'))}>
+            Đăng nhập ở Mô hình thu nhập → Kết nối nguồn số
+          </button>
+        </p>
       </Sec>
     )
   const v2 = v2Of(cfg)

@@ -6,12 +6,13 @@ import {
 } from '../../lib/affiliate'
 import { totals, type AffEntry, type AffProject } from '../../lib/affProjects'
 import { MODEL3, monthlyMoney, wsCounts } from '../../lib/affSource'
-import { useApp, useRows } from '../../lib/ctx'
+import { useRows } from '../../lib/ctx'
 import { listAll } from '../../lib/db'
 import { addDays, addMonths, monthEnd, mondayOf, today } from '../../lib/dates'
 import { fmtNum } from '../../lib/pace'
 import { Sec, Txt, toNum } from '../ui'
 import { useAff, useLedger } from './useAff'
+import { openIncomeTab } from '../../lib/incomeTab'
 
 const usd = (n: number | null | undefined) => (n === null || n === undefined || !Number.isFinite(n) ? '–' : (n < 0 ? '−$' : '$') + fmtNum(Math.round(Math.abs(n))))
 const cnt = (n: number) => fmtNum(ceilCount(n))
@@ -19,7 +20,6 @@ const mLabel = (m: string) => `${m.slice(5, 7)}/${m.slice(0, 4)}`
 
 /** Mô hình thu nhập Affiliate Global: Vật lý + SaaS, phân bổ theo tháng, chỉ tiêu Năm → Ngày. */
 export default function AffiliatePlan() {
-  const { go } = useApp()
   const aff = useAff()
   const ents = useRows<AffEntry>('aff_entries', 'all', () => listAll<AffEntry>('aff_entries', 'date'))
   const ps = useRows<AffProject>('aff_projects', 'all', () => listAll<AffProject>('aff_projects'))
@@ -130,7 +130,11 @@ export default function AffiliatePlan() {
               {gate.best && ` Tháng tốt nhất đến nay: ${mLabel(gate.best.month)} lãi ${usd(gate.best.net)} sau phí, thuế.`}
             </li>
           )}
-          {(!wsD || !ahD) && <li className="yellow">🟡 Chưa đọc đủ Research và Ads-Hub: cổng đang tính thiếu dữ liệu. Đăng nhập ở Cài đặt → Kết nối nguồn số.</li>}
+          {(!wsD || !ahD) && <li className="yellow">🟡 Chưa đọc đủ Research và Ads-Hub: cổng đang tính thiếu dữ liệu.{' '}
+              <button className="linkbtn" onClick={() => openIncomeTab('sources')}>
+                Đăng nhập ở tab Kết nối nguồn số
+              </button>
+            </li>}
           {gate.gate === 0 && (
             <>
               <li>
@@ -148,7 +152,7 @@ export default function AffiliatePlan() {
                 <li className={suggestDouble(prevTests, v2.kickoff_tests_month) ? 'green' : ''}>
                   Tháng {mLabel(prevM)} lên camp {prevTests} test.
                   {suggestDouble(prevTests, v2.kickoff_tests_month)
-                    ? ` Đạt nhịp: có thể tăng gấp đôi lên ${v2.kickoff_tests_month * 2} test/tháng (anh quyết, sửa ở Cài đặt).`
+                    ? ` Đạt nhịp: có thể tăng gấp đôi lên ${v2.kickoff_tests_month * 2} test/tháng (anh quyết, sửa ở tab Cấu hình mô hình).`
                     : ` Chưa đạt nhịp ${v2.kickoff_tests_month}: giữ nhịp, chưa tăng.`}
                 </li>
               )}
@@ -186,7 +190,11 @@ export default function AffiliatePlan() {
 
       <Sec title="Nguồn lực & cảnh báo" hint="Tính lại mỗi khi sửa bảng phân bổ">
         <ul className="alerts">
-          {maxTest == null && <li className="yellow">🟡 Chưa đọc được maxtest ở Research: tiền test đang dùng số lưu ở OKR. Đăng nhập Research ở Cài đặt → Kết nối nguồn số.</li>}
+          {maxTest == null && <li className="yellow">🟡 Chưa đọc được maxtest ở Research: tiền test đang dùng số lưu ở OKR.{' '}
+              <button className="linkbtn" onClick={() => openIncomeTab('sources')}>
+                Đăng nhập ở tab Kết nối nguồn số
+              </button>
+            </li>}
           {(a.physLoss || a.saasLoss || a.toolsLoss) && (
             <li className="red">
               🔴 Mô hình lỗ: {a.physLoss && 'Vật lý (tiền tìm 1 thắng ≥ lợi nhuận trọn đời của thắng)'} {a.toolsLoss && 'Tools AI'} {a.saasLoss && 'SaaS (LTV ≤ CAC hoặc tiền tìm thắng ≥ lợi nhuận thắng mang lại)'}. Không chốt kế hoạch tháng cho tới khi sửa hệ số hoặc chiến lược.
@@ -430,8 +438,8 @@ export default function AffiliatePlan() {
 
       <Sec title={`Hệ số đang dùng tháng ${mLabel(cur)}`} hint={curRow?.locked_at ? 'Bản chụp lúc chốt' : 'Mặc định hiện tại'}>
         <Coeffs m={curRow} cfg={cfg} live={live} />
-        <button className="btn" onClick={() => go('settings')}>
-          Sửa hệ số mặc định trong Cài đặt
+        <button className="btn" onClick={() => openIncomeTab('config')}>
+          Sửa hệ số mặc định (tab Cấu hình mô hình)
         </button>
       </Sec>
     </div>

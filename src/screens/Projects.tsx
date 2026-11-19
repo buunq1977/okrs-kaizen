@@ -200,7 +200,7 @@ export default function Projects() {
         <p className="note">
           {wsD
             ? `Đăng ký, lên camp đếm từ Research${wsD.hasDates ? '' : ' (Research chưa có ngày đăng ký: chạy 09_reg_dates.sql)'}; search đếm ở đây (chỉ số, không cần tên).`
-            : 'Chưa đọc được Research: đang đếm từ Sổ nhập tay cũ. Đăng nhập ở Cài đặt → Kết nối nguồn số.'}{' '}
+            : 'Chưa đọc được Research: đang đếm từ Sổ nhập tay cũ. Đăng nhập ở Mô hình thu nhập → Kết nối nguồn số.'}{' '}
           Dự án mới, đăng ký, lần test nhập ở Research; chi phí, click, đơn xem ở Ads-Hub.
           {!aff.months.length && ' Chưa có bảng phân bổ: tạo ở Mô hình thu nhập → Affiliate Global để có chỉ tiêu.'}
         </p>

@@ -1,5 +1,4 @@
 import { useState, type ReactNode } from 'react'
-import AffSettings, { AffSources } from '../components/aff/AffSettings'
 import { Sec } from '../components/ui'
 import { useApp } from '../lib/ctx'
 import { errMsg, exportAll, saveSettings } from '../lib/db'
@@ -75,6 +74,8 @@ export default function SettingsScreen() {
 
   return (
     <div className="stack narrow">
+      <h1>Cài đặt</h1>
+      <p className="note set-intro">Cấu hình trang và hệ thống. Cấu hình mô hình Affiliate và kết nối Research / Ads-Hub ở Mô hình thu nhập.</p>
       <div className="savebar">
         <button className="btn primary" disabled={!dirty} onClick={save}>
           Lưu cài đặt
@@ -82,33 +83,7 @@ export default function SettingsScreen() {
         {dirty && <span className="flag">Có thay đổi chưa lưu</span>}
       </div>
 
-      <Sec title="Màu % hoàn thành Ngày/Tuần" hint="SPEC §10.3">
-        <Row label="Đỏ khi dưới" unit="%">{num('red_below', 0, 99)}</Row>
-        <Row label="Đạt (xanh) từ" unit="%">{num('pass_pct', 1, 100)}</Row>
-        <Row label="Gợi ý 'KR chọn chưa trúng O' khi % thực thi và O thực tế lệch từ" unit="điểm">{num('gap_suggest_pts', 5, 100)}</Row>
-        {flag('weights_enabled', 'Dùng trọng số cho KR/KA')}
-      </Sec>
-
-      <Sec title="Tháng · Quý · Năm" hint="SPEC §10.3, §11, §15">
-        <Row label="Tình trạng đỏ khi dưới" unit="%">{num('status_red', 0, 99)}</Row>
-        <Row label="Tình trạng xanh từ" unit="%">{num('status_green', 1, 200)}</Row>
-        <Row label="KR tối thiểu O Công việc/Tài chính" unit="KR">{num('kr_min_cvtc', 1, 6)}</Row>
-        <Row label="KR O Mối quan hệ, O Thân–Tâm–Trí: tối thiểu" unit="KR">{num('kr_min_other', 0, 4)}</Row>
-        <Row label="… tối đa" unit="KR">{num('kr_max_other', 1, 6)}</Row>
-        <Row label="Trần số KR đang mở mỗi kỳ" unit="KR">{num('max_open_kr', 3, 15)}</Row>
-        <Row label="Luật kích hoạt: trễ hơn" unit="%">{num('trigger_lag_pct', 5, 60)}</Row>
-        <Row label="… trong số tuần liên tiếp" unit="tuần">{num('trigger_weeks', 1, 4)}</Row>
-        <Row label="KR quý trễ hơn thì mở chẩn đoán" unit="%">{num('trigger_quarter_pct', 5, 60)}</Row>
-        <Row label="Hạ mục tiêu tối đa" unit="lần / KR / quý">{num('lower_per_kr_quarter', 0, 5)}</Row>
-        <Row label="Dừng KR tối đa" unit="lần / quý">{num('stop_per_quarter', 0, 5)}</Row>
-        <Row label="Thời gian chờ đề xuất điều chỉnh" unit="giờ">{num('change_cooldown_h', 0, 168)}</Row>
-        {flag('ka_autotick', 'KA tuần tự tick khi O ngày phục vụ nó đạt ngưỡng đạt')}
-      </Sec>
-
-      <AffSettings />
-      <AffSources />
-
-      <Sec title="Trang Ngày">
+      <Sec title="Trang Ngày" hint="Số KR, khung giờ, lịch">
         <Row label="Số KR tối thiểu" unit="KR">{num('day_min_kr', 1, 6)}</Row>
         <Row label="Số KR tối đa" unit="KR">{num('day_max_kr', 1, 8)}</Row>
         <Row label="Hành động Kaizen khuyến nghị tối đa" unit="/ngày">{num('max_daily_actions', 1, 10)}</Row>
@@ -122,7 +97,7 @@ export default function SettingsScreen() {
         </Row>
       </Sec>
 
-      <Sec title="Kỷ luật" hint="§17 D2">
+      <Sec title="Kỷ luật & khoá" hint="Giờ chốt, chuỗi đỏ, ngày nghỉ">
         {flag('auto_lock', 'Tự khoá kế hoạch ngày D vào giờ chốt của ngày D-1')}
         <Row label="Chốt OKR ngày (tự khoá kế hoạch)">{time('okr_lock_time')}</Row>
         <Row label="Chốt Kaizen ngày">{time('lock_time')}</Row>
@@ -143,7 +118,7 @@ export default function SettingsScreen() {
         </div>
       </Sec>
 
-      <Sec title="Nhắc giờ" hint="C20: nhắc trước giờ chốt 60–90 phút">
+      <Sec title="Nhắc giờ" hint="Nhắc trước giờ chốt 60–90 phút">
         <Row label="Nhắc trước giờ chốt">
           <select value={s.remind_lead_min} onChange={(e) => set('remind_lead_min', Number(e.target.value))}>
             {[60, 75, 90].map((m) => (
@@ -169,33 +144,38 @@ export default function SettingsScreen() {
         <p className="note">Lưu cài đặt trước rồi tải file. Mở file trên điện thoại hoặc máy tính, chọn thêm vào Lịch.</p>
       </Sec>
 
-      <Sec title="Năm">
+      <Sec title="Màu % hoàn thành Ngày / Tuần" hint="Ngưỡng đỏ / xanh">
+        <Row label="Đỏ khi dưới" unit="%">{num('red_below', 0, 99)}</Row>
+        <Row label="Đạt (xanh) từ" unit="%">{num('pass_pct', 1, 100)}</Row>
+        <Row label="Gợi ý 'KR chọn chưa trúng O' khi % thực thi và O thực tế lệch từ" unit="điểm">{num('gap_suggest_pts', 5, 100)}</Row>
+        {flag('weights_enabled', 'Dùng trọng số cho KR/KA')}
+      </Sec>
+
+      <Sec title="Tháng · Quý · Năm" hint="Tình trạng, số KR, luật kích hoạt, điều chỉnh">
+        <Row label="Tình trạng đỏ khi dưới" unit="%">{num('status_red', 0, 99)}</Row>
+        <Row label="Tình trạng xanh từ" unit="%">{num('status_green', 1, 200)}</Row>
+        <Row label="KR tối thiểu O Công việc/Tài chính" unit="KR">{num('kr_min_cvtc', 1, 6)}</Row>
+        <Row label="KR O Mối quan hệ, O Thân–Tâm–Trí: tối thiểu" unit="KR">{num('kr_min_other', 0, 4)}</Row>
+        <Row label="… tối đa" unit="KR">{num('kr_max_other', 1, 6)}</Row>
+        <Row label="Trần số KR đang mở mỗi kỳ" unit="KR">{num('max_open_kr', 3, 15)}</Row>
+        <Row label="Luật kích hoạt: trễ hơn" unit="%">{num('trigger_lag_pct', 5, 60)}</Row>
+        <Row label="… trong số tuần liên tiếp" unit="tuần">{num('trigger_weeks', 1, 4)}</Row>
+        <Row label="KR quý trễ hơn thì mở chẩn đoán" unit="%">{num('trigger_quarter_pct', 5, 60)}</Row>
+        <Row label="Hạ mục tiêu tối đa" unit="lần / KR / quý">{num('lower_per_kr_quarter', 0, 5)}</Row>
+        <Row label="Dừng KR tối đa" unit="lần / quý">{num('stop_per_quarter', 0, 5)}</Row>
+        <Row label="Thời gian chờ đề xuất điều chỉnh" unit="giờ">{num('change_cooldown_h', 0, 168)}</Row>
+        {flag('ka_autotick', 'KA tuần tự tick khi O ngày phục vụ nó đạt ngưỡng đạt')}
         <Row label="Chia năm theo">
           <select value={s.year_mode} onChange={(e) => set('year_mode', e.target.value as 'month' | 'quarter')}>
             <option value="month">12 tháng</option>
             <option value="quarter">4 quý</option>
           </select>
         </Row>
-        <p className="note">Dùng khi làm trang Năm (giai đoạn sau).</p>
+        <p className="note">Chia năm: dùng khi làm trang Năm (giai đoạn sau).</p>
       </Sec>
 
-      <Sec title="Sao lưu" hint="Supabase gói Free không tự sao lưu">
-        <button
-          className="btn"
-          onClick={async () => {
-            try {
-              download(`okrs-kaizen-${today()}.json`, JSON.stringify(await exportAll(), null, 2), 'application/json')
-            } catch (e) {
-              toast(errMsg(e))
-            }
-          }}
-        >
-          Tải toàn bộ dữ liệu (JSON)
-        </button>
-      </Sec>
-
-      <Sec title="Tài khoản">
-        <label className="fld inline">
+      <Sec title="Tài khoản & sao lưu" hint="Supabase gói Free không tự sao lưu">
+        <label className="fld inline pw">
           <span>Mật khẩu mới</span>
           <input type="password" minLength={8} autoComplete="new-password" value={pw} onChange={(e) => setPw(e.target.value)} />
           <button
@@ -213,6 +193,18 @@ export default function SettingsScreen() {
             Đổi mật khẩu
           </button>
         </label>
+        <button
+          className="btn"
+          onClick={async () => {
+            try {
+              download(`okrs-kaizen-${today()}.json`, JSON.stringify(await exportAll(), null, 2), 'application/json')
+            } catch (e) {
+              toast(errMsg(e))
+            }
+          }}
+        >
+          Tải toàn bộ dữ liệu (JSON)
+        </button>
       </Sec>
     </div>
   )
