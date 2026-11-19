@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  actualAt, changeRule, evenPlan, funnelPace, inWindow, lagTriggered, longLockCheck, multiplier, numericPercent, plannedAt,
+  actualAt, changeRule, evenPlan, inWindow, lagTriggered, longLockCheck, numericPercent, plannedAt,
   krStat, quarterEnd, quarterMilestones, quarterOf, quarterStart, quarterTriggered, reviewMissed, reviewWindow, statusColor, statusPct, weekEndsOfMonth,
 } from './numeric'
 
@@ -51,37 +51,6 @@ describe('KR số (§10.2, ví dụ §18.3)', () => {
   it('mốc cuối tuần của tháng 11/2026', () => {
     expect(weekEndsOfMonth('2026-11-01')).toEqual(['2026-11-01', '2026-11-08', '2026-11-15', '2026-11-22', '2026-11-29', '2026-11-30'])
   })
-})
-
-describe('phễu thu nhập (§9, ví dụ §18.2)', () => {
-  const m = {
-    target_income_month: 16700,
-    value_per_unit: 500,
-    retention: 0.6,
-    stages: [
-      { id: '1', name: 'Cuộc gọi', conversion: 0.2 },
-      { id: '2', name: 'Hẹn', conversion: 0.25 },
-      { id: '3', name: 'Vào hệ thống', conversion: null },
-    ],
-    working_days_week: 5,
-    capacity_per_day: 60,
-    unknown: {},
-  }
-  it('chia ngược ra cuộc gọi/ngày', () => {
-    const p = funnelPace(m)
-    expect(p.ok).toBe(true)
-    expect(p.unitsNeeded).toBeCloseTo(33.4, 1)
-    expect(p.unitsToAcquire).toBeCloseTo(55.67, 1)
-    expect(p.stages[0].perMonth).toBeCloseTo(1113.3, 0)
-    expect(p.topPerDay).toBeCloseTo(51.4, 0)
-    expect(p.overCapacity).toBe(false)
-  })
-  it('vượt công suất → cảnh báo', () => expect(funnelPace({ ...m, capacity_per_day: 30 }).overCapacity).toBe(true))
-  it('thiếu hệ số → báo thiếu; hệ số chưa đo → ước lượng', () => {
-    expect(funnelPace({ ...m, value_per_unit: null }).missing).toContain('Thu nhập mỗi đơn vị')
-    expect(funnelPace({ ...m, unknown: { retention: true } }).estimated).toBe(true)
-  })
-  it('hệ số nhân bản', () => expect(multiplier(500000, 200000)).toBe(2.5))
 })
 
 describe('luật kích hoạt (§11.3)', () => {
@@ -152,16 +121,15 @@ describe('chốt kỳ dài (§4.5)', () => {
     objective_id, title: 'KR', baseline: 0, target: 10, deadline: '2026-12-31', source: 'bảng theo dõi', is_team: false, status: 'active', ...p,
   })
   it('đủ 3 O, CV/TC 3 KR, mỗi O khác 1 KR, đủ Từ–Đến–Hạn–Nguồn → cho chốt', () => {
-    const r = longLockCheck(objs, [kr('o1'), kr('o1'), kr('o1'), kr('o2'), kr('o3')], ids, S, { overCapacity: false, passive: false })
+    const r = longLockCheck(objs, [kr('o1'), kr('o1'), kr('o1'), kr('o2'), kr('o3')], ids, S, { passive: false })
     expect(r.blockers).toEqual([])
   })
-  it('thiếu KR, thiếu nguồn, vượt công suất không có KR đội ngũ → chặn', () => {
-    const r = longLockCheck(objs, [kr('o1', { source: '' }), kr('o2')], ids, S, { overCapacity: true, passive: false })
+  it('thiếu KR, thiếu nguồn → chặn', () => {
+    const r = longLockCheck(objs, [kr('o1', { source: '' }), kr('o2')], ids, S, { passive: false })
     const t = r.blockers.join(' ')
     expect(t).toContain('cần ít nhất 3 KR')
     expect(t).toContain('thiếu: Nguồn')
     expect(t).toContain('O Thân–Tâm–Trí cần ít nhất 1 KR')
-    expect(t).toContain('đội ngũ')
   })
 })
 

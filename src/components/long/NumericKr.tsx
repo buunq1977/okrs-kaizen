@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import { useApp } from '../../lib/ctx'
 import { fmtDM, today } from '../../lib/dates'
-import { evenPlan, funnelPace, quarterMilestones, type KrStat, type LongKind } from '../../lib/numeric'
+import { evenPlan, quarterMilestones, type KrStat, type LongKind } from '../../lib/numeric'
 import { fmtNum } from '../../lib/pace'
 import { repeatLabel } from '../../lib/schedule'
-import type { IncomeModel, KR, Leading, ScheduleSeries } from '../../lib/types'
+import type { KR, Leading, ScheduleSeries } from '../../lib/types'
 import { Txt, toNum } from '../ui'
 
 const uid = () => Math.random().toString(36).slice(2, 10)
@@ -29,14 +29,13 @@ export function NumericKr(props: {
   checkpoints: string[]
   entries: { date: string; value: number; source: string }[]
   parents: { kr: KR; label: string }[]
-  models: IncomeModel[]
   series: ScheduleSeries[]
   onPatch: (p: Partial<KR>) => void
   onAddActual: (date: string, value: number, note: string) => void
   onAdjust: () => void
   onDelete: () => void
 }) {
-  const { kr, st, kind, area, end, locked, checkpoints, entries, parents, models, series, onPatch, onAddActual, onAdjust, onDelete } = props
+  const { kr, st, kind, area, end, locked, checkpoints, entries, parents, series, onPatch, onAddActual, onAdjust, onDelete } = props
   const { settings: s } = useApp()
   const [act, setAct] = useState({ date: today() < end ? today() : end, value: '', note: '' })
   const [showLog, setShowLog] = useState(false)
@@ -44,8 +43,6 @@ export function NumericKr(props: {
   const t = kr.target ?? null
   const gain = b !== null && t !== null ? t - b : null
   const plannedFrac = gain ? Math.max(0, Math.min(1, st.plannedGain / gain)) : 0
-  const model = models.find((m) => m.id === kr.income_model_id)
-  const pace = model ? funnelPace(model) : null
   const leading = kr.leading_ind ?? []
   const plan = kr.cumulative_plan ?? []
   const lockedNum = locked // sau khi chốt: đổi số qua "Điều chỉnh"
@@ -213,27 +210,6 @@ export function NumericKr(props: {
             </button>
           )}
         </div>
-      )}
-
-      {(kind === 'year' || (kind === 'month' && area === 'cv_tc')) && (
-        <label className="fld">
-          <span>Mô hình thu nhập (nhịp độ chia ngược)</span>
-          <select value={kr.income_model_id ?? ''} onChange={(e) => onPatch({ income_model_id: e.target.value || null })}>
-            <option value="">— không dùng —</option>
-            {models.map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.name || 'Mô hình chưa đặt tên'}
-              </option>
-            ))}
-          </select>
-        </label>
-      )}
-      {pace && (
-        <p className={'note ' + (pace.overCapacity ? 'err' : '')}>
-          {pace.ok
-            ? `Nhịp độ${pace.estimated ? ' (ước lượng)' : ''}: ${fmtNum(Math.ceil(pace.stages[0].perWeek))} ${pace.stages[0].name}/tuần · ${fmtNum(Math.ceil(pace.topPerDay * 10) / 10)}/ngày${pace.overCapacity ? ' — VƯỢT công suất cá nhân, cần KR đội ngũ' : ''}`
-            : `Mô hình còn thiếu: ${pace.missing.join(', ')}`}
-        </p>
       )}
 
       {kind === 'month' && area === 'cv_tc' && (

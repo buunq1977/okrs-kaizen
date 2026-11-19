@@ -133,7 +133,6 @@ export interface KR {
   leading_ind?: Leading[]
   cumulative_plan?: { date: string; planned: number }[]
   milestones?: { q: number; value: number }[]
-  income_model_id?: string | null
   is_team?: boolean
   is_coef?: boolean
   series_id?: string | null
@@ -171,22 +170,6 @@ export interface PlanChange {
   apply_at: string | null
   applied_at: string | null
   created_at: string
-}
-export interface IncomeModel {
-  id: string
-  name: string
-  currency: string
-  target_income_month: number | null
-  fx_rate: number | null
-  fx_updated_at: string | null
-  value_per_unit: number | null
-  unit_name: string
-  retention: number | null
-  stages: { id: string; name: string; conversion: number | null }[]
-  working_days_week: number
-  capacity_per_day: number | null
-  unknown: Record<string, boolean>
-  prev_year_income: number | null
 }
 export interface VisionItem {
   id: string

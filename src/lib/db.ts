@@ -5,7 +5,7 @@ import type { Goal, Metric, Objective, Period, PeriodKind, ScheduleSeries, Setti
 export type Table =
   | 'visions' | 'goals' | 'metrics'
   | 'periods' | 'objectives' | 'schedule_series' | 'key_results' | 'key_actions' | 'schedule_items' | 'observations' | 'next_actions' | 'validations'
-  | 'kr_actuals' | 'plan_changes' | 'income_models' | 'vision_items' | 'events'
+  | 'kr_actuals' | 'plan_changes' | 'vision_items' | 'events'
   | 'aff_months' | 'aff_projects' | 'aff_entries' | 'aff_tallies'
   | 'settings'
 
@@ -138,7 +138,7 @@ export async function insertMany<T>(table: Table, rows: Record<string, unknown>[
 
 /* ---------- xuất toàn bộ ---------- */
 export async function exportAll() {
-  const tables: Table[] = ['visions', 'goals', 'metrics', 'vision_items', 'income_models', 'periods', 'objectives', 'schedule_series', 'key_results', 'key_actions', 'kr_actuals', 'plan_changes', 'events', 'schedule_items', 'observations', 'next_actions', 'validations', 'settings', 'aff_months', 'aff_projects', 'aff_entries', 'aff_tallies']
+  const tables: Table[] = ['visions', 'goals', 'metrics', 'vision_items', 'periods', 'objectives', 'schedule_series', 'key_results', 'key_actions', 'kr_actuals', 'plan_changes', 'events', 'schedule_items', 'observations', 'next_actions', 'validations', 'settings', 'aff_months', 'aff_projects', 'aff_entries', 'aff_tallies']
   const out: Record<string, unknown> = { exported_at: new Date().toISOString(), version: 5 }
   for (const t of tables) out[t] = must(await sb().from(t).select('*'))
   out.aff_config = must(await sb().from('aff_config').select('*'))

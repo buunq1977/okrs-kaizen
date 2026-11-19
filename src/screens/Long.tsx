@@ -14,8 +14,8 @@ import { errMsg, findPeriods, insert, listAll, listBy, listIn, objectivesOf, upd
 import { fmtDM, fmtDMY, fmtMonth, mondayOf, today } from '../lib/dates'
 import { AREA_NAME, AREAS, checkpoints, ensureAreas, getKickoff, KIND_NAME, krEntries, loadLongSummary, longEnd, longShift, longStart, summarize } from '../lib/long'
 import { carryCandidates, effectiveLock, O_CRITERIA } from '../lib/okr'
-import { changeRule, funnelPace, inWindow, longLockCheck, quarterOf, quarterStart, quarterTriggered, reviewMissed, reviewWindow, type LongKind } from '../lib/numeric'
-import type { EventItem, IncomeModel, KR, Objective, Observation, Period, PlanChange, ScheduleSeries, Validation, VisionItem } from '../lib/types'
+import { changeRule, inWindow, longLockCheck, quarterOf, quarterStart, quarterTriggered, reviewMissed, reviewWindow, type LongKind } from '../lib/numeric'
+import type { EventItem, KR, Objective, Observation, Period, PlanChange, ScheduleSeries, Validation, VisionItem } from '../lib/types'
 
 const title = (kind: LongKind, start: string, end: string) =>
   kind === 'month' ? fmtMonth(start) : kind === 'quarter' ? `Quý ${quarterOf(start)}/${start.slice(0, 4)}` : kind === 'year' ? `Năm ${start.slice(0, 4)}` : `Kỳ khởi động ${fmtDM(start)} – ${fmtDMY(end)}`
@@ -49,7 +49,6 @@ function LongInner({ kind, start, setDate }: { kind: LongKind; start: string; se
   const [objs, setObjs] = useState<Objective[]>([])
   const [entries, setEntries] = useState(new Map<string, { date: string; value: number; source: string }[]>())
   const [changes, setChanges] = useState<PlanChange[]>([])
-  const [models, setModels] = useState<IncomeModel[]>([])
   const [series, setSeries] = useState<ScheduleSeries[]>([])
   const [parents, setParents] = useState<{ kr: KR; label: string }[]>([])
   const [upper, setUpper] = useState<Upper[]>([])
@@ -111,7 +110,7 @@ function LongInner({ kind, start, setDate }: { kind: LongKind; start: string; se
     let live = true
     ;(async () => {
       try {
-        const [ms, sr] = await Promise.all([listAll<IncomeModel>('income_models'), listAll<ScheduleSeries>('schedule_series')])
+        const sr = await listAll<ScheduleSeries>('schedule_series')
         const par: { kr: KR; label: string }[] = []
         const up: Upper[] = []
         if (kind === 'month' || kind === 'quarter') {
@@ -135,7 +134,6 @@ function LongInner({ kind, start, setDate }: { kind: LongKind; start: string; se
           if (pp) po = await listBy<Observation>('observations', 'period_id', pp.id)
         }
         if (!live) return
-        setModels(ms)
         setSeries(sr)
         setParents(par)
         setUpper(up)
@@ -155,13 +153,9 @@ function LongInner({ kind, start, setDate }: { kind: LongKind; start: string; se
   const sum = summarize(kind, p, start, end, objs, krs.rows, entries, t0, s)
   const cps = checkpoints(kind, start, end)
   const objIds = Object.fromEntries(objs.map((o) => [o.area!, o.id]))
-  const overCapacity = krs.rows.some((k) => {
-    const m = models.find((x) => x.id === k.income_model_id)
-    return m ? funnelPace(m).overCapacity : false
-  })
   const lock = (() => {
     const rows = krs.rows.map((k) => ({ objective_id: k.objective_id, title: k.title, baseline: k.baseline ?? null, target: k.target ?? null, deadline: k.deadline ?? null, source: k.source ?? '', is_team: !!k.is_team, status: k.status ?? 'active' }))
-    return longLockCheck(objs, rows, objIds, s, { overCapacity, passive: kind === 'year' && objs.some((o) => o.passive) })
+    return longLockCheck(objs, rows, objIds, s, { passive: kind === 'year' && objs.some((o) => o.passive) })
   })()
   const openKrs = krs.rows.filter((k) => k.status !== 'stopped').length
   const qs = quarterStart(t0)
@@ -361,7 +355,6 @@ function LongInner({ kind, start, setDate }: { kind: LongKind; start: string; se
                       checkpoints={cps}
                       entries={entries.get(k.id) ?? []}
                       parents={parents.filter((x) => x.kr.id !== k.id)}
-                      models={models}
                       series={series}
                       onPatch={(part) => krs.patch(k.id, part)}
                       onAddActual={async (d, v, note) => {

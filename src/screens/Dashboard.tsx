@@ -2,12 +2,12 @@ import { useEffect, useState } from 'react'
 import { StatusPill } from '../components/long/NumericKr'
 import { PctPill } from '../components/ui'
 import { useApp } from '../lib/ctx'
-import { errMsg, findPeriods, listAll, listIn, objectivesOf } from '../lib/db'
+import { errMsg, findPeriods, listIn, objectivesOf } from '../lib/db'
 import { addDays, DOW, fmtDM, isoDow, mondayOf, monthStart, today } from '../lib/dates'
 import { AREA_NAME, loadLongSummary, longStart, type LongSum } from '../lib/long'
 import { dayScore, execPercent, focusLevel, krPercent, oActualPercent } from '../lib/okr'
-import { funnelPace, quarterTriggered, reviewMissed, reviewWindow, statusColor } from '../lib/numeric'
-import type { IncomeModel, KA, KR, PlanChange, Period } from '../lib/types'
+import { quarterTriggered, reviewMissed, reviewWindow, statusColor } from '../lib/numeric'
+import type { KA, KR, PlanChange, Period } from '../lib/types'
 
 interface Warn {
   level: 'red' | 'yellow'
@@ -62,13 +62,6 @@ export default function Dashboard() {
             if (x.st.triggered && m.period?.kaizen?.decisions?.[x.kr.id]?.week !== ws) w.push({ level: 'red', text: `Luật kích hoạt: "${x.kr.title}" trễ >${s.trigger_lag_pct}% ${s.trigger_weeks} tuần liên tiếp. Chọn quyết định ngay tuần này.`, go: ['month', t0] })
           }
         for (const o of q.objs) for (const x of o.krs) if (quarterTriggered(x.st.status, s.trigger_quarter_pct)) w.push({ level: 'red', text: `KR quý "${x.kr.title}" trễ >${s.trigger_quarter_pct}%: mở chẩn đoán đầy đủ.`, go: ['quarter', t0] })
-        const models = await listAll<IncomeModel>('income_models')
-        for (const mo of models) {
-          const pace = funnelPace(mo)
-          if (pace.overCapacity) w.push({ level: 'red', text: `Mô hình "${mo.name}": nhịp độ vượt công suất cá nhân. Cần KR đội ngũ tự vận hành / đòn bẩy.`, go: ['income'] })
-          const unk = Object.entries(mo.unknown ?? {}).filter(([, v]) => v).length
-          if (unk) w.push({ level: 'yellow', text: `Mô hình "${mo.name}" còn ${unk} hệ số "chưa đo": nhịp độ chỉ là ước lượng. Nên có KR đo hệ số.`, go: ['income'] })
-        }
         // Buổi rà tháng/quý trước bị bỏ
         for (const [kind, start] of [
           ['month', monthStart(addDays(monthStart(t0), -1))],

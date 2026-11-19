@@ -72,58 +72,6 @@ export function weekEndsOfMonth(ms: string): string[] {
   return out
 }
 
-/* ---------- Phễu thu nhập (§9) ---------- */
-export interface Funnel {
-  target_income_month: number | null
-  value_per_unit: number | null
-  retention: number | null
-  stages: { id: string; name: string; conversion: number | null }[]
-  working_days_week: number
-  capacity_per_day: number | null
-  unknown: Record<string, boolean>
-}
-export interface Pace {
-  ok: boolean
-  missing: string[]
-  estimated: boolean
-  unitsNeeded: number
-  unitsToAcquire: number
-  stages: { name: string; perMonth: number; perWeek: number; perDay: number }[]
-  topPerDay: number
-  overCapacity: boolean
-}
-export function funnelPace(m: Funnel): Pace {
-  const missing: string[] = []
-  if (!m.target_income_month) missing.push('Thu nhập mục tiêu/tháng')
-  if (!m.value_per_unit) missing.push('Thu nhập mỗi đơn vị')
-  if (!m.stages.length) missing.push('Các bước phễu')
-  m.stages.slice(0, -1).forEach((s, i) => {
-    if (!s.conversion) missing.push(`Tỷ lệ bước ${i + 1} → ${i + 2}`)
-  })
-  const empty: Pace = { ok: false, missing, estimated: false, unitsNeeded: 0, unitsToAcquire: 0, stages: [], topPerDay: 0, overCapacity: false }
-  if (missing.length) return empty
-  const unitsNeeded = m.target_income_month! / m.value_per_unit!
-  const unitsToAcquire = unitsNeeded / (m.retention && m.retention > 0 ? m.retention : 1)
-  // Bước cuối = số đơn vị cần có; đi ngược lên bước đầu
-  const per = new Array(m.stages.length).fill(0)
-  per[m.stages.length - 1] = unitsToAcquire
-  for (let i = m.stages.length - 2; i >= 0; i--) per[i] = per[i + 1] / (m.stages[i].conversion as number)
-  const wd = m.working_days_week > 0 ? m.working_days_week : 5
-  const stages = m.stages.map((s, i) => ({ name: s.name, perMonth: per[i], perWeek: (per[i] * 12) / 52, perDay: (per[i] * 12) / 52 / wd }))
-  const topPerDay = stages[0].perDay
-  return {
-    ok: true,
-    missing,
-    estimated: Object.values(m.unknown ?? {}).some(Boolean),
-    unitsNeeded,
-    unitsToAcquire,
-    stages,
-    topPerDay,
-    overCapacity: m.capacity_per_day !== null && m.capacity_per_day > 0 && topPerDay > m.capacity_per_day,
-  }
-}
-/** Hệ số nhân bản cần có so với năm trước (§9.3). */
-export const multiplier = (targetYear: number | null, prevYear: number | null) => (targetYear && prevYear && prevYear > 0 ? Math.round((targetYear / prevYear) * 10) / 10 : null)
 
 /* ---------- Luật kích hoạt (§11.3) ---------- */
 /** KR tháng trễ > lag% ở N tuần đã kết thúc gần nhất liên tiếp. */
@@ -195,7 +143,7 @@ export function longLockCheck(
   krs: { objective_id: string | null; title: string; baseline: number | null; target: number | null; deadline: string | null; source: string; is_team: boolean; status: string }[],
   objIds: Record<string, string>,
   s: Pick<Settings, 'kr_min_cvtc' | 'kr_min_other' | 'kr_max_other' | 'max_open_kr'>,
-  opts: { overCapacity: boolean; passive: boolean },
+  opts: { passive: boolean },
 ): { blockers: string[]; warnings: string[] } {
   const blockers: string[] = []
   const warnings: string[] = []
@@ -219,7 +167,6 @@ export function longLockCheck(
     if (miss.length) blockers.push(`KR "${k.title || 'chưa đặt tên'}" thiếu: ${miss.join(', ')}.`)
   })
   if (active.length > s.max_open_kr) warnings.push(`Đang mở ${active.length} KR, vượt trần ${s.max_open_kr}.`)
-  if (opts.overCapacity && !active.some((k) => k.is_team)) blockers.push('Nhịp độ vượt công suất cá nhân: cần ít nhất 1 KR đội ngũ tự vận hành / đòn bẩy.')
   if (opts.passive && !active.some((k) => k.is_team)) blockers.push('O thụ động cần ít nhất 1 KR về đội ngũ tự vận hành.')
   return { blockers, warnings }
 }
