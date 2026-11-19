@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   ceilCount, dayLabel, winsLabel,
   analyze, configEditable, defaultProfit, defaultShare, monthEditable, monthsOfLevel, needsAutoLock, nextBudget, planRows, simulate, targetsFor,
-  adCharges, anyLocked, deseason, gateOf, rebalanceShares, GOAL_LEVEL_NAMES, goalLevelReached, kickoffBudget, profitAfterFees, sampleNeeds, suggestDouble, realRoas, rowEditable, seasonWarn, selfFundProfit, snapshotV2,
+  adCharges, anyLocked, deseason, gateOf, paceTargets, rebalanceShares, GOAL_LEVEL_NAMES, goalLevelReached, kickoffBudget, profitAfterFees, sampleNeeds, suggestDouble, realRoas, rowEditable, seasonWarn, selfFundProfit, snapshotV2,
   type AffConfig, type AffMonth,
 } from './affiliate'
 
@@ -367,5 +367,26 @@ describe('tỷ trọng 3 mô hình luôn = 100%', () => {
     const r = rebalanceShares({ phys: 60, tools: 0 }, 'phys', 140)
     expect(r).toEqual({ share_phys: 100, share_tools: 0 })
     expect(total(rebalanceShares({ phys: 33.3, tools: 33.3 }, 'tools', 50))).toBe(100)
+  })
+})
+
+describe('chỉ tiêu theo nhịp Cổng 0 (bảng chỉ tiêu, Sổ dự án)', () => {
+  const rows = [row('2026-12-01', { budget_test: 200 })]
+  const a = analyze(rows, cfg, '2026-12-02', { max_test_usd: 10 })
+  const base = targetsFor(['2026-12-01'], a, rows, cfg, 'month')
+  it('tháng: 60 test, search 300, đăng ký 120, ngân sách $600 (thay cho 20 test theo $200)', () => {
+    expect(ceilCount(base.tests[0])).toBe(20)
+    const p = paceTargets(base, 'month', 1, 60, 10, cfg)
+    expect(p.tests).toEqual([60, 60])
+    expect(p.research[0]).toBe(300)
+    expect(p.reg[0]).toBe(120)
+    expect(p.budget[0]).toBe(600)
+    expect(p.testsS).toBe(0)
+  })
+  it('quý 180, năm 720, tuần 14, ngày chia từ tuần', () => {
+    expect(paceTargets(base, 'quarter', 3, 60, 10, cfg).tests[0]).toBe(180)
+    expect(paceTargets(base, 'year', 12, 60, 10, cfg).tests[0]).toBe(720)
+    expect(ceilCount(paceTargets(base, 'week', 1, 60, 10, cfg).tests[0])).toBe(14)
+    expect(paceTargets(base, 'day', 1, 60, 10, cfg).tests[0]).toBeCloseTo((60 * 12) / 52 / 7)
   })
 })

@@ -1,7 +1,7 @@
 import { Fragment, useMemo } from 'react'
 import {
   analyze, ceilCount, coeffsOf, dayLabel, winsLabel, monthOf, monthsOfLevel, nextBudget, PHYS_FIELDS, planRows, quarterNo, SAAS_FIELDS, TOOLS_FIELDS, targetsFor,
-  defaultProfit, gateOf, GOAL_LEVEL_NAMES, goalLevelReached, rebalanceShares, type ShareKey, kickoffBudget, profitAfterFees, rowEditable, sampleNeeds, selfFundProfit, suggestDouble, v2Of,
+  defaultProfit, gateOf, paceTargets, GOAL_LEVEL_NAMES, goalLevelReached, rebalanceShares, type ShareKey, kickoffBudget, profitAfterFees, rowEditable, sampleNeeds, selfFundProfit, suggestDouble, v2Of,
   type AffConfig, type AffMonth, type Live, type SimMonth, type Targets,
 } from '../../lib/affiliate'
 import { totals, type AffEntry, type AffProject } from '../../lib/affProjects'
@@ -65,13 +65,16 @@ export default function AffiliatePlan() {
   const subRows = openRows.filter((m) => m.share_phys < 100)
   const lowBudget = openRows.filter((m) => m.budget_test < kick.spend - 0.5)
 
-  const weekT = targetsFor([cur], a, months, cfg, 'week')
+  // Cổng 0 (có số Research): chỉ tiêu test theo nhịp khối lượng, giống KR / KA ở các trang OKR
+  const usePace = !!wsD && gate.gate === 0
+  const P = (t: Targets, level: 'year' | 'quarter' | 'month' | 'week' | 'day', n: number) => (usePace ? paceTargets(t, level, n, v2.kickoff_tests_month, testCost, cfg) : t)
+  const weekT = P(targetsFor([cur], a, months, cfg, 'week'), 'week', 1)
   const cols: { label: string; t: Targets; day?: boolean }[] = [
-    { label: `Năm ${goalYear}`, t: targetsFor(monthsOfLevel('year', cfg.goal_month), a, months, cfg, 'year') },
-    { label: `Quý ${quarterNo(cur)}/${cur.slice(0, 4)}`, t: targetsFor(monthsOfLevel('quarter', cur), a, months, cfg, 'quarter') },
-    { label: `Tháng ${mLabel(cur)}`, t: targetsFor([cur], a, months, cfg, 'month') },
-    { label: `Tuần ${mondayOf(t0).slice(8, 10)}/${mondayOf(t0).slice(5, 7)}–${addDays(mondayOf(t0), 6).slice(8, 10)}/${addDays(mondayOf(t0), 6).slice(5, 7)}`, t: targetsFor([cur], a, months, cfg, 'week') },
-    { label: `Ngày (${cfg.working_days_week} ngày/tuần)`, t: targetsFor([cur], a, months, cfg, 'day'), day: true },
+    { label: `Năm ${goalYear}`, t: P(targetsFor(monthsOfLevel('year', cfg.goal_month), a, months, cfg, 'year'), 'year', 12) },
+    { label: `Quý ${quarterNo(cur)}/${cur.slice(0, 4)}`, t: P(targetsFor(monthsOfLevel('quarter', cur), a, months, cfg, 'quarter'), 'quarter', 3) },
+    { label: `Tháng ${mLabel(cur)}`, t: P(targetsFor([cur], a, months, cfg, 'month'), 'month', 1) },
+    { label: `Tuần ${mondayOf(t0).slice(8, 10)}/${mondayOf(t0).slice(5, 7)}–${addDays(mondayOf(t0), 6).slice(8, 10)}/${addDays(mondayOf(t0), 6).slice(5, 7)}`, t: weekT },
+    { label: `Ngày (${cfg.working_days_week} ngày/tuần)`, t: P(targetsFor([cur], a, months, cfg, 'day'), 'day', 1), day: true },
   ]
   const pair = ([lo, hi]: [number, number], f: (n: number) => string = cnt) => (f(lo) === f(hi) ? f(lo) : `${f(lo)} / ${f(hi)}`)
   /** Số dự án: số nguyên làm tròn lên; cột Ngày chia từ chỉ tiêu tuần. */
@@ -307,6 +310,11 @@ export default function AffiliatePlan() {
           </table>
         </div>
         <p className="note">
+          {usePace && (
+            <b>
+              Cổng 0: chỉ tiêu test theo nhịp {v2.kickoff_tests_month} test/tháng (giống KR ở các trang OKR), ngân sách = test × {usd(testCost)}; năm tính nếu giữ nhịp cả 12 tháng.{' '}
+            </b>
+          )}
           Số "mục tiêu" = số tối thiểu × {fmtNum(Math.round(mult * 10) / 10)} từ tháng {mLabel(a.scaleFrom)} (ngân sách đủ đạt mọi mục tiêu tháng còn kịp); giai đoạn đo giữ nguyên. Thắng chỉ đặt từ cấp Tháng trở lên. Search = {cfg.research_per_test} × test, đăng ký = {cfg.reg_per_test} × test (phễu minh hoạ của nguồn). Số dự án làm tròn lên; cột Ngày chia từ chỉ tiêu tuần (VD "1 · 4 ngày/tuần" = 4 ngày trong tuần, mỗi ngày 1).
         </p>
       </Sec>

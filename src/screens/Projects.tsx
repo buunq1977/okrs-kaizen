@@ -2,9 +2,9 @@ import { Fragment, useMemo, useState } from 'react'
 import AffLedger from '../components/aff/AffLedger'
 import { useAff, useLedger } from '../components/aff/useAff'
 import { Sec, Txt, toNum } from '../components/ui'
-import { analyze, ceilCount, coeffsOf, monthOf, targetsFor, winsLabel } from '../lib/affiliate'
+import { analyze, ceilCount, coeffsOf, gateOf, monthOf, paceTargets, targetsFor, v2Of, winsLabel } from '../lib/affiliate'
 import { advance, countBetween, flags, kindOf, measure, metrics, MODEL_NAME, nextStage, OP_COLOR, OP_NAME, searchSum, STAGE_NAME, STAGES, totals, type AffEntry, type AffProject, type Model, type OpStatus, type Stage, type Tally } from '../lib/affProjects'
-import { MODEL3, MODEL3_NAME, wsCounts, type Model3 } from '../lib/affSource'
+import { MODEL3, MODEL3_NAME, monthlyMoney, wsCounts, type Model3 } from '../lib/affSource'
 import { useRows } from '../lib/ctx'
 import { listAll } from '../lib/db'
 import { addDays, fmtDM, monthEnd, mondayOf, today } from '../lib/dates'
@@ -54,9 +54,15 @@ export default function Projects() {
   }
   const cw = cnt(wk)
   const cm = cnt(mo)
-  const tw = targetsFor([monthOf(t0)], a, aff.months, cfg, 'week')
-  const tmo = targetsFor([monthOf(t0)], a, aff.months, cfg, 'month')
   const nReady = led.items.filter((x) => x.win.ready).length
+  // Cổng 0 (có số Research): chỉ tiêu test theo nhịp khối lượng, giống KR / KA ở các trang OKR
+  const ahD = led.ah?.data ?? null
+  const usePace = !!wsD && gateOf(nReady, ahD ? monthlyMoney(ahD) : [], cfg).gate === 0
+  const kickoff = v2Of(cfg).kickoff_tests_month
+  const tw0 = targetsFor([monthOf(t0)], a, aff.months, cfg, 'week')
+  const tmo0 = targetsFor([monthOf(t0)], a, aff.months, cfg, 'month')
+  const tw = usePace ? paceTargets(tw0, 'week', 1, kickoff, coeffs.phys.test_cost, cfg) : tw0
+  const tmo = usePace ? paceTargets(tmo0, 'month', 1, kickoff, coeffs.phys.test_cost, cfg) : tmo0
   const nCand = led.items.filter((x) => x.win.candidate && !x.win.ready).length
   const pace = (done: number | null, [lo, hi]: [number, number]) =>
     done === null ? (
@@ -83,7 +89,7 @@ export default function Projects() {
     <div className="stack">
       <h1>Sổ dự án</h1>
 
-      <Sec title="Mục tiêu tuần & tháng" hint="số đã làm / chỉ tiêu tối thiểu theo ngân sách">
+      <Sec title="Mục tiêu tuần & tháng" hint={usePace ? `Cổng 0: chỉ tiêu theo nhịp ${kickoff} test/tháng` : 'số đã làm / chỉ tiêu tối thiểu theo ngân sách'}>
         <div className="kgoal">
           {(
             [

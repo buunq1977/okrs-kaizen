@@ -642,6 +642,26 @@ export function targetsFor(months: string[], a: Analysis, rows: AffMonth[], cfg:
     net: level === 'week' || level === 'day' ? null : (last?.net ?? null),
   }
 }
+/** Cổng 0: chỉ tiêu test theo nhịp khối lượng (N test/tháng) thay cho số theo ngân sách, để bảng chỉ tiêu,
+ *  Sổ dự án và KR / KA (kpiTargets) báo cùng một con số. Search / đăng ký theo phễu; ngân sách = test × tiền test.
+ *  Thắng và lợi nhuận giữ như mô hình (Cổng 0 chưa đặt lợi nhuận). months = số tháng của kỳ (Tuần / Ngày tính từ tháng). */
+export function paceTargets(t: Targets, level: 'year' | 'quarter' | 'month' | 'week' | 'day', months: number, pace: number, testCost: number, cfg: Pick<AffConfig, 'research_per_test' | 'reg_per_test' | 'working_days_week'>): Targets {
+  let n = pace * months
+  if (level === 'week' || level === 'day') n = (pace * 12) / 52
+  if (level === 'day') n /= cfg.working_days_week
+  const both = (x: number): [number, number] => [x, x]
+  return {
+    ...t,
+    tests: both(n),
+    testsP: n,
+    testsT: 0,
+    testsS: 0,
+    research: both(n * cfg.research_per_test),
+    reg: both(n * cfg.reg_per_test),
+    budget: both(n * testCost),
+  }
+}
+
 /** Các tháng của kỳ chứa `month`. */
 export function monthsOfLevel(level: 'year' | 'quarter' | 'month', month: string): string[] {
   if (level === 'month') return [month]
