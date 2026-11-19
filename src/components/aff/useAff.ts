@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { anyLocked, coeffsOf, type AffConfig, type AffMonth, type Live, needsAutoLock, snapshotV2 } from '../../lib/affiliate'
+import { anyLocked, coeffsOf, type AffConfig, type AffMonth, type Live, effectiveBudget, needsAutoLock, snapshotV2 } from '../../lib/affiliate'
 import { loadAffData, loadAh, loadThresholds, loadWs, type SrcResult } from '../../lib/affData'
 import { monthActuals } from '../../lib/affLink'
 import type { AffProject } from '../../lib/affProjects'
@@ -26,8 +26,9 @@ export function useAff() {
       for (const m of auto) {
         const coeffs = snapshotV2(c, t ?? {})
         const locked_at = new Date().toISOString()
-        await update('aff_months', m.id, { coeffs, locked_at })
-        Object.assign(m, { coeffs, locked_at })
+        const budget_test = Math.round(effectiveBudget(m, c, coeffs.phys.test_cost))
+        await update('aff_months', m.id, { budget_test, coeffs, locked_at })
+        Object.assign(m, { budget_test, coeffs, locked_at })
         await closePrev(ms, m.month)
       }
       setCfg(c)
@@ -67,7 +68,9 @@ export function useAff() {
   const lockMonth = useCallback(
     async (m: AffMonth) => {
       if (!cfg) return
-      await patchMonth(m.id, { coeffs: snapshotV2(cfg, th ?? {}), locked_at: new Date().toISOString() })
+      // Chốt: ghi luôn ngân sách test đã tính (không thấp hơn sàn nhịp × maxtest) để tháng đã chốt giữ đúng số
+      const snap = snapshotV2(cfg, th ?? {})
+      await patchMonth(m.id, { budget_test: Math.round(effectiveBudget(m, cfg, snap.phys.test_cost)), coeffs: snap, locked_at: new Date().toISOString() })
       await closePrev(months, m.month, (id, actuals) => setMonths((xs) => xs.map((x) => (x.id === id ? { ...x, actuals } : x))))
       toast(`Đã chốt kế hoạch Affiliate tháng ${m.month.slice(5, 7)}/${m.month.slice(0, 4)}`)
     },

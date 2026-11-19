@@ -6,6 +6,7 @@ import type { AffProject } from './affProjects'
 const cfg: AffConfig = {
   user_id: 'u', year_goal: 16000, goal_month: '2027-12-01', base_budget: 200, reinvest_pct: 50, test_cap_mult: 2, edit_days: 3,
   cap_tests_week: 15, working_days_week: 7, reg_per_test: 2, research_per_test: 5, win_min_orders: 3, phys: {}, saas: {},
+  kickoff_tests_month: 0, // các test cũ kiểm lõi theo ngân sách nhập; sàn nhịp kiểm riêng ở cuối file
 }
 const row = (month: string, p: Partial<AffMonth> = {}): AffMonth => ({ id: month, month, share_phys: 100, budget_test: 200, season: 1, profit_target: 0, coeffs: null, locked_at: null, note: '', ...p })
 const P = (id: string, p: Partial<AffProject>): AffProject => ({ id, name: id, link: '', model: 'phys', network: '', niche: '', geo: '', stage: 'dat_loc', dates: {}, op_status: null, ext_reason: '', stop_reason: '', note: '', created_at: '', ...p })

@@ -44,8 +44,8 @@ OKR **chỉ đọc** Research và Ads-Hub, không ghi sang. Mất kết nối th
 | # | Chốt | Ngày |
 |---|---|---|
 | D0 | O năm 2027 có 3 mức: **tối thiểu $16.000 / mục tiêu $50.000 / vươn tới $120.000** lợi nhuận/tháng vào 12/2027. Mức tối thiểu là cam kết, dùng tính kế hoạch; dải O năm báo đang đạt mức nào | 19/11 |
-| D1 | Vốn ngoài = 0 cho tới khi anh nhập theo từng tháng | 18/11 |
-| D2 | Nhịp tìm winner: **60 test/tháng** từ 12/2026 | 18/11 |
+| D1 | **Vốn ngoài bù phần thiếu để giữ 60 test/tháng** (thay "vốn ngoài = 0" ngày 18/11) | 19/11 |
+| D2 | Nhịp tìm winner: **60 test/tháng** từ 12/2026, là **sàn ngân sách test** (nhịp × maxtest); bỏ hẳn mức $200 của mô hình cũ | 18–19/11 |
 | D3 | **Tools AI và SaaS khoá tới Cổng 2** | 18/11 |
 | D4 | Mục tiêu theo cổng bằng chứng (thang quý chỉ là tuỳ chọn gõ tay) | 18/11 |
 | D5 | Tỷ giá = `usd_vnd` của Research | 18/11 |
@@ -78,11 +78,13 @@ OKR **chỉ đọc** Research và Ads-Hub, không ghi sang. Mất kết nối th
 ### 4.3 Tiền ads và vốn
 - Ads scale Vật lý = LN Vật lý ÷ (ROAS thực nhận − 1). ROAS thực nhận = thực nhận ÷ chi phí, **không phải** doanh số màn hình.
 - Vốn vận hành = (tiền test + ads chờ hoa hồng về theo số ngày payout) × 1,134 (phí + thuế).
-- **Vốn cần** = vốn vận hành + quỹ cầu nối 15% + quỹ dự phòng 10%. Cảnh báo khi vốn khả dụng (ngân sách tối thiểu + vốn ngoài) < vốn cần.
+- **Vốn cần** (tồn, để biết đỉnh vốn bị kẹt) = vốn vận hành + quỹ cầu nối 15% + quỹ dự phòng 10%.
 
 ### 4.4 Ngân sách
-- Ngân sách test tháng sau = **$200 + 50% lợi nhuận đã nhận sau phí, thuế** tháng này + vốn ngoài. Lợi nhuận âm tính là 0.
-- "Tự nuôi được tới đâu": lợi nhuận đã nhận cần có để ngân sách tự đạt mức X.
+- **Sàn ngân sách test** = nhịp × maxtest (60 × $11 = $660 chi tiêu, × 1,134 = ≈ $750 phải nạp). Tháng chưa chốt không bao giờ thấp hơn sàn, kể cả khi bảng còn ghi số cũ; chốt tháng thì ghi số đã tính vào bảng.
+- Ngân sách test tháng sau = **lớn hơn trong hai số: sàn, hoặc 50% lợi nhuận đã nhận sau phí, thuế** tháng này. Lợi nhuận âm tính là 0.
+- **Vốn ngoài cần bù** (mỗi tháng) = tiền nạp test − 50% lợi nhuận tháng trước. Chưa có thắng thì bù đủ ≈ $750/tháng. App báo khi cột Vốn ngoài nhập thấp hơn số cần bù, và cộng tổng cần bù tới tháng mục tiêu theo dự báo.
+- "Tự nuôi đủ nhịp": lợi nhuận đã nhận sau phí ≥ tiền nạp ÷ 50% (≈ $1.500/tháng) thì không cần vốn ngoài.
 - **Ngân sách tối thiểu đề xuất**: hệ số nhân nhỏ nhất áp từ tháng đầu có lợi nhuận mục tiêu > 0 để mọi tháng còn kịp đều đạt. Tháng không kịp vì độ trễ thì liệt kê riêng.
 
 ### 4.5 Kịch bản và cảnh báo
@@ -183,7 +185,7 @@ Nhãn trong app: **Research** = đọc từ Research · **nguồn** = có trong 
 
 | Cấu hình | Mặc định |
 |---|---|
-| Ngân sách test tối thiểu / tái đầu tư | $200 / 50% |
+| Sàn ngân sách test / tái đầu tư | nhịp 60 test × maxtest / 50% |
 | Trần mở rộng test | ×2 |
 | Ngày được sửa đầu tháng | 3 |
 | Công suất / ngày làm | 15 test/tuần / 7 ngày |
@@ -225,3 +227,19 @@ Chuẩn so sánh trong chẩn đoán: duyệt link 60%, dự án test có đơn 
 | `src/lib/affProjects.ts` | Sổ nhập tay cũ, bộ đếm search |
 | `src/components/aff/*`, `src/screens/Income.tsx`, `src/screens/Projects.tsx` | Giao diện |
 | `supabase/migrations/008–015` | Schema OKR · Research: `workspace/supabase/09_reg_dates.sql` · Ads-Hub: `ads-hub/supabase/12_okr_read.sql` |
+
+---
+
+## 13. Dự báo với 60 test/tháng (19/11/2026, minh hoạ)
+
+Đầu vào: 60 test/tháng × maxtest $11, 100% Vật lý, mùa vụ 1, lợi nhuận 1 thắng $2.000 (giả định), sống 3 tháng, ROAS thực nhận 1,5, phí 5%, thuế 8%.
+
+| Test ra 1 thắng | Lợi nhuận ròng 12/2027 |
+|---|---|
+| 100 (mức sàn của nguồn) | ≈ $1.890 |
+| 200 | ≈ $570 |
+| 300 | ≈ $130 |
+
+So với mô hình cũ ($200/tháng ≈ 18 test): $572 / $172 / $39.
+
+**Trần sức người**: 15 test/tuần ≈ 65 test/tháng → 12/2027 khoảng $2.000. Mức tối thiểu $16.000 cần khoảng 8 lần khối lượng đó, hoặc thắng thật lớn hơn nhiều so với giả định $2.000/tháng. Đây là khoảng cách app hiện ở dải O năm, để quyết định khi qua các cổng (scale dự án thắng, SOP, team từ Cổng 3).

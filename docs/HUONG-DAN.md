@@ -102,9 +102,10 @@ Danh sách lấy từ **Research** (đăng ký đã lên camp) và số tiền t
 ### 7.1 Tab Kế hoạch Affiliate
 - **Anh đang ở Cổng N**: cổng tính từ số thật. Cổng 0 = tìm winner, mục tiêu 60 test/tháng; Cổng 1 mở ngân sách scale; Cổng 2 mở Tools AI + SaaS; Cổng 3 gợi ý team/AI.
 - **Dải O năm**: 3 mức tối thiểu / mục tiêu / vươn tới, kịch bản 100 / 200 / 300 test ra 1 thắng.
-- **Nguồn lực & cảnh báo**: ngân sách tối thiểu đề xuất, tháng không kịp, vượt công suất, vốn cần (gồm phí 5%, thuế 8%, quỹ cầu nối, dự phòng).
+- Dưới dải O năm: đầu vào của dự báo (ngân sách, maxtest, lợi nhuận 1 thắng giả định) và **trần sức người** (làm tay 15 test/tuần thì được bao nhiêu).
+- **Nguồn lực & cảnh báo**: tháng không kịp, vượt công suất, vốn cần (gồm phí 5%, thuế 8%, quỹ cầu nối, dự phòng), **vốn ngoài cần bù** từng tháng và tổng tới tháng mục tiêu, ngân sách test tháng sau = lớn hơn trong sàn nhịp và 50% lợi nhuận đã nhận.
 - **Chỉ tiêu Năm → Ngày**: ô có 2 số là "tối thiểu / mục tiêu".
-- **Bảng phân bổ theo tháng**: sửa % Vật lý / % Tools AI / % SaaS (luôn cộng 100%: sửa 1 cột, cột cao nhất còn lại tự bù), ngân sách test, mùa vụ, lợi nhuận mục tiêu, vốn ngoài. Gõ số rồi bấm ra ngoài là lưu.
+- **Bảng phân bổ theo tháng**: sửa % Vật lý / % Tools AI / % SaaS (luôn cộng 100%: sửa 1 cột, cột cao nhất còn lại tự bù), ngân sách test (không thấp hơn sàn = nhịp 60 test × maxtest), mùa vụ, lợi nhuận mục tiêu, vốn ngoài (dòng nhỏ "cần …" là số phải bù; đỏ khi nhập chưa đủ). Gõ số rồi bấm ra ngoài là lưu.
 - **Chốt kế hoạch tháng**: làm trong 3 ngày đầu tháng. Quá hạn chưa chốt thì app tự chốt.
 
 ### 7.2 Tab Cấu hình mô hình

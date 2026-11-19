@@ -91,6 +91,7 @@ export interface AffMonth {
 export interface Live {
   max_test_usd?: number | null // maxtest Research → tiền test 1 dự án của cả 3 mô hình
   tests_per_win?: number // kịch bản 100 / 200 / 300 test/thắng
+  pace_tests?: number // ghi đè nhịp test/tháng (sàn ngân sách), VD trần sức người
 }
 
 export type Src = 'nguồn' | 'nguồn (mức sàn)' | 'tính' | 'giả định' | 'của anh' | 'Research'
@@ -301,11 +302,19 @@ export function defaultProfit(month: string, goal: number, goalMonth: string): n
   }
   return goal
 }
-export function planRows(cfg: Pick<AffConfig, 'year_goal' | 'goal_month' | 'base_budget'>, from: string) {
+/* ---------- Sàn ngân sách test = nhịp × maxtest (Luca chốt 19/11/2026: giữ 60 test/tháng, vốn ngoài bù phần thiếu) ---------- */
+/** Ngân sách test tối thiểu của 1 tháng (chi tiêu, chưa gồm phí + thuế) để đủ nhịp test. Thay cho mức $200 của mô hình cũ. */
+export const paceSpend = (cfg: Partial<AffConfig>, testCost: number, paceTests?: number) => Math.max(0, paceTests ?? v2Of(cfg).kickoff_tests_month) * Math.max(0, testCost)
+/** Ngân sách test dùng để tính của 1 dòng: tháng đã chốt giữ số đã lưu; tháng chưa chốt không thấp hơn sàn nhịp. */
+export function effectiveBudget(m: Pick<AffMonth, 'budget_test' | 'locked_at'>, cfg: Partial<AffConfig>, testCost: number, paceTests?: number): number {
+  return m.locked_at ? m.budget_test : Math.max(m.budget_test, paceSpend(cfg, testCost, paceTests))
+}
+export function planRows(cfg: Pick<AffConfig, 'year_goal' | 'goal_month' | 'phys'> & Partial<AffConfig>, from: string, testCost?: number | null) {
   const out: Omit<AffMonth, 'id' | 'coeffs' | 'locked_at' | 'note'>[] = []
+  const budget = Math.round(paceSpend(cfg, testCost && testCost > 0 ? testCost : physOf(cfg.phys).test_cost))
   for (let m = monthOf(from); m <= cfg.goal_month; m = addMonths(m, 1)) {
-    // GĐ4 (D3, D4): mặc định 100% Vật lý (SaaS, Tools AI mở theo cổng), lợi nhuận mục tiêu 0 = theo cổng bằng chứng
-    out.push({ month: m, share_phys: 100, share_tools: 0, budget_test: cfg.base_budget, season: 1, profit_target: 0 })
+    // GĐ4 (D3, D4): mặc định 100% Vật lý (SaaS, Tools AI mở theo cổng), lợi nhuận mục tiêu 0 = theo cổng bằng chứng; ngân sách = nhịp × maxtest
+    out.push({ month: m, share_phys: 100, share_tools: 0, budget_test: budget, season: 1, profit_target: 0 })
   }
   return out
 }
@@ -339,6 +348,9 @@ export interface SimMonth {
   bridge: number // quỹ cầu nối chờ payout
   reserve: number // quỹ dự phòng
   capital: number // vốn cần = vận hành + cầu nối + dự phòng
+  topupTest: number // tiền phải nạp cho test trong tháng (gồm phí + thuế)
+  selfFund: number // phần lợi nhuận tháng trước dùng cho test (tái đầu tư %)
+  extraNeed: number // vốn ngoài cần bù = nạp test − phần lợi nhuận tái đầu tư
 }
 /** Dòng tiền SaaS/Tools AI của tháng i: thắng tìm tháng j mua khách từ tháng j+1 trong `win_life` tháng (trả CAC ngay);
  *  mỗi khách trả hoa hồng `customer_life` tháng, tiền đầu tiên về sau (lag − 1) tháng kể từ tháng mua khách
@@ -376,7 +388,7 @@ export function simulate(rows: AffMonth[], cfg: AffConfig, fromMonth: string, x 
     // tháng không có dòng trong bảng: dùng mô hình (hệ số, phiên bản) của dòng gần nhất phía trước, ngân sách 0
     const mm = monthModel(r ?? prev ?? { coeffs: null }, cfg, live)
     const { phys, saas, tools } = mm
-    const budget = r ? r.budget_test * (month >= fromMonth ? x : 1) : 0
+    const budget = r ? effectiveBudget(r, cfg, phys.test_cost, live.pace_tests) * (month >= fromMonth ? x : 1) : 0
     const sp = r ? r.share_phys / 100 : 0
     const st = r ? Math.min(1 - sp, (r.share_tools ?? 0) / 100) : 0
     const ss = r ? Math.max(0, 1 - sp - st) : 0
@@ -404,6 +416,9 @@ export function simulate(rows: AffMonth[], cfg: AffConfig, fromMonth: string, x 
     const capitalOps = (budget + adsP * (phys.payout_days / 30) + sub(tools, T.ads) + sub(saas, S.ads)) * mult
     const bridge = (capitalOps * mm.bridge_pct) / 100
     const reserve = (capitalOps * mm.reserve_pct) / 100
+    const topupTest = budget * mult
+    const prevNet = i > 0 ? out[i - 1].net : 0
+    const selfFund = (Math.max(0, prevNet) * cfg.reinvest_pct) / 100
     out.push({
       month,
       budget,
@@ -432,6 +447,9 @@ export function simulate(rows: AffMonth[], cfg: AffConfig, fromMonth: string, x 
       bridge,
       reserve,
       capital: capitalOps + bridge + reserve,
+      topupTest,
+      selfFund,
+      extraNeed: Math.max(0, topupTest - selfFund),
     })
   }
   return out
@@ -453,7 +471,9 @@ export interface Analysis {
   saasLoss: boolean
   overCapacity: { month: string; perWeek: number }[]
   maxCapital: SimMonth | null // tháng cần vốn cao nhất (có chi tiết quỹ)
-  capitalShort: { month: string; need: number; avail: number }[] // vốn khả dụng (ngân sách tối thiểu + vốn ngoài) < vốn cần
+  capitalShort: { month: string; need: number; avail: number }[] // vốn ngoài cần bù (nạp test − lợi nhuận tái đầu tư) > vốn ngoài đã nhập
+  extraTotal: number // tổng vốn ngoài cần bù từ tháng này tới tháng mục tiêu (theo dự báo)
+  capacity: { tests: number; goalNet: number | null } // làm tay hết công suất (test/tháng) thì tháng mục tiêu được bao nhiêu
   scenarios: { tpw: number; goalNet: number | null }[] // dải 100 / 200 / 300 test/thắng
   seasonWarn: boolean // tháng T11–T1 chưa chốt mà hệ số mùa vụ vẫn = 1
 }
@@ -493,8 +513,11 @@ export function analyze(rows: AffMonth[], cfg: AffConfig, today: string, live: L
   const future = sim.filter((m) => m.month >= cur)
   const maxCapital = future.length ? future.reduce((a, b) => (b.capital > a.capital ? b : a)) : null
   const capitalShort = future
-    .map((m) => ({ month: m.month, need: m.capital, avail: cfg.base_budget + (byMonth.get(m.month)?.extra_capital ?? 0) }))
+    .map((m) => ({ month: m.month, need: m.extraNeed, avail: byMonth.get(m.month)?.extra_capital ?? 0 }))
     .filter((x) => x.need > x.avail + 0.5)
+  const extraTotal = future.filter((m) => m.month <= cfg.goal_month).reduce((s, m) => s + m.extraNeed, 0)
+  const capTests = (cfg.cap_tests_week * 52) / 12
+  const capacity = { tests: capTests, goalNet: simulate(rows, cfg, scaleFrom, 1, { ...live, pace_tests: capTests }).find((m) => m.month === cfg.goal_month)?.net ?? null }
   const scenarios = SCENARIO_TPW.map((tpw) => ({ tpw, goalNet: simulate(rows, cfg, scaleFrom, 1, { ...live, tests_per_win: tpw }).find((m) => m.month === cfg.goal_month)?.net ?? null }))
   return {
     sim,
@@ -511,6 +534,8 @@ export function analyze(rows: AffMonth[], cfg: AffConfig, today: string, live: L
     overCapacity,
     maxCapital,
     capitalShort,
+    extraTotal,
+    capacity,
     scenarios,
     seasonWarn: seasonWarn(rows, today),
   }
@@ -530,10 +555,13 @@ export function adCharges(spend: number, feePct: number, taxPct: number) {
 }
 
 /* ---------- Ngân sách + lợi nhuận đã nhận ---------- */
-/** Ngân sách test tối thiểu tháng sau: nền + x% lợi nhuận đã nhận (sau phí) tháng này + vốn ngoài. Lợi nhuận âm tính là 0. */
-export const nextBudget = (base: number, reinvestPct: number, receivedProfit: number, extra = 0) => base + Math.max(0, receivedProfit) * (reinvestPct / 100) + Math.max(0, extra)
-/** "Tự nuôi được tới đâu": lợi nhuận đã nhận (sau phí) cần có để ngân sách test tự đạt mức X mà không cần vốn ngoài. */
-export const selfFundProfit = (target: number, base: number, reinvestPct: number) => (reinvestPct > 0 ? Math.max(0, target - base) / (reinvestPct / 100) : Infinity)
+/** Ngân sách test tháng sau (Luca chốt 19/11/2026): không thấp hơn sàn nhịp (nhịp × maxtest); lợi nhuận đã nhận sau phí
+ *  × x% lớn hơn sàn thì dùng số đó. Lợi nhuận âm tính là 0. Phần lợi nhuận chưa đủ để nạp thì vốn ngoài bù (extraNeeded). */
+export const nextBudget = (floor: number, reinvestPct: number, receivedProfit: number) => Math.max(floor, Math.max(0, receivedProfit) * (reinvestPct / 100))
+/** Vốn ngoài cần bù để nạp đủ ngân sách test: tiền nạp (gồm phí + thuế) − phần lợi nhuận tái đầu tư. */
+export const extraNeeded = (topup: number, reinvestPct: number, receivedProfit: number) => Math.max(0, topup - Math.max(0, receivedProfit) * (reinvestPct / 100))
+/** "Tự nuôi được tới đâu": lợi nhuận đã nhận sau phí cần có để riêng phần tái đầu tư đủ nạp số "topup", không cần vốn ngoài. */
+export const selfFundProfit = (topup: number, reinvestPct: number) => (reinvestPct > 0 ? Math.max(0, topup) / (reinvestPct / 100) : Infinity)
 /** Lợi nhuận đã nhận sau phí, chi phí cố định và thuế (từ số thực tế: thực nhận + chi phí ads). */
 export function profitAfterFees(t: { received: number; cost: number }, cfg: Partial<AffConfig>) {
   const v = v2Of(cfg)

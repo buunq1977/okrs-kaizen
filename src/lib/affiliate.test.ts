@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   ceilCount, dayLabel, winsLabel,
-  analyze, configEditable, defaultProfit, defaultShare, monthEditable, monthsOfLevel, needsAutoLock, nextBudget, planRows, simulate, targetsFor,
+  analyze, configEditable, effectiveBudget, extraNeeded, paceSpend, defaultProfit, defaultShare, monthEditable, monthsOfLevel, needsAutoLock, nextBudget, planRows, simulate, targetsFor,
   adCharges, anyLocked, deseason, gateOf, paceTargets, rebalanceShares, GOAL_LEVEL_NAMES, goalLevelReached, kickoffBudget, profitAfterFees, sampleNeeds, suggestDouble, realRoas, rowEditable, seasonWarn, selfFundProfit, snapshotV2,
   type AffConfig, type AffMonth,
 } from './affiliate'
@@ -9,6 +9,7 @@ import {
 const cfg: AffConfig = {
   user_id: 'u', year_goal: 16000, goal_month: '2027-12-01', base_budget: 200, reinvest_pct: 50, test_cap_mult: 2, edit_days: 3,
   cap_tests_week: 15, working_days_week: 7, reg_per_test: 2, research_per_test: 5, win_min_orders: 3, phys: {}, saas: {},
+  kickoff_tests_month: 0, // các test cũ kiểm lõi theo ngân sách nhập; sàn nhịp kiểm riêng ở cuối file
 }
 /** Không phí, không thuế, không quỹ: để kiểm phần lõi Vật lý bằng số tròn. */
 const cfg0: AffConfig = { ...cfg, fee_pct: 0, tax_pct: 0, fixed_cost_month: 0, bridge_pct: 0, reserve_pct: 0 }
@@ -35,10 +36,11 @@ describe('kế hoạch mặc định', () => {
     expect(defaultShare('2027-08-01')).toBe(50)
     expect(defaultShare('2027-11-01')).toBe(80)
   })
-  it('kế hoạch mới (GĐ4): 100% Vật lý, Tools AI 0, lợi nhuận mục tiêu 0 (theo cổng), ngân sách = mức tối thiểu', () => {
-    const rs = planRows(cfg, '2026-11-10')
+  it('kế hoạch mới: 100% Vật lý, Tools AI 0, lợi nhuận mục tiêu 0 (theo cổng), ngân sách = nhịp × maxtest', () => {
+    const rs = planRows({ ...cfg, kickoff_tests_month: 60 }, '2026-11-10', 11)
     expect(rs.length).toBe(14)
-    expect(rs[0]).toMatchObject({ month: '2026-11-01', share_phys: 100, share_tools: 0, budget_test: 200, profit_target: 0 })
+    expect(rs[0]).toMatchObject({ month: '2026-11-01', share_phys: 100, share_tools: 0, budget_test: 660, profit_target: 0 })
+    expect(planRows({ ...cfg, kickoff_tests_month: 60 }, '2026-11-10')[0].budget_test).toBe(720) // chưa đọc maxtest: tiền test mặc định $12
     expect(rs[13]).toMatchObject({ month: '2027-12-01', share_phys: 100, share_tools: 0, profit_target: 0 })
   })
 })
@@ -188,9 +190,10 @@ describe('chỉ tiêu phân tầng', () => {
     expect(monthsOfLevel('quarter', '2027-05-01')).toEqual(['2027-04-01', '2027-05-01', '2027-06-01'])
     expect(monthsOfLevel('year', '2027-05-01').length).toBe(12)
   })
-  it('quy tắc ngân sách: nền + 50% lợi nhuận đã nhận', () => {
-    expect(nextBudget(200, 50, 600)).toBe(500)
-    expect(nextBudget(200, 50, -100)).toBe(200)
+  it('quy tắc ngân sách: lớn hơn trong sàn nhịp và 50% lợi nhuận đã nhận', () => {
+    expect(nextBudget(660, 50, 600)).toBe(660)
+    expect(nextBudget(660, 50, 2000)).toBe(1000)
+    expect(nextBudget(660, 50, -100)).toBe(660)
   })
 })
 
@@ -251,11 +254,13 @@ describe('mô hình v2 (tháng chưa chốt)', () => {
     const t10 = profitAfterFees({ received: 24, cost: 312 }, { fee_pct: 5, tax_pct: 8 })
     expect(t10.net).toBeCloseTo(24 - 312 * 1.134) // −$329,8
   })
-  it('ngân sách tháng sau + vốn ngoài + tự nuôi được tới đâu', () => {
-    expect(nextBudget(200, 50, -288)).toBe(200)
-    expect(nextBudget(200, 50, 9600)).toBe(5000)
-    expect(nextBudget(200, 50, 0, 500)).toBe(700)
-    expect(selfFundProfit(5000, 200, 50)).toBe(9600)
+  it('ngân sách tháng sau + vốn ngoài cần bù + tự nuôi được tới đâu', () => {
+    expect(nextBudget(660, 50, -288)).toBe(660)
+    expect(nextBudget(660, 50, 9600)).toBe(4800)
+    expect(extraNeeded(748.44, 50, -288)).toBeCloseTo(748.44) // lỗ: bù đủ tiền nạp
+    expect(extraNeeded(748.44, 50, 400)).toBeCloseTo(548.44)
+    expect(extraNeeded(748.44, 50, 2000)).toBe(0)
+    expect(selfFundProfit(748.44, 50)).toBeCloseTo(1496.88)
   })
   it('SaaS ghi lợi nhuận theo dòng tiền: trả CAC khi có khách, hoa hồng về sau', () => {
     const rows = [row('2027-01-01', { budget_test: 4000, share_phys: 0 }), row('2027-12-01', { share_phys: 0 })]
@@ -278,7 +283,7 @@ describe('mô hình v2 (tháng chưa chốt)', () => {
     expect(s[1].capitalOps).toBeCloseTo(4000 * 1.134) // ads $4.000 × 30/30, nạp kèm phí + thuế
     expect(s[1].capital).toBeCloseTo(4000 * 1.134 * 1.25)
     const a = analyze(rows, cfg, '2027-01-02', { max_test_usd: 12 })
-    expect(a.capitalShort.map((x) => x.month)).toEqual(['2027-01-01', '2027-02-01'])
+    expect(a.capitalShort.map((x) => x.month)).toEqual(['2027-01-01']) // vốn ngoài cần bù = nạp test − tái đầu tư; tháng 2 không có ngân sách test
     const b = analyze([row('2027-01-01', { budget_test: 100, extra_capital: 200 })], cfg, '2027-01-02', live)
     expect(b.capitalShort).toEqual([])
   })
@@ -388,5 +393,48 @@ describe('chỉ tiêu theo nhịp Cổng 0 (bảng chỉ tiêu, Sổ dự án)',
     expect(paceTargets(base, 'year', 12, 60, 10, cfg).tests[0]).toBe(720)
     expect(ceilCount(paceTargets(base, 'week', 1, 60, 10, cfg).tests[0])).toBe(14)
     expect(paceTargets(base, 'day', 1, 60, 10, cfg).tests[0]).toBeCloseTo((60 * 12) / 52 / 7)
+  })
+})
+
+describe('sàn nhịp test (Luca chốt 19/11/2026: giữ 60 test/tháng, vốn ngoài bù, bỏ mức $200)', () => {
+  const c60: AffConfig = { ...cfg, kickoff_tests_month: 60 }
+  const live = { max_test_usd: 11 }
+  const year = (b: number, lockedUntil = '') =>
+    Array.from({ length: 14 }, (_, i) => {
+      const m = `${i < 2 ? 2026 : 2027}-${String(i < 2 ? 11 + i : i - 1).padStart(2, '0')}-01`
+      return row(m, { budget_test: b, locked_at: m <= lockedUntil ? 'x' : null })
+    })
+  it('sàn = nhịp × maxtest; tháng chưa chốt không thấp hơn sàn, tháng đã chốt giữ số đã lưu', () => {
+    expect(paceSpend(c60, 11)).toBe(660)
+    expect(effectiveBudget({ budget_test: 200, locked_at: null }, c60, 11)).toBe(660)
+    expect(effectiveBudget({ budget_test: 900, locked_at: null }, c60, 11)).toBe(900)
+    expect(effectiveBudget({ budget_test: 200, locked_at: 'x' }, c60, 11)).toBe(200)
+  })
+  it('bảng còn ghi $200 vẫn tính theo 60 test: 12/2027 ≈ $1.887 (100 test/thắng) thay vì $572', () => {
+    const a = analyze(year(200), c60, '2026-11-19', live)
+    expect(a.goal!.budget).toBe(660)
+    expect(a.goalNet!).toBeCloseTo(1887, -1)
+    const [s100, s200, s300] = a.scenarios.map((x) => x.goalNet!)
+    expect(s100).toBeCloseTo(1887, -1)
+    expect(s200).toBeCloseTo(569, -1)
+    expect(s300).toBeCloseTo(130, -1)
+    // mô hình cũ ($200, không sàn) ra đúng con số anh hỏi
+    expect(analyze(year(200), { ...c60, kickoff_tests_month: 0 }, '2026-11-19', live).goalNet!).toBeCloseTo(572, 0)
+  })
+  it('vốn ngoài cần bù: tháng đầu chưa có lợi nhuận thì bù đủ tiền nạp test; cảnh báo khi chưa nhập', () => {
+    const a = analyze(year(0), c60, '2026-11-19', live)
+    const s = a.sim[0]
+    expect(s.topupTest).toBeCloseTo(660 * 1.134)
+    expect(s.extraNeed).toBeCloseTo(660 * 1.134)
+    expect(a.capitalShort[0]).toMatchObject({ month: '2026-11-01', avail: 0 })
+    expect(a.extraTotal).toBeGreaterThan(0)
+    const b = analyze(year(0).map((r) => ({ ...r, extra_capital: 800 })), c60, '2026-11-19', live)
+    expect(b.capitalShort).toEqual([])
+  })
+  it('trần sức người: 15 test/tuần ≈ 65 test/tháng → 12/2027 khoảng $2.000, xa mức tối thiểu $16.000', () => {
+    const a = analyze(year(0), c60, '2026-11-19', live)
+    expect(a.capacity.tests).toBeCloseTo(65, 0)
+    expect(a.capacity.goalNet!).toBeGreaterThan(1900)
+    expect(a.capacity.goalNet!).toBeLessThan(2200)
   })
 })

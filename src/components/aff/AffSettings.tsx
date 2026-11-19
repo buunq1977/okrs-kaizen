@@ -101,8 +101,7 @@ export default function AffSettings() {
 
       <b>Ngân sách, phí và vốn</b>
       <div className="grid3">
-        {fld('Ngân sách test tối thiểu ($/tháng)', 'base_budget', 0)}
-        {fld('% lợi nhuận đã nhận (sau phí) cộng vào ngân sách tháng sau', 'reinvest_pct', 0, 100)}
+        {fld('% lợi nhuận đã nhận (sau phí) dùng cho test tháng sau', 'reinvest_pct', 0, 100)}
         {fld('Trần mở rộng test 1 dự án (× maxtest, phải ghi lý do)', 'test_cap_mult', 1, 10)}
         {fld('Phí tài khoản Invoice (% chi phí nạp Ads)', 'fee_pct', 0, 100)}
         {fld('Thuế (% trên chi phí nạp + phí)', 'tax_pct', 0, 100)}
@@ -118,7 +117,7 @@ export default function AffSettings() {
 
       <b>Cổng bằng chứng và nhịp</b>
       <div className="grid3">
-        {fld('Nhịp test / tháng khi chưa có winner', 'kickoff_tests_month', 0)}
+        {fld('Nhịp test / tháng (sàn ngân sách test = nhịp × maxtest)', 'kickoff_tests_month', 0)}
         {fld('Cổng 1 → 2: lợi nhuận đã nhận sau phí ($/tháng)', 'gate1_profit', 0)}
         {fld('Cổng 2 → 3: lợi nhuận đã nhận sau phí ($/tháng)', 'gate2_profit', 0)}
         {fld('Mở SaaS + Tools AI từ cổng', 'saas_unlock_gate', 0, 3)}

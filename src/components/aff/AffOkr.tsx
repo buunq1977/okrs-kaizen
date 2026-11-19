@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { analyze, coeffsOf, monthOf, nextBudget, profitAfterFees, seasonWarn, v2Of, winsLabel, type AffConfig } from '../../lib/affiliate'
+import { adCharges, analyze, coeffsOf, extraNeeded, monthOf, nextBudget, paceSpend, profitAfterFees, seasonWarn, v2Of, winsLabel, type AffConfig } from '../../lib/affiliate'
 import { loadAffData } from '../../lib/affData'
 import { affTickChanges, gateFromData, kpiTargets, metricSum, METRIC_NAME, METRIC_UNIT, type AffData, type Level, type MonthActuals } from '../../lib/affLink'
 import { BENCH, diagnose, extraFindings } from '../../lib/affDiag'
@@ -211,6 +211,9 @@ export function AffPulse({ level, start, end }: { level: 'day' | 'week' | 'month
   const curMonth = monthOf(end)
   const recvMonth = metricSum('profit', data, curMonth, monthEnd(curMonth))
   const recvTotals = totals(data.entries, curMonth, monthEnd(curMonth))
+  const netRecv = profitAfterFees(recvTotals, cfg).net
+  const floor = paceSpend(cfg, c.phys.test_cost)
+  const nb = nextBudget(floor, cfg.reinvest_pct, netRecv)
   return (
     <div className="aff-q">
       <div className="aff-q-h">
@@ -241,7 +244,8 @@ export function AffPulse({ level, start, end }: { level: 'day' | 'week' | 'month
         {level === 'week' && !fromRs && <li>Cuối tuần: nhập Doanh số + Thực nhận từ network cho các dự án đang chạy.</li>}
         {isLong && (
           <li>
-            Ngân sách test tháng sau đề xuất: <b>{usd(nextBudget(cfg.base_budget, cfg.reinvest_pct, profitAfterFees(recvTotals, cfg).net))}</b> = {usd(cfg.base_budget)} + {cfg.reinvest_pct}% lợi nhuận đã nhận tháng {curMonth.slice(5, 7)} sau phí, thuế ({usd(profitAfterFees(recvTotals, cfg).net)}; trước phí {usd(recvMonth)}).
+            Ngân sách test tháng sau: <b>{usd(nb)}</b> = lớn hơn trong hai số: sàn nhịp {usd(floor)} ({v2Of(cfg).kickoff_tests_month} test × maxtest {usd(c.phys.test_cost)}) hoặc {cfg.reinvest_pct}% lợi nhuận đã nhận tháng {curMonth.slice(5, 7)} sau phí, thuế ({usd(netRecv)}; trước phí {usd(recvMonth)}). Vốn ngoài cần bù:{' '}
+            <b>{usd(extraNeeded(adCharges(nb, v2Of(cfg).fee_pct, v2Of(cfg).tax_pct).total, cfg.reinvest_pct, netRecv))}</b>.
           </li>
         )}
       </ul>

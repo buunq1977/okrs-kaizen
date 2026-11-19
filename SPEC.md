@@ -259,7 +259,9 @@ Nguồn thu đang có mô hình trong app: **Affiliate Global** (Google Ads Sear
 - 3 mô hình riêng: **Vật lý, Tools AI, SaaS**. Tỷ trọng mỗi tháng **% Vật lý + % Tools AI + % SaaS = 100%**; sửa 1 cột thì cột cao nhất trong 2 cột còn lại tự bù.
 - Tools AI và SaaS ghi lợi nhuận theo dòng tiền (có độ trễ), không ghi LTV ngay.
 - Phí Invoice 5% trên tiền chi tiêu Ads, thuế 8% trên (chi tiêu + phí), áp cho mọi tiền nạp. Vốn cần gồm quỹ cầu nối 15% và dự phòng 10%.
-- Ngân sách test tháng sau = $200 + 50% lợi nhuận đã nhận sau phí, thuế + vốn ngoài.
+- **Nhịp test 60/tháng là sàn ngân sách test**: ngân sách test mỗi tháng chưa chốt ≥ nhịp × maxtest (≈ $660 chi tiêu, ≈ $750 phải nạp với maxtest $11). Không còn mức $200.
+- Ngân sách test tháng sau = lớn hơn trong hai số: sàn nhịp, hoặc 50% lợi nhuận đã nhận sau phí, thuế. Phần lợi nhuận chưa đủ để nạp thì **vốn ngoài bù**; app tính "vốn ngoài cần bù" từng tháng và báo khi chưa nhập đủ.
+- Dự báo O năm ghi rõ đầu vào (ngân sách, maxtest, lợi nhuận 1 thắng giả định) và **trần sức người**: làm tay hết công suất (15 test/tuần ≈ 65 test/tháng) thì tháng mục tiêu được bao nhiêu. Mức tối thiểu $16.000 giữ nguyên.
 
 ### 9.3 Cổng bằng chứng
 Cổng tính từ số thật, không nhập tay. **0** chưa có dự án đủ điều kiện scale (mục tiêu: 60 test/tháng) → **1** có ≥ 1 dự án đủ điều kiện scale (mở ngân sách scale) → **2** có 1 tháng lợi nhuận đã nhận sau phí ≥ $1.000 (mở Tools AI + SaaS) → **3** có 1 tháng ≥ $2.000 (gợi ý team/AI). Ở Cổng 0, chỉ tiêu test ở mọi nơi lấy theo nhịp khối lượng.
@@ -496,3 +498,4 @@ Việc mới làm theo nhịp: Luca nêu yêu cầu → Claude phản biện, đ
 | Phiên bản | Ngày | Mục | Thay đổi |
 |---|---|---|---|
 | v0 | 19/11/2026 | Toàn bộ | Bản gốc. Gộp spec v3 (04/11) + C21 (10/11, giờ chốt Ngày) + mô hình Affiliate Global 2 (§9 viết lại, bỏ phễu tự cấu hình) + màn hình đã xây (§14) + dữ liệu thật (§16). Xoá spec v0.1, v1, v2 khỏi repo (còn trong lịch sử git). |
+| v0.1 | 19/11/2026 | §9.2 | Bỏ mức ngân sách $200 của mô hình cũ. Sàn ngân sách test = nhịp 60 test × maxtest; ngân sách tháng sau = max(sàn, 50% lợi nhuận đã nhận); vốn ngoài bù phần thiếu, app tính vốn cần bù theo tháng. Dự báo hiện đầu vào và trần sức người. Giữ mức tối thiểu $16.000. Lý do: dự báo đang chạy trên $200 (≈ 18 test) lệch với Cổng 0 = 60 test. |
