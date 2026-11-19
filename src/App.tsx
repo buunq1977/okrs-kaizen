@@ -206,7 +206,7 @@ function Main({ session }: { session: Session }) {
           </div>
         </nav>
       </header>
-      <main>
+      <main className={screen === 'projects' || screen === 'income' ? 'scr-' + screen : 'thm scr-' + screen}>
         {loadErr ? (
           <SetupError msg={loadErr} retry={() => setAttempt((n) => n + 1)} />
         ) : !ctx ? (
