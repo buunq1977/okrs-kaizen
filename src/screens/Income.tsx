@@ -10,21 +10,26 @@ import type { IncomeModel } from '../lib/types'
 const uid = () => Math.random().toString(36).slice(2, 10)
 const r1 = (n: number) => fmtNum(Math.round(n * 10) / 10)
 
-/** Mô hình thu nhập (§9): phễu tự cấu hình, app tự tính nhịp độ chia ngược. */
+/** Mô hình thu nhập: Affiliate Global (nguồn thu chính).
+ *  Phễu tự cấu hình (§9) ẩn từ 19/11/2026 theo yêu cầu Luca; chỉ còn hiện (ghi "cũ") khi đã có phễu, để không mất chỗ sửa. Dữ liệu giữ nguyên. */
 export default function Income() {
   const [tab, setTab] = useState<'aff' | 'funnel'>('aff')
+  const old = useRows<IncomeModel>('income_models', 'count', () => listAll<IncomeModel>('income_models'))
+  const hasOld = old.rows.length > 0
   return (
     <div className="stack">
       <h1>Mô hình thu nhập</h1>
-      <div className="tabs" role="tablist">
-        <button role="tab" aria-selected={tab === 'aff'} onClick={() => setTab('aff')}>
-          Affiliate Global
-        </button>
-        <button role="tab" aria-selected={tab === 'funnel'} onClick={() => setTab('funnel')}>
-          Phễu tự cấu hình
-        </button>
-      </div>
-      {tab === 'aff' ? <AffiliatePlan /> : <Funnels />}
+      {hasOld && (
+        <div className="tabs" role="tablist">
+          <button role="tab" aria-selected={tab === 'aff'} onClick={() => setTab('aff')}>
+            Affiliate Global
+          </button>
+          <button role="tab" aria-selected={tab === 'funnel'} onClick={() => setTab('funnel')}>
+            Phễu tự cấu hình (cũ)
+          </button>
+        </div>
+      )}
+      {tab === 'aff' || !hasOld ? <AffiliatePlan /> : <Funnels />}
     </div>
   )
 }

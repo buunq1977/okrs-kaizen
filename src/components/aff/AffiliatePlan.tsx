@@ -312,6 +312,33 @@ export default function AffiliatePlan() {
       </Sec>
 
       <Sec title="Bảng phân bổ theo tháng" hint={`Sửa được: tháng tới, hoặc ${cfg.edit_days} ngày đầu của tháng đang chạy`}>
+        {months.length > 0 && (
+          <div className={'pace-box ' + (!gate.saasOpen && subRows.length ? 'red' : '')}>
+            <b>
+              Tỷ trọng theo cổng: Cổng {gate.gate} · SaaS + Tools AI {gate.saasOpen ? 'đã mở' : `khoá tới Cổng ${v2.saas_unlock_gate}`}
+            </b>
+            {!gate.saasOpen && subRows.length > 0 ? (
+              <>
+                <span>
+                  {subRows.length} tháng đang mở vẫn chia ngân sách cho SaaS / Tools AI. Ví dụ {mLabel(subRows[0].month)}: {100 - subRows[0].share_phys}% × {usd(subRows[0].budget_test)} ≈{' '}
+                  {Math.floor((((100 - subRows[0].share_phys) / 100) * subRows[0].budget_test) / testCost)} test/tháng: quá ít để đo, lại kéo chậm Vật lý.
+                </span>
+                <div className="addrow">
+                  <button className="btn primary" onClick={() => subRows.forEach((m) => aff.patchMonth(m.id, { share_phys: 100, share_tools: 0 }))}>
+                    Đưa {subRows.length} tháng về 100% Vật lý
+                  </button>
+                </div>
+              </>
+            ) : !gate.saasOpen ? (
+              <span>Các tháng đang mở đều 100% Vật lý, đúng theo cổng. App không tự đổi tỷ trọng; khi qua Cổng {v2.saas_unlock_gate} sẽ gợi ý ở đây.</span>
+            ) : (
+              <span>
+                Đã qua Cổng {v2.saas_unlock_gate}: có thể chia ngân sách test cho SaaS / Tools AI ở cột % bên dưới. Nên bắt đầu đủ lớn để có số đo (ví dụ 30–40% ngân sách, tức ≈{' '}
+                {Math.floor((0.3 * (openRows[0]?.budget_test ?? cfg.base_budget)) / testCost)}–{Math.floor((0.4 * (openRows[0]?.budget_test ?? cfg.base_budget)) / testCost)} test/tháng), giữ Vật lý làm chính. Anh quyết tỷ lệ.
+              </span>
+            )}
+          </div>
+        )}
         {!months.length ? (
           <div className="addrow">
             <button className="btn primary" onClick={() => aff.addMonths(planRows(cfg, t0))}>
@@ -361,16 +388,6 @@ export default function AffiliatePlan() {
                 </tbody>
               </table>
             </div>
-            {!gate.saasOpen && subRows.length > 0 && (
-              <p className="flag">
-                SaaS + Tools AI mở từ Cổng {v2.saas_unlock_gate}, anh đang ở Cổng {gate.gate} mà {subRows.length} tháng đang mở vẫn chia ngân sách cho SaaS / Tools AI. Ví dụ tháng {mLabel(subRows[0].month)}:{' '}
-                {100 - subRows[0].share_phys}% × {usd(subRows[0].budget_test)} = {usd(((100 - subRows[0].share_phys) / 100) * subRows[0].budget_test)} ÷ {usd(testCost)} ≈{' '}
-                {Math.floor((((100 - subRows[0].share_phys) / 100) * subRows[0].budget_test) / testCost)} test/tháng: quá ít để đo, lại kéo chậm Vật lý.{' '}
-                <button className="btn mini" onClick={() => subRows.forEach((m) => aff.patchMonth(m.id, { share_phys: 100, share_tools: 0 }))}>
-                  Đưa {subRows.length} tháng về 100% Vật lý
-                </button>
-              </p>
-            )}
             <div className="addrow">
               <button className="add" onClick={() => openRows.forEach((m) => aff.patchMonth(m.id, { profit_target: defaultProfit(m.month, cfg.year_goal, cfg.goal_month) }))}>
                 Điền thang lợi nhuận theo lịch quý (đề xuất wiki, tuỳ chọn)

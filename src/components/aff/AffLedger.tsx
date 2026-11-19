@@ -56,7 +56,7 @@ export default function AffLedger({ led, links }: { led: Ledger; links: Links })
         <p className="note">Không có dự án nào cần xử lý: chưa dự án nào chạm ngưỡng dừng hay đạt ứng viên thắng.</p>
       ) : (
         <div className="tbl">
-          <table className="ktable">
+          <table className="ktable act-t">
             <thead>
               <tr>
                 <th>Dự án</th>

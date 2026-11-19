@@ -83,39 +83,51 @@ export default function Projects() {
     <div className="stack">
       <h1>Sổ dự án</h1>
 
-      <Sec title="Mục tiêu tuần & tháng" hint="số đã làm / chỉ tiêu tối thiểu theo ngân sách · Lên camp test là KR chính">
+      <Sec title="Mục tiêu tuần & tháng" hint="số đã làm / chỉ tiêu tối thiểu theo ngân sách">
+        <div className="kgoal">
+          {(
+            [
+              [`Tuần ${fmtDM(wk.from)}–${fmtDM(wk.to)}`, cw.test, tw.tests],
+              [`Tháng ${t0.slice(5, 7)}/${t0.slice(0, 4)}`, cm.test, tmo.tests],
+            ] as const
+          ).map(([label, done, [lo, hi]]) => {
+            const goal = ceilCount(lo)
+            const ok = goal > 0 && done >= goal
+            return (
+              <div key={label} className={'kgoal-card ' + (ok ? 'ok' : '')}>
+                <div className="kgoal-h">
+                  <span>{label}</span>
+                  <span>Lên camp test · KR chính</span>
+                </div>
+                <div className="kgoal-n">
+                  <b>{done}</b>
+                  <span>/ {goal} camp</span>
+                </div>
+                <div className="kgoal-bar" aria-hidden="true">
+                  <i style={{ width: `${goal ? Math.min(100, (done / goal) * 100) : 0}%` }} />
+                </div>
+                <small>{ok ? 'Đạt chỉ tiêu' : `Còn ${Math.max(0, goal - done)} camp`}{ceilCount(hi) > goal ? ` · mục tiêu đủ lợi nhuận ${ceilCount(hi)}` : ''}</small>
+              </div>
+            )
+          })}
+        </div>
         <div className="tbl">
-          <table className="ktable aff-t">
+          <table className="ktable kgoal-t">
             <thead>
               <tr>
-                <th />
-                <th style={{ textAlign: 'right' }}>
-                  Tuần {fmtDM(wk.from)}–{fmtDM(wk.to)}
-                </th>
-                <th style={{ textAlign: 'right' }}>
-                  Tháng {t0.slice(5, 7)}/{t0.slice(0, 4)}
-                </th>
+                <th>Tham khảo</th>
+                <th>Tuần</th>
+                <th>Tháng</th>
               </tr>
             </thead>
             <tbody>
               <tr>
-                <td>
-                  <b>Lên camp test</b>
-                </td>
-                <td className="n">{pace(cw.test, tw.tests)}</td>
-                <td className="n">{pace(cm.test, tmo.tests)}</td>
-              </tr>
-              <tr>
-                <td>
-                  Đăng ký <small className="note">(tham khảo)</small>
-                </td>
+                <td>Đăng ký</td>
                 <td className="n">{pace(cw.reg, tw.reg)}</td>
                 <td className="n">{pace(cm.reg, tmo.reg)}</td>
               </tr>
               <tr>
-                <td>
-                  Search <small className="note">(tham khảo)</small>
-                </td>
+                <td>Search</td>
                 <td className="n">{pace(cw.search, tw.research)}</td>
                 <td className="n">{pace(cm.search, tmo.research)}</td>
               </tr>

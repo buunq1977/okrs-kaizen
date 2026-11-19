@@ -566,3 +566,22 @@ nav .more-m button.ghost { color: var(--ink-2) }
 .confirmbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; padding: 12px 14px; border-radius: 10px; border: 1px solid var(--rule-2); background: var(--sheet) }
 .confirmbar.ok { border-color: var(--good); background: var(--good-soft) }
 .confirmbar.late { border-color: var(--warn); background: var(--warn-soft) }
+
+/* Sổ dự án: mục tiêu nổi bật (KR chính "Lên camp test") + bảng tham khảo canh lề cố định */
+.kgoal { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 10px; margin-bottom: 10px }
+.kgoal-card { background: var(--brand); color: var(--on-brand); border-radius: 10px; padding: 12px 16px; display: flex; flex-direction: column; gap: 6px }
+.kgoal-card.ok { background: var(--good) }
+.kgoal-h { display: flex; justify-content: space-between; gap: 8px; font: 600 12px var(--f-body); opacity: .9; flex-wrap: wrap }
+.kgoal-n { display: flex; align-items: baseline; gap: 8px }
+.kgoal-n b { font: 800 40px/1 var(--f-display); font-variant-numeric: tabular-nums }
+.kgoal-n span { font: 600 18px var(--f-body); opacity: .9 }
+.kgoal-bar { height: 8px; border-radius: 4px; background: rgb(255 255 255 / .25); overflow: hidden }
+.kgoal-bar i { display: block; height: 100%; background: var(--mark); border-radius: 4px }
+.kgoal-card.ok .kgoal-bar i { background: #fff }
+.kgoal-card small { font-size: 12px; opacity: .9 }
+.kgoal-t { table-layout: fixed; min-width: 360px }
+.kgoal-t th:first-child, .kgoal-t td:first-child { width: 34% }
+.kgoal-t th:not(:first-child) { text-align: right }
+.act-t { table-layout: fixed; min-width: 560px }
+.act-t th:nth-child(1) { width: 34% }
+.act-t th:nth-child(2) { width: 22% }
