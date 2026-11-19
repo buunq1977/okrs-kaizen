@@ -1,36 +1,17 @@
-# SPEC v3: OKR + Kaizen · Tầm nhìn → Năm → Quý → Tháng → Tuần → Ngày
+# SPEC v0: OKR + Kaizen · Tầm nhìn → Năm → Quý → Tháng → Tuần → Ngày
 
-> **Đã chốt ngày 04/11/2026.** Thay cho spec v1 (`docs/SPEC-v1.md`) và spec v2 của Luca (`docs/SPEC-v2-luca.md`).
+> **Bản gốc v0, chốt ngày 19/11/2026.** Mô tả đúng app đang chạy tại https://buunq1977.github.io/okrs-kaizen/. Từ đây mọi thay đổi sửa thẳng vào file này và ghi vào §20 (v0.1, v0.2…).
 > Mọi ngưỡng ở §15 là **cài đặt**, không hard-code. Ngôn ngữ giao diện: tiếng Việt.
 > Ký hiệu: **[Mặc định]** = giá trị Claude đề xuất, Luca đã duyệt, đổi được.
+> Tài liệu kèm theo: `docs/MO-HINH-AFFILIATE.md` (chi tiết §9) · `docs/HUONG-DAN.md` (hướng dẫn dùng, cũng là trang **Thêm → Hướng dẫn** trong app).
 
 ---
 
-## 0. Thay đổi so với v2
+## 0. Phiên bản và cách cập nhật
 
-| # | Thay đổi | Lý do |
-|---|---|---|
-| C1 | Ngày/Tuần: **O → 3 KR → KA**. Tháng/Quý/Năm: **O → KR**, KA tuỳ chọn. | Cấp dài đo bằng số, không cần liệt kê hành động. |
-| C2 | **Bỏ quy tắc 60%** và cảnh báo đỏ. Thay bằng chỉ số thông tin **"Mức tập trung"** (x/7 ngày phục vụ O tuần). | KR/KA xong chưa chắc O đạt; ép tỉ lệ không giải quyết được điều đó. |
-| C3 | Thêm **% O thực tế** (đo trực tiếp O ở Kaizen) bên cạnh **% thực thi** (từ KR/KA). Lệch lớn → gợi ý "KR chọn chưa trúng O". | Sửa đúng gốc của vấn đề ở C2. |
-| C4 | Bỏ cờ "KR liên quan O" trong ngày. KR nằm dưới O thì mặc nhiên phục vụ O. Việc nền để ở lịch cố định. | Bớt thao tác, bớt ô lý do. |
-| C5 | **Tuần có 3 KR + KA riêng** (giống Ngày). O ngày chọn phục vụ 1 KR hoặc 1 KA tuần. Bỏ "KR tuần = các O ngày". | Đi từ trên xuống. |
-| C6 | Tháng/Quý/Năm có **3 O cố định theo 3 mảng**: Công việc/Tài chính · Mối quan hệ · Thân–Tâm–Trí. KR: CV/TC ≥ 3, hai O còn lại 1–2. | Rõ ràng, không quá tải (tối thiểu 5 KR/cấp). |
-| C7 | Tháng/Quý/Năm **giữ quan sát → phân tích → nguyên nhân lõi** (Tham–Sân–Si), bỏ lưới giờ. Thay bằng khối tuỳ chọn **"Sự kiện & mốc quan trọng"** (danh sách), tự hiện xuống Tuần/Ngày. Kaizen vẫn là **Kaizen số liệu**. | Không quên lịch hẹn/sự kiện lớn mà không phải giữ lưới trống. |
-| C8 | Lịch cố định: tách **Cố định** (không dời, tô vàng) và **Lặp lại** (ngày/thứ/ngày trong tháng). Mỗi ô giờ chứa **nhiều mục**. Mục lặp lại có thể **gắn KR tháng** để tự cộng số. | ★ trước đây mang 2 nghĩa. Đo O Mối quan hệ, O Thân–Tâm–Trí không cần nhập tay. |
-| C9 | Nhật ký Kaizen: dạng dòng **Giờ \| Đã làm gì \| Kết quả**, không chia buổi, tự điền từ lịch. | Xem lại việc đã làm trong ngày. |
-| C10 | Hiện **% O tuần, % 3 O tháng, % O năm** phía trên tiêu điểm Ngày/Tuần. Tuần có chart. | Luôn thấy cấp trên khi lập cấp dưới. |
-| C11 | Mô hình thu nhập dùng **phễu tự cấu hình** (n bước). | Phễu cố định gọi → hẹn → vào hệ thống không dùng được cho nguồn thu khác. |
-| C12 | Bỏ màn "Mục tiêu ưu tiên (≤ 5)". **Tầm nhìn + 3 O năm** là nguồn sự thật duy nhất. | Trùng vai. |
-| C13 | **Mang sang tự động:** quan sát/nguyên nhân chưa xử lý, lịch lặp lại, dòng nhật ký. Mục tiêu: lập kế hoạch Ngày ≤ 15 phút. | Rủi ro lớn nhất là bỏ cuộc vì nghi thức quá dài. |
-| C14 | Nút **"Kiểm tra tiêu điểm"**: hỏi 6 tiêu chí kèm giải thích, có kiểm tự động. | Theo yêu cầu Luca. |
-| C15 | Kaizen tháng chỉ sửa kế hoạch tháng. **Kế hoạch năm chỉ sửa ở Quý.** | Xoá mâu thuẫn v2 §8.3 với §11.1. |
-| C17 | **Luật điều chỉnh kế hoạch phân loại** (§11.5): thêm/nâng tự do trong trần KR; hạ ≤ 1 lần/KR/quý, cấm nhóm (a); dừng ≤ 1 lần/quý; sửa ngoài buổi rà chờ 48 giờ; vượt giới hạn phải có mentor duyệt. | Linh hoạt khi có cơ hội thật, chặn hạ mục tiêu vì nản. |
-| C18 | **Kỳ khởi động 11–12/2026** theo cấu trúc Quý, vào chu kỳ năm chuẩn từ 1–5/1/2027. Lập kỳ ngoài cửa sổ rà vẫn được, ghi "lập muộn x ngày". | Không bỏ trống 2 tháng cuối năm. |
-| C19 | **OKR và Kaizen là 2 tab riêng** mỗi cấp, không chia đôi màn hình. Tab Kaizen có phần tóm tắt OKR chỉ đọc ở đầu. Tab mở sẵn: trước giờ nhắc → OKR, sau giờ nhắc → Kaizen; lập kế hoạch kỳ tới → OKR. | Dùng tốt trên điện thoại, vẫn đối chiếu được kế hoạch khi viết Kaizen. |
-| C20 | **Nhắc trước giờ chốt 60–90 phút** (mặc định 90 phút: chốt 22:00 → nhắc 20:30). Giờ nhắc tính từ giờ chốt, không đặt riêng. | Đủ thời gian làm Kaizen + OKR trước khi kế hoạch tự khoá. |
-| C16 | Lưu trữ: Supabase (đang chạy), không local-first. Giữ 2 cơ chế kỷ luật (tự khoá kế hoạch ngày, khoá khi đỏ nhiều ngày) làm cài đặt. | Quyết định 03/11/2026. |
-| C21 | **Trang Ngày có 3 tab ghi rõ ngày**: Kaizen dd/mm/yyyy (ngày hôm trước) · OKR dd/mm/yyyy · Kaizen dd/mm/yyyy. Thanh tab dính trên cùng khi cuộn; tab khác xem nhanh (chỉ đọc) không rời tab đang làm. **OKR ngày D chốt trước 08:00 ngày D** (tự khoá); **Kaizen ngày D chốt trước 22:00 ngày D**, hoàn thành bấm **Xác nhận** (cần nhật ký/đánh giá + ≥ 1 bài học; sau 22:00 ghi "trễ hạn"). Kaizen hôm trước chưa xác nhận thì trang mở sẵn tab đó. Thay C19/C20 phần giờ chốt. | Luca yêu cầu 10/11/2026. |
+- **v0 (19/11/2026)** gộp spec v3 ngày 04/11/2026 (các thay đổi C1–C21), mô hình thu nhập Affiliate Global (mô hình 2, 18–19/11) và màn hình đã xây. Các spec cũ (v0.1, v1, v2, v3) không dùng nữa; bản cũ còn trong lịch sử git của repo.
+- Muốn đổi quy tắc: Luca duyệt trước, rồi sửa đúng mục trong file này, thêm 1 dòng ở §20 (phiên bản, ngày, mục sửa, lý do). Không tạo file spec mới.
+- Code phải khớp spec. Thấy lệch thì sửa một trong hai và ghi lại ở §20.
 
 ---
 
@@ -61,7 +42,7 @@ Nguyên tắc:
 | **% O thực tế** | Mức đạt của chính O, đo trực tiếp ở bước Đo lường của Kaizen. |
 | **Mức tập trung** | Số ngày trong tuần có O ngày phục vụ O tuần. Chỉ là thông tin. |
 | **Chỉ số kết quả / dẫn trước** | Lagging (cái muốn đạt) / leading (việc làm hằng ngày dẫn tới kết quả). |
-| **Nhịp độ chia ngược** | Từ đích tính ra việc phải làm mỗi tuần/ngày (§9). |
+| **Nhịp độ chia ngược** | Từ đích tính ra việc phải làm mỗi tuần/ngày (§9, §8.5). |
 | **Kế hoạch cộng dồn** | Số lẽ ra phải đạt tính đến hôm nay. |
 | **Tình trạng (TT)** | Thực tế cộng dồn / kế hoạch cộng dồn đến hôm nay. |
 | **Phiên bản kế hoạch** | Bản gốc và các bản điều chỉnh, luôn so với bản gốc. |
@@ -134,12 +115,12 @@ Mỗi mục tiêu năm phải có **Điều kiện kiểm tra** (kiểm chứng 
 | Cấp | Điều kiện bật nút Chốt |
 |---|---|
 | Ngày, Tuần | O đủ 6 tiêu chí · ≥ 3 KR (tối đa 4) · mỗi KR đủ 5 SMART |
-| Tháng, Quý, Năm | Đủ 3 O · O CV/TC ≥ 3 KR, O MQH và O TTT mỗi O ≥ 1 KR · mọi KR đủ Từ–Đến–Hạn–Nguồn · cảnh báo công suất (§9) đã có KR đội ngũ |
+| Tháng, Quý, Năm | Đủ 3 O · O CV/TC ≥ 3 KR, O MQH và O TTT mỗi O ≥ 1 KR · mọi KR đủ Từ–Đến–Hạn–Nguồn · O năm có nhãn "thụ động" thì có ≥ 1 KR đội ngũ |
 
 Chưa đủ vẫn chốt được nếu **ghi lý do**.
 
 **Kỷ luật (cài đặt, mặc định bật):**
-- Kế hoạch (OKR) ngày D tự khoá lúc 08:00 ngày D (C21; trước 10/11/2026 là 22:00 ngày D-1). Sửa sau giờ khoá phải ghi lý do.
+- Kế hoạch (OKR) ngày D tự khoá lúc 08:00 ngày D. Sửa sau giờ khoá phải ghi lý do.
 - Kaizen ngày D chốt trước 22:00 ngày D bằng nút Xác nhận; xác nhận sau 22:00 vẫn được nhưng ghi "trễ hạn".
 - Đỏ 2 ngày làm việc liền (% O ngày < ngưỡng đỏ hoặc không lập O) mà chưa viết Bài học → không thêm KR/KA mới cho đến khi viết.
 
@@ -255,7 +236,7 @@ KR của O CV/TC có đủ 4 phần:
 |---|---|
 | Chỉ số kết quả | Lagging, VD: 10 người hoạt động mới |
 | Chỉ số dẫn trước | Leading, VD: 40 cuộc gọi/tuần, 8 hẹn/tuần |
-| Nhịp độ chia ngược | Tự tính từ Mô hình thu nhập (§9); "ước lượng" nếu có hệ số chưa đo |
+| Nhịp độ chia ngược | Tự tính từ Mô hình thu nhập (§9) khi KR gắn mô hình; KR khác nhập tay |
 | Kế hoạch cộng dồn | Mốc theo tuần, VD: T1 = 2, T2 = 5, T3 = 8, T4 = 10. Mặc định chia đều, sửa được |
 
 KR của O MQH/TTT: dạng Từ–Đến–Hạn–Nguồn. Nguồn có thể là **"đếm từ lịch lặp lại X"**.
@@ -264,47 +245,33 @@ Kế hoạch tháng chỉ sửa trong Kaizen tháng. Muốn sửa kế hoạch n
 
 ---
 
-## 9. Mô hình thu nhập (phễu tự cấu hình)
+## 9. Mô hình thu nhập: Affiliate Global
 
-### 9.1 Đầu vào (đổi được theo thời gian, mỗi hệ số có cờ "chưa đo")
+Nguồn thu đang có mô hình trong app: **Affiliate Global** (Google Ads Search cho dự án Vật lý, Tools AI, SaaS). Chi tiết công thức, giả định, phụ lục kỹ thuật: `docs/MO-HINH-AFFILIATE.md`. Mục này ghi các quy tắc.
 
-| Trường | Ý nghĩa |
-|---|---|
-| `name` | Tên nguồn thu (mỗi nguồn 1 mô hình) |
-| `target_income_month` | Thu nhập mục tiêu/tháng. Nhập theo năm thì chia 12 |
-| `currency`, `fx_rate`, `fx_updated_at` | Tỷ giá nhập tay, hiện rõ ngày cập nhật |
-| `value_per_unit` | Thu nhập mỗi đơn vị kết quả tạo ra/tháng (VD 500 USD/người hoạt động, hoặc hoa hồng/đơn) |
-| `retention` | Tỷ lệ giữ chân theo quý (tuỳ chọn, bỏ trống = 100%) |
-| `stages` | Danh sách bước từ trên xuống, mỗi bước có `name` + `conversion_to_next` |
-| `working_days_week` | Số ngày làm việc/tuần |
-| `capacity_per_day` | Công suất tối đa ở bước đầu/ngày |
+### 9.1 Nguồn số
+- **Mỗi con số một nguồn.** Đầu vào (dự án đã chọn, đăng ký, duyệt link, từ chối, lên camp test) đọc từ app **Research**; kết quả (chi phí, click, đơn, hoa hồng chờ / đã duyệt / đã trả / bị huỷ) đọc từ app **Ads-Hub**. Tỷ giá, maxtest, ngưỡng ROAS, Click/Sale theo bậc CPC lấy từ Research; số đơn tối thiểu để là Winner lấy từ Ads-Hub.
+- OKR chỉ đọc hai app đó, không ghi sang. Mất kết nối thì báo "chưa đọc được", không dùng số 0.
+- OKR tự giữ: bộ đếm search + lý do loại, O năm, phân bổ tháng, hệ số mô hình, phí, quỹ, cổng.
 
-### 9.2 Phép tính
+### 9.2 Mục tiêu và mô hình
+- O năm 2027 có 3 mức lợi nhuận/tháng vào 12/2027: **tối thiểu $16.000 / mục tiêu $50.000 / vươn tới $120.000**. Mức tối thiểu dùng tính kế hoạch.
+- 3 mô hình riêng: **Vật lý, Tools AI, SaaS**. Tỷ trọng mỗi tháng **% Vật lý + % Tools AI + % SaaS = 100%**; sửa 1 cột thì cột cao nhất trong 2 cột còn lại tự bù.
+- Tools AI và SaaS ghi lợi nhuận theo dòng tiền (có độ trễ), không ghi LTV ngay.
+- Phí Invoice 5% trên tiền chi tiêu Ads, thuế 8% trên (chi tiêu + phí), áp cho mọi tiền nạp. Vốn cần gồm quỹ cầu nối 15% và dự phòng 10%.
+- Ngân sách test tháng sau = $200 + 50% lợi nhuận đã nhận sau phí, thuế + vốn ngoài.
 
-```
-units_needed     = target_income_month / value_per_unit
-units_to_acquire = units_needed / retention
-Đi ngược qua từng bước: need[i] = need[i+1] / conversion_to_next[i]
-top_per_week     = need[0] × 12 / 52
-top_per_day      = top_per_week / working_days_week
-```
+### 9.3 Cổng bằng chứng
+Cổng tính từ số thật, không nhập tay. **0** chưa có dự án đủ điều kiện scale (mục tiêu: 60 test/tháng) → **1** có ≥ 1 dự án đủ điều kiện scale (mở ngân sách scale) → **2** có 1 tháng lợi nhuận đã nhận sau phí ≥ $1.000 (mở Tools AI + SaaS) → **3** có 1 tháng ≥ $2.000 (gợi ý team/AI). Ở Cổng 0, chỉ tiêu test ở mọi nơi lấy theo nhịp khối lượng.
 
-Kết quả đưa vào 3 chỗ:
-- Nhịp độ chia ngược ở KR tháng.
-- Chỉ tiêu tuần ở O tuần.
-- Gợi ý số hành động/ngày ở Ngày.
-
-### 9.3 Quy tắc
-- Hệ số chưa đo → nhịp độ hiện "ước lượng". Trong 2 tháng đầu, app tự gợi ý KR **"đo hệ số X"**.
-- `top_per_day > capacity_per_day` → **cảnh báo đỏ**: "Tăng nỗ lực cá nhân không đủ, cần KR đội ngũ tự vận hành hoặc đòn bẩy". Phải có KR đó mới chốt được.
-- Mục tiêu năm sau gấp nhiều lần năm trước → hiện **hệ số nhân bản cần có**.
-
-### 9.4 Ví dụ (số minh hoạ, không phải dự báo)
-
-| Nguồn | Các bước |
-|---|---|
-| Hệ thống tuyển dụng | Cuộc gọi → (20%) Hẹn → (25%) Vào hệ thống → giữ chân 60% → Người hoạt động × 500 USD |
-| Affiliate quảng cáo | Click → (3%) Đơn → Hoa hồng/đơn. Bước đầu đo bằng click/ngày; công suất = ngân sách/ngày ÷ CPC |
+### 9.4 Quy tắc
+- Kết quả mô hình đưa vào: chỉ tiêu KR Tháng/Quý/Năm (nút **Tạo KR tự đếm**), KR/KA Tuần/Ngày (nút **Lấy chỉ tiêu từ mô hình Affiliate**), Kaizen các cấp (đo lường + chẩn đoán phễu).
+- Chỉ tiêu thắng chỉ đặt từ Tháng trở lên. Ngày/Tuần chỉ đo việc tự kiểm soát (search, đăng ký, lên camp test). Số dự án là số nguyên.
+- Hệ số và cấu hình chỉ sửa trong N ngày đầu tháng (mặc định 3). Chốt tháng lưu bản chụp hệ số, ngưỡng và số thực tế; tháng đã chốt không tính lại.
+- Số đo thật không tự ghi đè hệ số; app gợi ý "Dùng số đo" khi đủ mẫu, anh quyết.
+- Lỗ đơn vị thì không cho chốt tháng. Vượt sức người (test/tuần > công suất) thì cảnh báo.
+- Cờ Sổ dự án: **nên dừng** theo luật click của Research (trần ×2 maxtest khi có lý do mở rộng); **ứng viên thắng** và **đủ điều kiện scale** (checklist); % duyệt chỉ tính đơn đã quá hạn payout.
+- Phễu tự cấu hình (spec v3 §9 cũ) đã bỏ khỏi app ngày 19/11/2026; bảng `income_models` giữ trong database. Khi có nguồn thu mới sẽ thêm mô hình riêng.
 
 ---
 
@@ -418,22 +385,24 @@ Kết quả đưa vào 3 chỗ:
 
 ## 14. Màn hình
 
-1. **Dashboard:** thanh Tình trạng Năm/Quý/Tháng (cộng dồn so với thực tế) · bảng từng KR · % Ngày/Tuần · Mức tập trung · cảnh báo (luật kích hoạt, công suất, hệ số chưa đo, số lần hạ mục tiêu, buổi rà bị bỏ).
-2. **Tầm nhìn**
-3. **Năm** / **Quý**: 3 O, KR số, mốc quý, dự án trọng tâm, lịch sử phiên bản.
-4. **Tháng**: 3 O, KR số, bảng cộng dồn, kiểm chứng, Kaizen số liệu.
-5. **Mô hình thu nhập**
-6. **Tuần** (§7)
-7. **Ngày** (§5, §6)
-8. **Cây liên kết:** Tầm nhìn → … → KA, màu theo tình trạng.
-9. **Lịch sử Kaizen:** tìm theo từ khoá đỏ, nhóm nguyên nhân, quyết định.
-10. **Cài đặt**
+Thanh trên cùng: **Tổng quan · Hôm nay · Ngày mai · Tuần · Tháng · Quý · Năm** và menu **Thêm** (Tầm nhìn · Kỳ khởi động · Sổ dự án · Mô hình thu nhập · Cây liên kết · Lịch sử Kaizen · Hướng dẫn · Cài đặt). Góc phải có **← Workspace** (về trang Workspace) và **Đăng xuất**.
+
+1. **Tổng quan:** thanh Tình trạng Năm/Quý/Tháng (cộng dồn so với thực tế) · bảng từng KR · % Ngày/Tuần 14 ngày gần nhất · Mức tập trung · cảnh báo (luật kích hoạt, công suất, số lần hạ mục tiêu, buổi rà bị bỏ).
+2. **Hôm nay / Ngày mai** (§5, §6): 3 tab ghi ngày (Kaizen hôm trước · OKR · Kaizen).
+3. **Tuần** (§7) · **Tháng** · **Quý** · **Năm** · **Kỳ khởi động** (§8): mỗi cấp 2 tab OKR | Kaizen; Tuần/Tháng/Quý có nút **Lưu** ở tab Kaizen.
+4. **Tầm nhìn** (§8.2).
+5. **Sổ dự án:** mục tiêu tuần & tháng, bộ đếm search + lý do loại, danh sách **Cần xử lý** (dự án Research + số Ads-Hub, cờ dừng/thắng), dự án nhập tay cũ.
+6. **Mô hình thu nhập:** 3 tab **Kế hoạch Affiliate** (cổng, nguồn lực & cảnh báo, chỉ tiêu Năm → Ngày, bảng phân bổ, hệ số đang dùng) · **Cấu hình mô hình** (mục tiêu, ngân sách, phí, vốn, cổng, hệ số 3 mô hình, số đo) · **Kết nối nguồn số** (đăng nhập Research + Ads-Hub, ngưỡng dùng chung).
+7. **Cây liên kết:** Tầm nhìn → … → KA, màu theo tình trạng.
+8. **Lịch sử Kaizen:** tìm theo từ khoá đỏ, nhóm nguyên nhân, quyết định.
+9. **Hướng dẫn:** nội dung `docs/HUONG-DAN.md`.
+10. **Cài đặt:** chỉ cấu hình trang và hệ thống (§15), chia 2 cột.
 
 Mỗi cấp có **2 tab OKR | Kaizen**, chuyển bằng 1 chạm, không chia đôi màn hình.
 - Tab Kaizen có phần đầu **tóm tắt OKR chỉ đọc** (O, KR, %, KA đã tick).
 - Tab mở sẵn: trước giờ nhắc (giờ chốt − 60–90 phút) → OKR; sau giờ nhắc → Kaizen; lập kế hoạch kỳ tới → OKR. Tháng/Quý/Năm: trong cửa sổ rà → Kaizen, ngoài cửa sổ → OKR.
 
-Ô tiêu đề vàng nhạt, ô điền trắng, mục cố định vàng đậm, dải **TIÊU ĐIỂM + % HOÀN THÀNH**, câu hỏi gợi ý hiện dạng placeholder/tooltip. Responsive cho điện thoại, lưu tự động, xuất PDF/Excel từng kỳ.
+Thẻ nền trắng có tiêu đề xanh, ô cần nhập tô nổi, mục cố định vàng đậm, dải **TIÊU ĐIỂM + % HOÀN THÀNH**, câu hỏi gợi ý dạng placeholder/tooltip. Responsive cho điện thoại, lưu tự động, xuất PDF/Excel từng kỳ.
 
 ---
 
@@ -449,14 +418,14 @@ Mỗi cấp có **2 tab OKR | Kaizen**, chuyển bằng 1 chạm, không chia đ
 | Lệch % thực thi và % O thực tế để gợi ý | 30 điểm |
 | Luật kích hoạt | trễ > 20% × 2 tuần; KR quý trễ > 30% |
 | Trọng số KR/KA | Tắt |
-| Tự khoá kế hoạch ngày | Bật, 08:00 chính ngày đó (C21) |
+| Tự khoá kế hoạch ngày | Bật, 08:00 chính ngày đó |
 | Hạn chốt Kaizen ngày | 22:00 |
 | Khoá thêm việc khi đỏ liền | Bật, 2 ngày |
 | Ngày nghỉ trong tuần | Không |
 | Nhắc trước giờ chốt | 90 phút (cho chọn 60–90) |
 | Khung giờ Ngày, độ dài ô | 04:30–22:30, 30 phút |
 | Tối đa hành động Kaizen/ngày (khuyến nghị) | 3 |
-| Tỷ giá | Nhập tay |
+| Tỷ giá | Đọc từ Research (một tỷ giá cho cả 3 app) |
 | Trần số KR đang mở (Tháng/Quý/Năm, mỗi cấp) | 7 |
 | Hạ đích tối đa | 1 lần / KR / quý |
 | Dừng KR/O tối đa | 1 lần / quý |
@@ -465,60 +434,42 @@ Mỗi cấp có **2 tab OKR | Kaizen**, chuyển bằng 1 chạm, không chia đ
 
 ---
 
-## 16. Dữ liệu (thay đổi so với app hiện tại)
+## 16. Dữ liệu
 
-| Thành phần | Thay đổi |
+Supabase của OKR, chạy lần lượt `supabase/migrations/001`–`015` (danh sách trong README). Mọi bảng bật RLS (`user_id = auth.uid()`) và cấp quyền `authenticated`.
+
+| Nhóm | Bảng |
 |---|---|
-| `periods` | Thêm `kind = 'quarter'`. Bỏ O nằm sẵn trong kỳ, chuyển sang bảng `objectives`. |
-| `objectives` (mới) | `period_id, area (cv_tc / mqh / ttt / null cho Ngày/Tuần), title, smart, o_metric, o_actual, o_result (dat / mot_phan / chua), serves_kr_id?, serves_ka_id?, contributes_kr_id?, weekly_target?, weekly_actual?, passive (bool)` |
-| `key_results` | Thêm `kind (tick / numeric)`, `objective_id`, `parent_kr_id`, `baseline, target, deadline, source`, `leading (jsonb)`, `cumulative_plan (jsonb)`, `income_model_id`. Bỏ `linked`, `link_reason`. |
-| `kr_actuals` (mới) | `kr_id, date, value, source (manual / week / recurring)` |
-| `schedule_items` | Thêm `kind (viec / loi_hua / lich_hen)`, `series_id`, `untimed`. Bỏ ràng buộc mỗi ô 1 mục. |
-| `schedule_series` (mới) | Mẫu lặp lại: `rule (daily / weekly / monthly), weekdays[], month_day, start, end, time_from, time_to, title, fixed, kr_id, increment` |
-| `kaizen` | Ngày/Tuần: `journal` thành danh sách dòng `{time, did, result}`. Thêm bảng `kaizen_long` (snapshot, diagnoses, decisions, lessons) và `plan_versions`, `trigger_log` |
-| `income_models` (mới) | Theo §9.1, `stages jsonb`, `unknown jsonb` |
-| `vision_items` (mới) | `year_no, start_date, goal, verification` |
-| `visions`, `goals`, `metrics` | **Bỏ** (C12). Nếu đã có dữ liệu thì xuất JSON trước khi xoá. |
-| `events` (mới) | Sự kiện & mốc Tháng/Quý/Năm: `period_id, date, time?, title, people, kind, objective_id?` |
-| `plan_changes` (mới) | `kr_id/objective_id, type (add / raise / method / lower / cut / stop), reason, cause_group?, evidence, mentor?, status (pending / applied), apply_at, version_id` |
-| `settings` | Thêm các mục §15 |
+| Kỳ và mục tiêu | `periods` (ngày, tuần, tháng, quý, năm, kỳ khởi động), `objectives`, `key_results`, `key_actions`, `kr_actuals`, `vision_items` |
+| Lịch | `schedule_items`, `schedule_series` |
+| Kaizen và điều chỉnh | Kaizen mọi cấp nằm trong `periods.kaizen` (jsonb: đo lường, nhật ký, nguyên nhân, bài học, chẩn đoán, quyết định); `plan_changes` (phiên bản, đề xuất điều chỉnh), `observations`, `events` |
+| Affiliate | `aff_config`, `aff_months`, `aff_projects`, `aff_entries`, `aff_tallies` (chi tiết: `docs/MO-HINH-AFFILIATE.md` §12) |
+| Cài đặt | `settings` (các mục §15) |
+| Giữ, không dùng | `income_models` (phễu tự cấu hình đã bỏ), các bảng của bản đầu (`visions`, `goals`, `metrics`, `krs`, `actions`, `next_actions`, `validations`) |
 
-Mọi bảng bật RLS và cấp quyền `authenticated`.
+Nguồn ngoài, chỉ đọc: Supabase **Research** (`settings`, `project_types`, `projects`, `registrations` + ngày đăng ký/duyệt/từ chối từ `workspace/supabase/09_reg_dates.sql`, `test_runs`) và Supabase **Ads-Hub** (`qa_meta`, `qa_campaigns`, `okr_daily` từ `ads-hub/supabase/12_okr_read.sql`). Đăng nhập cùng một email ở **Mô hình thu nhập → Kết nối nguồn số**.
+
+Thêm bảng hay cột mới: file migration mới `NNN_*.sql`, chạy thử trên Postgres cục bộ, Luca tự chạy trong SQL Editor, rồi mới push.
 
 ---
 
 ## 17. Kỹ thuật
 
-- React + Vite + TypeScript, Supabase (đăng nhập, RLS), GitHub Pages.
-- Logic tính tách riêng ở `src/lib/`, **có unit test** cho:
-  - % tick và % số
-  - % O thực tế và độ lệch
-  - Phễu chia ngược
-  - Kế hoạch cộng dồn và Tình trạng
-  - Luật kích hoạt
-  - Chống hạ mục tiêu
-  - Sinh lịch lặp lại
-  - Tự tick KA tuần
-  - Chặn Chốt
-  - Chuỗi đỏ
-- Chart: thư viện nhẹ tải từ CDN hoặc SVG tự vẽ.
+- React + Vite + TypeScript, Supabase (email + mật khẩu, RLS), GitHub Pages (push `main` là deploy).
+- Logic tính tách riêng ở `src/lib/*.ts`, **có unit test** (`npm test`) cho: % tick và % số · % O thực tế và độ lệch · kế hoạch cộng dồn và Tình trạng · luật kích hoạt · chống hạ mục tiêu · sinh lịch lặp lại · tự tick KA tuần · chặn Chốt · chuỗi đỏ · mô hình Affiliate (mô phỏng, phí/thuế, cổng, chỉ tiêu, tỷ trọng) · Sổ dự án (luật dừng, cờ thắng, % duyệt).
+- Chart: SVG tự vẽ.
+- Trước khi push: `npx tsc -b`, `npm test`, `npm run build`, `npx eslint src`.
 
-### Thứ tự xây (đi từ trên xuống, nhưng giao giá trị dùng hằng ngày sớm)
-1. Logic mới + test (mục §17 ở trên).
-2. **Ngày theo v3:** lịch nhiều mục + lặp lại, dải cấp trên, bỏ cờ KR liên quan, Phân tích/Nguyên nhân nhóm 3 mảng, nhật ký dạng dòng, % O thực tế, mang sang, nút Kiểm tra tiêu điểm.
-3. **Tuần:** OKR 7 bước, 3 KR/KA, liên kết Ngày → Tuần, Kiểm chứng, Kaizen tuần tổng hợp.
-4. **Tầm nhìn + Năm + Quý (bản lập kế hoạch) + Mô hình thu nhập.**
-5. **Tháng:** 3 O, KR số, cộng dồn, liên kết Tuần → Tháng, lịch lặp lại → KR.
-6. **Kaizen số liệu**, phiên bản, luật kích hoạt, chống hạ mục tiêu.
-7. Dashboard, cây liên kết, lịch sử Kaizen, xuất PDF/Excel.
+### Trạng thái xây (19/11/2026)
+Đã xây xong toàn bộ thứ tự xây của spec v3: logic + test → Ngày → Tuần → Tầm nhìn, Năm, Quý, Mô hình thu nhập → Tháng → Kaizen số liệu, phiên bản, luật kích hoạt → Tổng quan, Cây liên kết, Lịch sử Kaizen, xuất PDF/Excel. Sau đó: Affiliate Global mô hình 2 nối Research + Ads-Hub (GĐ1–GĐ7, 18–19/11), giao diện mới, trang Hướng dẫn.
 
-Mỗi giai đoạn dừng cho Luca dùng thử.
+Việc mới làm theo nhịp: Luca nêu yêu cầu → Claude phản biện, đề xuất → Luca duyệt → làm, kiểm tra, báo → Luca duyệt mới push. Mỗi thay đổi quy tắc ghi vào §20.
 
 ---
 
 ## 18. Dữ liệu mẫu
 - Ngày 02/12/2024 (giữ nguyên spec v2 §18.1). O 73% = KR 100 / 70 (chỉnh tay, có lý do) / 50.
-- Mô hình thu nhập minh hoạ ở §9.4.
+- Mô hình thu nhập: số mặc định ở `docs/MO-HINH-AFFILIATE.md` §10.
 - KR tháng mẫu: "Số người hoạt động mới: 0 → 10 trước 31/12, nguồn: bảng theo dõi. Dẫn trước 40 gọi/tuần, 8 hẹn/tuần. Cộng dồn T1 = 2, T2 = 5, T3 = 8, T4 = 10."
 
 ---
@@ -537,3 +488,11 @@ Mỗi giai đoạn dừng cho Luca dùng thử.
 | Q8 | Dữ liệu ở màn Mục tiêu ưu tiên hiện tại | Xuất JSON rồi chuyển tay sang Tầm nhìn/Năm |
 | Q9 | Trần số KR đang mở mỗi cấp Tháng+ | 7 (3 CV/TC + 2 + 2) |
 | Q10 | Đề xuất điều chỉnh có huỷ được trong 48 giờ không? | Có, huỷ không tính vào giới hạn |
+
+---
+
+## 20. Nhật ký thay đổi spec
+
+| Phiên bản | Ngày | Mục | Thay đổi |
+|---|---|---|---|
+| v0 | 19/11/2026 | Toàn bộ | Bản gốc. Gộp spec v3 (04/11) + C21 (10/11, giờ chốt Ngày) + mô hình Affiliate Global 2 (§9 viết lại, bỏ phễu tự cấu hình) + màn hình đã xây (§14) + dữ liệu thật (§16). Xoá spec v0.1, v1, v2 khỏi repo (còn trong lịch sử git). |

@@ -16,8 +16,9 @@ import Tree from './screens/Tree'
 import History from './screens/History'
 import Day from './screens/Day'
 import SettingsScreen from './screens/SettingsScreen'
+import Guide from './screens/Guide'
 
-type Screen = 'dash' | 'today' | 'plan' | 'week' | 'month' | 'quarter' | 'year' | 'kickoff' | 'vision' | 'income' | 'projects' | 'tree' | 'history' | 'settings'
+type Screen = 'dash' | 'today' | 'plan' | 'week' | 'month' | 'quarter' | 'year' | 'kickoff' | 'vision' | 'income' | 'projects' | 'tree' | 'history' | 'guide' | 'settings'
 const SCREENS: { id: Screen; label: string }[] = [
   { id: 'dash', label: 'Tổng quan' },
   { id: 'today', label: 'Hôm nay' },
@@ -36,6 +37,7 @@ const MORE: { id: Screen; label: string }[] = [
   { id: 'income', label: 'Mô hình thu nhập' },
   { id: 'tree', label: 'Cây liên kết' },
   { id: 'history', label: 'Lịch sử Kaizen' },
+  { id: 'guide', label: 'Hướng dẫn' },
   { id: 'settings', label: 'Cài đặt' },
 ]
 
@@ -226,6 +228,7 @@ function Main({ session }: { session: Session }) {
             {screen === 'projects' && <Projects />}
             {screen === 'tree' && <Tree />}
             {screen === 'history' && <History />}
+            {screen === 'guide' && <Guide />}
             {screen === 'settings' && <SettingsScreen />}
           </Ctx.Provider>
         )}

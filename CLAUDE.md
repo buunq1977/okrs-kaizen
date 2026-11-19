@@ -1,10 +1,12 @@
 # CLAUDE.md
 
-Đọc `SPEC.md` (spec v3, chốt 04/11/2026) trước khi làm bất cứ việc gì. Spec là nguồn sự thật. Muốn đổi quy tắc trong spec phải hỏi Luca trước. Spec cũ: `docs/SPEC-v1.md`, `docs/SPEC-v2-luca.md` (chỉ để tham khảo).
+Đọc `SPEC.md` (**SPEC v0**, bản gốc chốt 19/11/2026) trước khi làm bất cứ việc gì. Spec là nguồn sự thật, chỉ có một file. Muốn đổi quy tắc phải hỏi Luca trước; đổi xong sửa thẳng mục đó trong `SPEC.md` và thêm 1 dòng ở §20 (v0.1, v0.2…). Không tạo file spec mới.
+
+Tài liệu kèm: `docs/MO-HINH-AFFILIATE.md` (mô hình Affiliate, chi tiết SPEC §9) · `docs/HUONG-DAN.md` (hướng dẫn dùng; app hiện nguyên file này ở **Thêm → Hướng dẫn**). Đổi giao diện hay quy tắc thì cập nhật hai file này cùng lúc.
 
 ## Cách làm việc với Luca
 - Tiếng Việt, thẳng, ngắn. Giao diện app bằng tiếng Việt.
-- Làm theo **Thứ tự xây** ở SPEC §17. **Xong mỗi trang thì dừng, báo Luca duyệt rồi mới làm trang tiếp.**
+- Mỗi yêu cầu: phản biện, đề xuất → Luca duyệt → làm, kiểm tra, báo. **Xong mỗi phần thì dừng, báo Luca duyệt; chỉ push khi Luca bảo.**
 - Phản biện khi yêu cầu mâu thuẫn spec hoặc có rủi ro; đưa 1 đề xuất rõ ràng.
 - Hỏi trước khi làm việc có tác động ngoài repo: tạo tài khoản, đổi cài đặt GitHub/Supabase, xoá dữ liệu.
 - Cuối mỗi lần làm: liệt kê file tạo/sửa/xoá và file SQL Luca cần chạy.

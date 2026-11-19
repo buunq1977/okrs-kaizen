@@ -20,7 +20,7 @@ import type { EventItem, KR, Objective, Observation, Period, PlanChange, Schedul
 const title = (kind: LongKind, start: string, end: string) =>
   kind === 'month' ? fmtMonth(start) : kind === 'quarter' ? `Quý ${quarterOf(start)}/${start.slice(0, 4)}` : kind === 'year' ? `Năm ${start.slice(0, 4)}` : `Kỳ khởi động ${fmtDM(start)} – ${fmtDMY(end)}`
 
-/** Trang kỳ dài: Tháng / Quý / Năm / Kỳ khởi động (SPEC v3 §8, §11). */
+/** Trang kỳ dài: Tháng / Quý / Năm / Kỳ khởi động (SPEC §8, §11). */
 export default function Long({ kind, date, setDate }: { kind: LongKind; date: string; setDate: (d: string) => void }) {
   const { uid, toast } = useApp()
   const [kick, setKick] = useState<Period | null>(null)

@@ -1,4 +1,4 @@
-/** Lịch cố định & lặp lại (SPEC v3 §5, §5.1). Thuần, có test trong schedule.test.ts. */
+/** Lịch cố định & lặp lại (SPEC §5, §5.1). Thuần, có test trong schedule.test.ts. */
 import { isoDow, monthEnd } from './dates'
 import type { EntryKind, ScheduleItem, ScheduleSeries } from './types'
 

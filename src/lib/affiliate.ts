@@ -1,7 +1,7 @@
 /* Mô hình thu nhập Affiliate Global: Vật lý + Tools AI + SaaS, phân bổ theo tháng.
    Logic thuần, không gọi DB. Nguồn số mặc định: 2 trang wiki "Mô hình thu nhập Affiliate Global
    (Vật lý / SaaS) - từ mục tiêu 16.000 USD/tháng ra việc mỗi ngày" (09/11/2026).
-   Mô hình v2 (docs/plan-aff-model-v2.md, 18/11/2026): 3 mô hình riêng, phí + thuế trên tiền nạp Ads, chi phí cố định, quỹ cầu nối + dự phòng,
+   Mô hình v2 (docs/MO-HINH-AFFILIATE.md, 18/11/2026): 3 mô hình riêng, phí + thuế trên tiền nạp Ads, chi phí cố định, quỹ cầu nối + dự phòng,
    SaaS/Tools AI ghi lợi nhuận theo dòng tiền, tiền test = maxtest của Research. Mô hình cũ (v1) đã bỏ hẳn (migration 014). */
 import { addDays, addMonths } from './dates'
 

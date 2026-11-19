@@ -1,5 +1,5 @@
 /**
- * Logic thuần cho Tháng/Quý/Năm (SPEC v3 §8–§11): KR số, kế hoạch cộng dồn, tình trạng, phễu thu nhập,
+ * Logic thuần cho Tháng/Quý/Năm (SPEC §8–§11): KR số, kế hoạch cộng dồn, tình trạng, phễu thu nhập,
  * luật kích hoạt, luật điều chỉnh, cửa sổ rà. Có test trong numeric.test.ts.
  */
 import { addDays, addMonths, daysBetween, isoDow, monthEnd, monthStart, parse, iso } from './dates'
