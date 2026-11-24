@@ -13,6 +13,7 @@ App lập mục tiêu từ **Tầm nhìn → Năm → Quý → Tháng → Tuần
 - Thanh trên: **Tổng quan · Hôm nay · Ngày mai · Tuần · Tháng · Quý · Năm**. Màn khác nằm trong menu **Thêm**.
 - **← Workspace** về trang Workspace. **Đăng xuất** ở cạnh đó.
 - Mọi ô **lưu tự động** khi gõ xong và bấm ra ngoài. Tab Kaizen của Tuần/Tháng/Quý có thêm nút **Lưu** để chắc chắn.
+- **Cài như app trên điện thoại:** mở app bằng Chrome → bấm **📲 Cài app** ở đáy màn hình (hoặc menu **⋮ → Cài đặt ứng dụng**). Biểu tượng **OKRs** nền xanh hiện trên màn hình chính, mở toàn màn hình. App tự cập nhật khi có bản mới, không cần cài lại.
 
 ### 1.2 Thiết lập lần đầu (làm 1 lần)
 1. **Thêm → Tầm nhìn**: chọn ngày bắt đầu Năm 1, ghi mục tiêu từng năm kèm **điều kiện kiểm tra**.

@@ -1,0 +1,33 @@
+{
+  "id": "/okrs-kaizen/",
+  "name": "OKRs Kaizen",
+  "short_name": "OKRs Kaizen",
+  "description": "OKR + Kaizen: Tầm nhìn → Năm → Quý → Tháng → Tuần → Ngày",
+  "lang": "vi",
+  "start_url": "/okrs-kaizen/?source=pwa",
+  "scope": "/okrs-kaizen/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#f2f5fa",
+  "theme_color": "#0a4a9c",
+  "icons": [
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

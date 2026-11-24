@@ -667,3 +667,11 @@ main.scr-guide .guide-quote { border-left: 3px solid var(--navy); padding: 4px 1
 main.scr-guide .guide-tw { overflow-x: auto; margin: 8px 0 }
 main.scr-guide .guide-tw table { min-width: 520px }
 @media (max-width: 640px) { main.scr-guide .guide-body { padding: 4px 12px 16px } main.scr-guide .guide-toc { flex-wrap: nowrap; overflow-x: auto; white-space: nowrap } main.scr-guide .guide-toc .chip { flex: none } }
+
+/* PWA: nút "📲 Cài app" (src/pwa.ts) */
+.pwa-chip { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(14px + env(safe-area-inset-bottom, 0px)); z-index: 9999;
+  display: flex; align-items: center; background: var(--brand); color: var(--on-brand); border-radius: 99px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, .22); font: 600 13.5px var(--f-body); }
+.pwa-chip button { background: none; border: 0; color: inherit; font: inherit; cursor: pointer; padding: 9px 6px 9px 16px; }
+.pwa-chip .pwa-x { padding: 9px 14px 9px 8px; opacity: .75; }
+.pwa-chip .pwa-x:hover { opacity: 1; }
