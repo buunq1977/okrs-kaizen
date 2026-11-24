@@ -13,10 +13,32 @@ App lập mục tiêu từ **Tầm nhìn → Năm → Quý → Tháng → Tuần
 - Thanh trên: **Tổng quan · Hôm nay · Ngày mai · Tuần · Tháng · Quý · Năm**. Màn khác nằm trong menu **Thêm**.
 - **← Workspace** về trang Workspace. **Đăng xuất** ở cạnh đó.
 - Mọi ô **lưu tự động** khi gõ xong và bấm ra ngoài. Tab Kaizen của Tuần/Tháng/Quý có thêm nút **Lưu** để chắc chắn.
-- **Cài như app trên điện thoại:** mở app bằng Chrome → bấm **📲 Cài app** ở đáy màn hình (hoặc menu **⋮ → Cài đặt ứng dụng**). Biểu tượng **OKRs** nền xanh hiện trên màn hình chính, mở toàn màn hình. App tự cập nhật khi có bản mới, không cần cài lại.
-- **Thông báo nhắc giờ:** **Cài đặt → Nhắc giờ → 🔔 Bật thông báo nhắc giờ** → Cho phép. Trong ~5 phút có thông báo thử. Nhắc: 🌙 chốt Kaizen (giờ nhắc), ⏰ sắp hết giờ chốt Kaizen, ☀️ chốt OKR sáng, 📅 rà tuần (Chủ nhật), 🗓️ rà tháng/quý (ngày cuối tháng). Đã làm rồi thì không nhắc. Bỏ tick từng loại hoặc **Tắt trên máy này** cùng chỗ đó. Bấm thông báo mở đúng màn hình.
+- **Cài như app trên điện thoại + thông báo nhắc giờ:** xem mục 1.2.
 
-### 1.2 Thiết lập lần đầu (làm 1 lần)
+### 1.2 Cài app trên điện thoại & thông báo đẩy
+Ba app (OKRs Kaizen, Ads Hub, Workspace) đều cài được như app và có thông báo đẩy tới cả khi đã đóng app.
+
+| App | Địa chỉ (mở bằng Chrome) | Biểu tượng | Thông báo |
+|---|---|---|---|
+| OKRs Kaizen | buunq1977.github.io/okrs-kaizen | OKRs nền xanh dương | Nhắc giờ — **Thêm → Cài đặt → Nhắc giờ** |
+| Ads Hub | ads-hub.buunq.workers.dev | AH nền cam | Đơn mới · Approved · Paid · Trạng thái đăng ký Research |
+| Workspace | workspace.buunq.workers.dev | WS nền xanh đậm | Như Ads Hub (chỉ cần bật ở 1 trong 2) |
+
+**Cài:** Chrome → mở địa chỉ → **📲 Cài app** (hoặc **⋮ → Cài đặt ứng dụng**). Icon có logo Chrome ở góc là lối tắt, chưa phải app: xoá đi rồi cài lại. App tự cập nhật.
+
+**Nhắc giờ OKRs** (máy chủ Cloudflare kiểm tra mỗi 5 phút, không cần PC; giờ Việt Nam; mỗi nhắc 1 lần/ngày; đã làm thì không nhắc):
+
+| Nhắc | Lúc nào (mặc định) | Khi nào gửi |
+|---|---|---|
+| 🌙 Chốt Kaizen hôm nay | giờ chốt Kaizen − nhắc trước (20:30) | Kaizen hôm nay chưa Xác nhận |
+| ⏰ Sắp hết giờ chốt Kaizen | giờ chốt − 15 phút (21:45) | Vẫn chưa Xác nhận |
+| ☀️ Chốt OKR hôm nay | hạn chốt OKR − 30 phút (07:30) | OKR hôm nay chưa chốt / chưa lập |
+| 📅 Rà tuần | Chủ nhật 20:00 | Kaizen tuần chưa có bài học / nguyên nhân |
+| 🗓️ Rà tháng / quý | Ngày cuối tháng 20:00 | Kaizen số liệu chưa quyết định đủ KR, chưa ghi lý do bỏ |
+
+Bật: **Cài đặt → Nhắc giờ → 🔔 Bật thông báo nhắc giờ** → Cho phép → trong ~5 phút có thông báo thử. Bỏ tick từng loại hoặc **Tắt trên máy này** ở cùng chỗ. Bấm thông báo mở đúng màn hình (Hôm nay / Tuần / Tháng).
+
+### 1.3 Thiết lập lần đầu (làm 1 lần)
 1. **Thêm → Tầm nhìn**: chọn ngày bắt đầu Năm 1, ghi mục tiêu từng năm kèm **điều kiện kiểm tra**.
 2. **Thêm → Kỳ khởi động** (nếu bắt đầu giữa năm): 3 O theo 3 mảng, KR số, 1–2 dự án trọng tâm.
 3. **Thêm → Mô hình thu nhập → Kết nối nguồn số**: đăng nhập Research và Ads-Hub bằng cùng email.
@@ -143,3 +165,8 @@ Chỉ cấu hình trang và hệ thống: Trang Ngày (số KR, khung giờ, l�
 | Không thêm được KR/KA mới | Đỏ nhiều ngày liền chưa viết bài học: viết bài học ở Kaizen |
 | Màn báo thiếu bảng / cột | Chạy file SQL còn thiếu trong Supabase (README), rồi bấm Thử lại |
 | Sợ mất dữ liệu | Cài đặt → Tài khoản & sao lưu → tải JSON định kỳ |
+| "Không thể cài đặt ứng dụng này" | Chrome còn bản cũ: kéo trang xuống tải lại 1–2 lần. Vẫn vậy: Chrome → ⋮ → Cài đặt → Cài đặt trang web → xoá dữ liệu trang (phải đăng nhập lại) |
+| Icon có logo Chrome ở góc | Mới là lối tắt, chưa cài: xoá lối tắt, tải lại trang, bấm 📲 Cài app |
+| Bật thông báo rồi mà không có thông báo thử | Đợi ~5 phút (máy chủ kiểm tra 5 phút/lần, không cần PC). Vẫn không: xem hàng dưới |
+| "Thông báo bị chặn" / không nhận nhắc | Chrome → ⋮ → Cài đặt trang web → Thông báo → Cho phép; Android → Cài đặt → Ứng dụng → OKRs (hoặc Chrome) → Thông báo → Bật; Pin → Không giới hạn |
+| Không nhận nhắc dù chưa làm | Nhắc chỉ gửi trong 30 phút sau giờ hẹn, 1 lần/ngày. Kiểm tra giờ nhắc ở Cài đặt → Nhắc giờ và loại nhắc đang tick |
