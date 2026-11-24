@@ -71,3 +71,6 @@ Trước khi push (CI cũng chạy): `npx tsc -b` · `npm test` · `npm run buil
 - Migration mới: `supabase/migrations/NNN_*.sql`, bật RLS + `grant ... to authenticated`, chạy thử Postgres cục bộ trước.
 - Sửa hướng dẫn: sửa `docs/HUONG-DAN.md`, trang trong app tự cập nhật khi deploy.
 - Sao lưu tự động: `backup-template/README.md`.
+
+## Cài đặt cho tài khoản mới
+Xem `CAI-DAT-MOI.md` trong repo `ads-hub` (dựng lại cả 3 app). Địa chỉ / khoá gắn với tài khoản: GitHub Secrets `VITE_*` (đọc ở `src/lib/supabase.ts`, `src/lib/config.ts`) và `push-worker/wrangler.jsonc` + secret của Worker `okrs-push`.

@@ -1,9 +1,10 @@
 // Thông báo đẩy nhắc giờ (SPEC §13 v0.2, migration 016). Worker Cloudflare "okrs-push" gửi theo lịch mỗi 5 phút;
 // app chỉ đăng ký "địa chỉ nhận" của trình duyệt vào bảng push_subs (RLS: mỗi người chỉ thấy máy của mình).
 import { supabase } from './supabase'
+import { VAPID_PUBLIC } from './config'
 
-/** Khoá công khai VAPID của Worker okrs-push (công khai, không phải bí mật). */
-export const VAPID_PUBLIC = 'BKyQbGBc_rwgpCDhT4wONWLnlcr5QI3UQkMOVfsQhJkN4aFYihHA7BQpUrhxSPey-KZx0ssnopjDdyFUhSB72Hs'
+export { VAPID_PUBLIC }
+
 
 export type PushPrefs = { kaizen: boolean; kaizen_final: boolean; okr: boolean; week: boolean; month: boolean }
 export const PUSH_KINDS: { key: keyof PushPrefs; label: string }[] = [

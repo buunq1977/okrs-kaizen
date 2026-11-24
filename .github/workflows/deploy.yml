@@ -33,6 +33,8 @@ jobs:
           VITE_WS_KEY: ${{ secrets.VITE_WS_KEY }}
           VITE_ADSHUB_URL: ${{ secrets.VITE_ADSHUB_URL }}
           VITE_ADSHUB_KEY: ${{ secrets.VITE_ADSHUB_KEY }}
+          VITE_WORKSPACE_URL: ${{ secrets.VITE_WORKSPACE_URL }}
+          VITE_VAPID_PUBLIC: ${{ secrets.VITE_VAPID_PUBLIC }}
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

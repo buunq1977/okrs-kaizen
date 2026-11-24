@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { Session } from '@supabase/supabase-js'
+import { WORKSPACE_URL } from './lib/config'
 import { supabase, supabaseConfigured } from './lib/supabase'
 import { Ctx, type AppCtx } from './lib/ctx'
 import { errMsg, getSettings } from './lib/db'
@@ -28,8 +29,6 @@ const SCREENS: { id: Screen; label: string }[] = [
   { id: 'quarter', label: 'Quý' },
   { id: 'year', label: 'Năm' },
 ]
-/** Trang tổng của Luca (Research, Ads-Hub, KQKD). Đổi được bằng biến VITE_WORKSPACE_URL. */
-const WORKSPACE_URL = (import.meta.env.VITE_WORKSPACE_URL as string | undefined) || 'https://workspace.buunq.workers.dev'
 const MORE: { id: Screen; label: string }[] = [
   { id: 'vision', label: 'Tầm nhìn' },
   { id: 'kickoff', label: 'Kỳ khởi động' },
