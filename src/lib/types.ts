@@ -293,6 +293,10 @@ export interface Settings {
   red_streak: number
   rest_weekdays: number[]
   remind_lead_min: number
+  push_kaizen_final_min?: number // nhắc lần 2: x phút trước giờ chốt Kaizen (016)
+  push_okr_lead_min?: number // nhắc chốt OKR: x phút trước hạn chốt OKR sáng (016)
+  push_week_time?: string // Chủ nhật: nhắc rà tuần (016)
+  push_month_time?: string // ngày cuối tháng: nhắc rà tháng / quý (016)
   gap_suggest_pts: number
   ka_autotick: boolean
   status_red: number

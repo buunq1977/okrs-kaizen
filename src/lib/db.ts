@@ -6,7 +6,7 @@ export type Table =
   | 'visions' | 'goals' | 'metrics'
   | 'periods' | 'objectives' | 'schedule_series' | 'key_results' | 'key_actions' | 'schedule_items' | 'observations' | 'next_actions' | 'validations'
   | 'kr_actuals' | 'plan_changes' | 'vision_items' | 'events'
-  | 'aff_months' | 'aff_projects' | 'aff_entries' | 'aff_tallies'
+  | 'aff_months' | 'aff_projects' | 'aff_entries' | 'aff_tallies' | 'push_subs' | 'push_sent'
   | 'settings'
 
 function sb() {

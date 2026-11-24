@@ -14,6 +14,7 @@ App lập mục tiêu từ **Tầm nhìn → Năm → Quý → Tháng → Tuần
 - **← Workspace** về trang Workspace. **Đăng xuất** ở cạnh đó.
 - Mọi ô **lưu tự động** khi gõ xong và bấm ra ngoài. Tab Kaizen của Tuần/Tháng/Quý có thêm nút **Lưu** để chắc chắn.
 - **Cài như app trên điện thoại:** mở app bằng Chrome → bấm **📲 Cài app** ở đáy màn hình (hoặc menu **⋮ → Cài đặt ứng dụng**). Biểu tượng **OKRs** nền xanh hiện trên màn hình chính, mở toàn màn hình. App tự cập nhật khi có bản mới, không cần cài lại.
+- **Thông báo nhắc giờ:** **Cài đặt → Nhắc giờ → 🔔 Bật thông báo nhắc giờ** → Cho phép. Trong ~5 phút có thông báo thử. Nhắc: 🌙 chốt Kaizen (giờ nhắc), ⏰ sắp hết giờ chốt Kaizen, ☀️ chốt OKR sáng, 📅 rà tuần (Chủ nhật), 🗓️ rà tháng/quý (ngày cuối tháng). Đã làm rồi thì không nhắc. Bỏ tick từng loại hoặc **Tắt trên máy này** cùng chỗ đó. Bấm thông báo mở đúng màn hình.
 
 ### 1.2 Thiết lập lần đầu (làm 1 lần)
 1. **Thêm → Tầm nhìn**: chọn ngày bắt đầu Năm 1, ghi mục tiêu từng năm kèm **điều kiện kiểm tra**.

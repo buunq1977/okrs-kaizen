@@ -1,0 +1,13 @@
+// Worker gửi thông báo đẩy nhắc giờ OKRs Kaizen. Deploy: cd push-worker && wrangler deploy
+// Secret (KHÔNG để trong repo): SUPABASE_URL, SUPABASE_ANON_KEY, PUSH_KEY, VAPID_JWK — đặt bằng "wrangler secret put".
+{
+  "name": "okrs-push",
+  "main": "src/index.js",
+  "compatibility_date": "2025-06-01",
+  "triggers": { "crons": ["*/5 * * * *"] },
+  "vars": {
+    "VAPID_PUBLIC": "BKyQbGBc_rwgpCDhT4wONWLnlcr5QI3UQkMOVfsQhJkN4aFYihHA7BQpUrhxSPey-KZx0ssnopjDdyFUhSB72Hs",
+    "VAPID_SUB": "https://buunq1977.github.io/okrs-kaizen/"
+  },
+  "observability": { "enabled": true }
+}

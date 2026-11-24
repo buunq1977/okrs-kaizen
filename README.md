@@ -36,10 +36,18 @@ Chạy lần lượt trong **SQL Editor**, mỗi file một lần:
 | 13 | `013_aff_model_rework.sql` | Mô hình Affiliate 2 |
 | 14 | `014_aff_reopen_v1.sql` | Mở lại tháng chốt theo mô hình 1 |
 | 15 | `015_aff_reject_labels.sql` | Nhãn "loại vì…" |
+| 16 | `016_push_reminders.sql` | Thông báo đẩy nhắc giờ (máy nhận, đã gửi, hàm `push_due`) |
 
 Các file nằm trong `supabase/migrations/`. Thiếu file nào thì app hiện màn báo lỗi kèm danh sách.
 
 GitHub Secrets: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`.
+
+## Thông báo đẩy nhắc giờ (Worker `okrs-push`)
+
+Thư mục `push-worker/`: Worker Cloudflare chạy mỗi 5 phút, gọi `push_due` rồi gửi Web Push (mã hoá + ký VAPID bằng WebCrypto, không thư viện ngoài).
+Deploy: `cd push-worker && wrangler deploy`. Secret đặt bằng `wrangler secret put` (KHÔNG để trong repo): `SUPABASE_URL`, `SUPABASE_ANON_KEY`,
+`PUSH_KEY` (khoá riêng của Worker; mã băm sha256 của nó thêm vào bảng `push_keys`), `VAPID_JWK` (khoá ký riêng). Khoá công khai VAPID nằm trong
+`push-worker/wrangler.jsonc` và `src/lib/push.ts`. Đổi khoá VAPID thì mọi máy phải bật lại thông báo.
 
 ## Nguồn số Affiliate: Research + Ads-Hub (chỉ đọc)
 

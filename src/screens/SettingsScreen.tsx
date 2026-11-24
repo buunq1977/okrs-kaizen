@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from 'react'
 import { Sec } from '../components/ui'
+import PushBox from '../components/PushBox'
 import { useApp } from '../lib/ctx'
 import { errMsg, exportAll, saveSettings } from '../lib/db'
 import { addDays, DOW_LONG, today } from '../lib/dates'
@@ -142,6 +143,19 @@ export default function SettingsScreen() {
           Tải file nhắc vào lịch (.ics)
         </button>
         <p className="note">Lưu cài đặt trước rồi tải file. Mở file trên điện thoại hoặc máy tính, chọn thêm vào Lịch.</p>
+        {s.push_week_time !== undefined && (
+          <>
+            <Row label="Nhắc lần 2 trước giờ chốt Kaizen" unit="phút">{num('push_kaizen_final_min', 5, 120)}</Row>
+            <Row label="Nhắc chốt OKR trước hạn chốt sáng" unit="phút">{num('push_okr_lead_min', 5, 180)}</Row>
+            <Row label="Nhắc rà tuần (Chủ nhật) lúc">
+              <input type="time" value={(s.push_week_time ?? '20:00').slice(0, 5)} onChange={(e) => set('push_week_time', e.target.value)} />
+            </Row>
+            <Row label="Nhắc rà tháng / quý (ngày cuối tháng) lúc">
+              <input type="time" value={(s.push_month_time ?? '20:00').slice(0, 5)} onChange={(e) => set('push_month_time', e.target.value)} />
+            </Row>
+          </>
+        )}
+        <PushBox />
       </Sec>
 
       <Sec title="Màu % hoàn thành Ngày / Tuần" hint="Ngưỡng đỏ / xanh">

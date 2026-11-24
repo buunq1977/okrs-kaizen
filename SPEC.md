@@ -381,7 +381,13 @@ Cổng tính từ số thật, không nhập tay. **0** chưa có dự án đủ
 - Lập kỳ ngoài cửa sổ rà vẫn được, app ghi "lập muộn x ngày".
 - Lần đầu dùng: kỳ khởi động 11–12/2026 (§8.2).
 - Lập OKR ngày mai khi chưa có Kaizen hôm nay → cảnh báo nhẹ.
-- Nhắc giờ bằng banner trong app + file lịch .ics cho từng kỳ (web app tĩnh không gửi được thông báo khi đang tắt).
+- Nhắc giờ bằng banner trong app + file lịch .ics cho từng kỳ + **thông báo đẩy** (v0.2): Worker Cloudflare `okrs-push` chạy mỗi 5 phút (trễ tối đa ~5 phút), gửi tới máy đã bật ở **Cài đặt → Nhắc giờ**, kể cả khi app đang tắt. Mỗi nhắc 1 lần/ngày; chỉ gửi trong 30 phút sau giờ hẹn; giờ Việt Nam.
+  - 🌙 Chốt Kaizen hôm nay: lúc giờ nhắc (giờ chốt Kaizen − nhắc trước), nếu Kaizen hôm nay chưa Xác nhận.
+  - ⏰ Sắp hết giờ chốt Kaizen: giờ chốt − [Mặc định] 15 phút, nếu vẫn chưa Xác nhận.
+  - ☀️ Chốt OKR hôm nay: hạn chốt OKR sáng − [Mặc định] 30 phút, nếu OKR hôm nay chưa chốt (hoặc chưa lập).
+  - 📅 Rà tuần: Chủ nhật [Mặc định] 20:00, nếu Kaizen tuần chưa có bài học / nguyên nhân.
+  - 🗓️ Rà tháng (+ quý nếu là tháng cuối quý): ngày cuối tháng [Mặc định] 20:00, nếu Kaizen số liệu tháng chưa quyết định đủ KR và chưa ghi lý do bỏ.
+  - Worker gọi hàm `push_due` bằng khoá riêng (chỉ lưu mã băm trong DB), không dùng service_role. Bấm thông báo mở đúng màn hình.
 
 ---
 
@@ -425,6 +431,8 @@ Thẻ nền trắng có tiêu đề xanh, ô cần nhập tô nổi, mục cố 
 | Khoá thêm việc khi đỏ liền | Bật, 2 ngày |
 | Ngày nghỉ trong tuần | Không |
 | Nhắc trước giờ chốt | 90 phút (cho chọn 60–90) |
+| Thông báo đẩy: nhắc lần 2 trước giờ chốt Kaizen · nhắc chốt OKR trước hạn sáng | 15 phút · 30 phút |
+| Thông báo đẩy: giờ nhắc rà tuần (Chủ nhật) · rà tháng/quý (ngày cuối tháng) | 20:00 · 20:00 |
 | Khung giờ Ngày, độ dài ô | 04:30–22:30, 30 phút |
 | Tối đa hành động Kaizen/ngày (khuyến nghị) | 3 |
 | Tỷ giá | Đọc từ Research (một tỷ giá cho cả 3 app) |
@@ -499,3 +507,4 @@ Việc mới làm theo nhịp: Luca nêu yêu cầu → Claude phản biện, đ
 |---|---|---|---|
 | v0 | 19/11/2026 | Toàn bộ | Bản gốc. Gộp spec v3 (04/11) + C21 (10/11, giờ chốt Ngày) + mô hình Affiliate Global 2 (§9 viết lại, bỏ phễu tự cấu hình) + màn hình đã xây (§14) + dữ liệu thật (§16). Xoá spec v0.1, v1, v2 khỏi repo (còn trong lịch sử git). |
 | v0.1 | 19/11/2026 | §9.2 | Bỏ mức ngân sách $200 của mô hình cũ. Sàn ngân sách test = nhịp 60 test × maxtest; ngân sách tháng sau = max(sàn, 50% lợi nhuận đã nhận); vốn ngoài bù phần thiếu, app tính vốn cần bù theo tháng. Dự báo hiện đầu vào và trần sức người. Giữ mức tối thiểu $16.000. Lý do: dự báo đang chạy trên $200 (≈ 18 test) lệch với Cổng 0 = 60 test. |
+| v0.2 | 24/11/2026 | §13, §15 | Thêm thông báo đẩy nhắc giờ (Kaizen ngày ×2, chốt OKR sáng, rà tuần, rà tháng/quý) qua Worker Cloudflare `okrs-push` mỗi 5 phút; app cài được như PWA. Bỏ câu "web app tĩnh không gửi được thông báo khi đang tắt". Migration 016. |
